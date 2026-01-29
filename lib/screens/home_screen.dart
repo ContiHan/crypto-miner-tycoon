@@ -2,7 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../widgets/stylized_card.dart';
+import '../widgets/rig_list_item.dart';
+import '../widgets/floating_text.dart';
+import '../widgets/pulse_button.dart';
 import '../theme/app_theme.dart';
+import 'dart:math';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -12,6 +16,37 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
+
+  // Floating Text Logic
+  final List<Widget> _floatingTexts = [];
+
+  void _addFloatingText([String? textOverride]) {
+    // Basic unique key to ensure widget identity
+    final  key = UniqueKey();
+    final text = textOverride ?? '+${Provider.of<GameLogic>(context, listen: false).prestigeMultiplier.toStringAsFixed(1)}';
+    final isNegative = text.startsWith('-');
+    
+    setState(() {
+      _floatingTexts.add(
+        Positioned(
+          key: key,
+          bottom: 80 + (Random().nextInt(40).toDouble()), // Randomize slightly so they don't stack perfectly
+          right: 20 + (Random().nextInt(40).toDouble()),
+          child: FloatingText(
+            text: text,
+            onComplete: () {
+              if (mounted) {
+                setState(() {
+                  _floatingTexts.removeWhere((w) => w.key == key);
+                });
+              }
+            },
+          ),
+        ),
+      );
+    });
+  }
+
   @override
   void initState() {
     super.initState();
@@ -34,150 +69,96 @@ class _HomeScreenState extends State<HomeScreen> {
         builder: (context, game, child) {
           // Listen for delayed offline earnings (if loaded later)
           if (game.offlineEarningsAmount != null) {
-             // Use microtask to avoid build conflicts
              Future.microtask(() => 
                 _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!)
              );
           }
           
-          return Column(
+          return Stack( // Use Stack to overlay floating text
             children: [
-              // Stats Panel
-              StylizedCard(
-                color: AppTheme.surface,
-                child: Container(
-                  width: double.infinity,
-                  padding: const EdgeInsets.symmetric(vertical: 10),
-                  child: Column(
-                    children: [
-                      Text(
-                        'WALLET BALANCE',
-                        style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12),
-                      ),
-                      Text(
-                        '₿ ${game.wallet.toStringAsFixed(2)}',
-                        style: const TextStyle(
-                          fontSize: 36,
-                          fontWeight: FontWeight.w900,
-                          color: AppTheme.accent,
-                          letterSpacing: 1.5,
-                        ),
-                      ),
-                      const Divider(color: Colors.black54, thickness: 2, height: 20),
-                      Row(
-                        mainAxisAlignment: MainAxisAlignment.center,
+              Column(
+                children: [
+                  // Stats Panel
+                  StylizedCard(
+                    color: AppTheme.surface,
+                    child: Container(
+                      width: double.infinity,
+                      padding: const EdgeInsets.symmetric(vertical: 10),
+                      child: Column(
                         children: [
-                          const Icon(Icons.flash_on, color: Colors.amber, size: 20),
-                          const SizedBox(width: 5),
                           Text(
-                            '${game.rigs.fold(0.0, (sum, r) => sum + r.totalHashRate).toStringAsFixed(1)} H/s',
-                            style: const TextStyle(
-                                color: Colors.white,
+                            'WALLET BALANCE',
+                            style: TextStyle(
+                                color: AppTheme.textSecondary,
+                                letterSpacing: 2,
                                 fontWeight: FontWeight.bold,
-                                fontSize: 18),
+                                fontSize: 12),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 10),
-                      if (game.govTokens > 0)
-                        Text(
-                          'GOV TOKENS: ${game.govTokens} (x${game.prestigeMultiplier.toStringAsFixed(1)})',
-                          style: const TextStyle(
+                          Text(
+                            '₿ ${game.wallet.toStringAsFixed(2)}',
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
                               color: AppTheme.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14),
-                        ),
-                      if (game.pendingGovTokens > 0)
-                        Padding(
-                          padding: const EdgeInsets.only(top: 8.0),
-                          child: ElevatedButton(
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: Colors.redAccent,
-                              foregroundColor: Colors.white,
+                              letterSpacing: 1.5,
                             ),
-                            onPressed: () => _showHardForkDialog(context, game),
-                            child: Text('HARD FORK (+${game.pendingGovTokens} Tokens)'),
                           ),
-                        ),
-                    ],
-                  ),
-                ),
-              ),
-              const SizedBox(height: 10),
-              Expanded(
-                child: ListView.builder(
-                  padding: const EdgeInsets.all(8),
-                  itemCount: game.rigs.length,
-                  itemBuilder: (context, index) {
-                    final rig = game.rigs[index];
-                    final canAfford = game.wallet >= rig.currentCost;
-                    
-                    return StylizedCard(
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 60,
-                            height: 60,
-                            decoration: BoxDecoration(
-                              color: Colors.black38,
-                              border: Border.all(color: AppTheme.accent),
-                              borderRadius: BorderRadius.circular(4),
-                            ),
-                            child: Center(
-                              child: Text(
-                                '${rig.amount}',
+                          const Divider(color: Colors.black54, thickness: 2, height: 20),
+                          Row(
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              const Icon(Icons.flash_on, color: Colors.amber, size: 20),
+                              const SizedBox(width: 5),
+                              Text(
+                                '${game.rigs.fold(0.0, (sum, r) => sum + r.totalHashRate).toStringAsFixed(1)} H/s',
                                 style: const TextStyle(
-                                    color: AppTheme.accent,
+                                    color: Colors.white,
                                     fontWeight: FontWeight.bold,
-                                    fontSize: 20),
+                                    fontSize: 18),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          if (game.govTokens > 0)
+                            Text(
+                              'GOV TOKENS: ${game.govTokens} (x${game.prestigeMultiplier.toStringAsFixed(1)})',
+                              style: const TextStyle(
+                                  color: AppTheme.accent,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 14),
+                            ),
+                          if (game.pendingGovTokens > 0)
+                            Padding(
+                              padding: const EdgeInsets.only(top: 8.0),
+                              child: PulseButton(
+                                animate: true,
+                                onPressed: () => _showHardForkDialog(context, game),
+                                child: Text('HARD FORK (+${game.pendingGovTokens} Tokens)'),
                               ),
                             ),
-                          ),
-                          const SizedBox(width: 15),
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  rig.name.toUpperCase(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.w900,
-                                    fontSize: 16,
-                                    color: Colors.white,
-                                  ),
-                                ),
-                                Text(
-                                  '+${rig.baseHashRate} H/s',
-                                  style: TextStyle(
-                                    color: AppTheme.textSecondary,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          ElevatedButton(
-                            onPressed: canAfford ? () => game.buyRig(rig.id) : null,
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: canAfford ? AppTheme.accent : Colors.grey[800],
-                              foregroundColor: Colors.black,
-                            ),
-                            child: Text(
-                              'BUY \n${rig.currentCost.toStringAsFixed(0)}',
-                              textAlign: TextAlign.center,
-                              style: const TextStyle(fontSize: 12),
-                            ),
-                          ),
                         ],
                       ),
-                    );
-                  },
-                ),
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  Expanded(
+                    child: ListView.builder(
+                      padding: const EdgeInsets.all(8),
+                      itemCount: game.rigs.length,
+                      itemBuilder: (context, index) {
+                        final rig = game.rigs[index];
+                        return RigListItem(
+                          rig: rig, 
+                          game: game,
+                          onBuy: () => _addFloatingText('-${rig.currentCost.toStringAsFixed(0)}'),
+                        );
+                      },
+                    ),
+                  ),
+                ],
               ),
+              // Floating Text Layer
+              ..._floatingTexts,
             ],
           );
         },
@@ -185,6 +166,7 @@ class _HomeScreenState extends State<HomeScreen> {
       floatingActionButton: FloatingActionButton(
         onPressed: () {
           Provider.of<GameLogic>(context, listen: false).clickMine();
+          _addFloatingText();
         },
         child: const Icon(Icons.touch_app, size: 30),
       ),

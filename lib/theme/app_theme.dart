@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 
 class AppTheme {
   // Colors
@@ -18,7 +19,10 @@ class AppTheme {
         surface: surface,
         // background: background, // Deprecated, surface is enough or use onSurface
       ),
-      fontFamily: 'Roboto', // Default for now, could switch to something more industrial later
+      textTheme: GoogleFonts.orbitronTextTheme().apply(
+        bodyColor: textPrimary,
+        displayColor: textPrimary,
+      ),
       appBarTheme: const AppBarTheme(
         backgroundColor: surface,
         foregroundColor: accent,
