@@ -103,6 +103,9 @@ class GameLogic with ChangeNotifier {
     // Serialize Rigs
     final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
     await prefs.setString('rigs', rigsJson);
+    
+    // Save Timestamp
+    await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
   }
 
   Future<void> loadGame() async {
@@ -125,6 +128,34 @@ class GameLogic with ChangeNotifier {
         }
       }
     }
+    
+    // Offline Earnings Logic
+    final lastSaveTime = prefs.getInt('last_save_time');
+    if (lastSaveTime != null) {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      final diffSeconds = (now - lastSaveTime) ~/ 1000;
+      
+      if (diffSeconds > 10) { // Only count if away for more than 10 seconds
+        double totalHashRate = rigs.fold(0, (sum, rig) => sum + rig.totalHashRate);
+        if (totalHashRate > 0) {
+           double offlineEarnings = diffSeconds * totalHashRate * prestigeMultiplier;
+           wallet += offlineEarnings;
+           lifetimeEarnings += offlineEarnings;
+           debugPrint('Offline for $diffSeconds s. Earned $offlineEarnings');
+           // Note: We might want to expose this to UI to show a dialog
+           offlineEarningsAmount = offlineEarnings;
+        }
+      }
+    }
+    
+    notifyListeners();
+  }
+  
+  // Temporary storage for UI dialog
+  double? offlineEarningsAmount;
+  
+  void clearOfflineEarnings() {
+    offlineEarningsAmount = null;
     notifyListeners();
   }
 

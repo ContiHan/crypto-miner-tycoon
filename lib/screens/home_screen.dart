@@ -4,8 +4,25 @@ import '../providers/game_logic.dart';
 import '../widgets/stylized_card.dart';
 import '../theme/app_theme.dart';
 
-class HomeScreen extends StatelessWidget {
+class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
+
+  @override
+  State<HomeScreen> createState() => _HomeScreenState();
+}
+
+class _HomeScreenState extends State<HomeScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // Check for offline earnings after first frame
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      final game = Provider.of<GameLogic>(context, listen: false);
+      if (game.offlineEarningsAmount != null) {
+        _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
+      }
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -15,6 +32,14 @@ class HomeScreen extends StatelessWidget {
       ),
       body: Consumer<GameLogic>(
         builder: (context, game, child) {
+          // Listen for delayed offline earnings (if loaded later)
+          if (game.offlineEarningsAmount != null) {
+             // Use microtask to avoid build conflicts
+             Future.microtask(() => 
+                _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!)
+             );
+          }
+          
           return Column(
             children: [
               // Stats Panel
@@ -191,6 +216,44 @@ class HomeScreen extends StatelessWidget {
               Navigator.pop(ctx);
             },
             child: const Text('RESET & CLAIM'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showOfflineEarningsDialog(BuildContext context, GameLogic game, double amount) {
+    // Prevent multiple dialogs if one is already showing? 
+    // Ideally GameLogic clears it immediately, but let's be safe.
+    // For now, simple implementation.
+    
+    // We need to clear it from GameLogic so it doesn't loop
+    game.clearOfflineEarnings();
+
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('WELCOME BACK!', style: TextStyle(color: AppTheme.accent)),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Text('While you were away, your rigs mined:', style: TextStyle(color: Colors.white70)),
+            const SizedBox(height: 20),
+            Text(
+              '₿ ${amount.toStringAsFixed(2)}',
+              style: const TextStyle(
+                fontSize: 32, 
+                fontWeight: FontWeight.bold, 
+                color: AppTheme.accent
+              ),
+            ),
+          ],
+        ),
+        actions: [
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('COLLECT'),
           ),
         ],
       ),
