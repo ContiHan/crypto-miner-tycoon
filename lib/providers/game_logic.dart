@@ -18,6 +18,20 @@ class GameLogic with ChangeNotifier {
 
   int govTokens = 0;
   
+  // Perks: keys are 'click_power', 'rig_cost', 'hash_bonus'
+  Map<String, int> perks = {
+    'click_power': 0,
+    'rig_cost': 0,
+    'hash_bonus': 0,
+  };
+
+  // Perk Config
+  final Map<String, int> perkCosts = {
+    'click_power': 5,
+    'rig_cost': 10,
+    'hash_bonus': 15,
+  };
+  
   // 10% bonus per token
   double get prestigeMultiplier => 1.0 + (govTokens * 0.10);
 
@@ -43,8 +57,13 @@ class GameLogic with ChangeNotifier {
 
   void _mine() {
     double totalHashRate = rigs.fold(0, (sum, rig) => sum + rig.totalHashRate);
-    if (totalHashRate > 0) {
-      double income = totalHashRate * prestigeMultiplier;
+    
+    // Apply 'hash_bonus' perk (10% per level)
+    double perkMultiplier = 1.0 + (perks['hash_bonus']! * 0.10);
+    double finalHashRate = totalHashRate * perkMultiplier;
+    
+    if (finalHashRate > 0) {
+      double income = finalHashRate * prestigeMultiplier;
       wallet += income;
       lifetimeEarnings += income;
       notifyListeners();
@@ -67,16 +86,21 @@ class GameLogic with ChangeNotifier {
     // Reset Progress
     wallet = 0;
     lifetimeEarnings = 0;
+    // Note: We do NOT reset perks. They are permanent.
     for (var rig in rigs) {
       rig.amount = 0;
     }
+     
+    _saveGame();
     
     notifyListeners();
   }
 
   void clickMine() {
-    wallet += 1 * prestigeMultiplier;
-    lifetimeEarnings += 1 * prestigeMultiplier;
+    // Base 1 + 1 per level
+    double clickValue = (1.0 + perks['click_power']!) * prestigeMultiplier;
+    wallet += clickValue;
+    lifetimeEarnings += clickValue;
     notifyListeners();
   }
 
@@ -84,11 +108,40 @@ class GameLogic with ChangeNotifier {
     int index = rigs.indexWhere((r) => r.id == rigId);
     if (index != -1) {
       Rig rig = rigs[index];
-      if (wallet >= rig.currentCost) {
-        wallet -= rig.currentCost;
+      
+      // Calculate discounted cost
+      double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
+      if (discountFactor < 0.1) discountFactor = 0.1; // Cap at 90% discount
+      
+      double finalCost = rig.currentCost * discountFactor;
+      
+      if (wallet >= finalCost) {
+        wallet -= finalCost;
         rig.amount++;
         notifyListeners();
         _saveGame();
+      }
+    }
+  }
+  
+  double getRigCost(Rig rig) {
+    double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
+    if (discountFactor < 0.1) discountFactor = 0.1; 
+    return rig.currentCost * discountFactor;
+  }
+
+  void buyPerk(String perkId) {
+    if (perks.containsKey(perkId) && perkCosts.containsKey(perkId)) {
+      int cost = perkCosts[perkId]!;
+      if (govTokens >= cost) {
+        govTokens -= cost;
+        perks[perkId] = perks[perkId]! + 1;
+        
+        // Increase cost by +5 tokens per level
+        perkCosts[perkId] = perkCosts[perkId]! + 5;
+        
+        _saveGame();
+        notifyListeners();
       }
     }
   }
@@ -99,6 +152,10 @@ class GameLogic with ChangeNotifier {
     await prefs.setDouble('wallet', wallet);
     await prefs.setDouble('lifetimeEarnings', lifetimeEarnings);
     await prefs.setInt('govTokens', govTokens);
+    
+    // Save Perks
+    await prefs.setString('perks', jsonEncode(perks));
+    await prefs.setString('perkCosts', jsonEncode(perkCosts));
     
     // Serialize Rigs
     final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
@@ -113,6 +170,16 @@ class GameLogic with ChangeNotifier {
     wallet = prefs.getDouble('wallet') ?? 0;
     lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
     govTokens = prefs.getInt('govTokens') ?? 0;
+    
+    // Load Perks
+    if (prefs.containsKey('perks')) {
+      Map<String, dynamic> loadedPerks = jsonDecode(prefs.getString('perks')!);
+      perks.addAll(loadedPerks.map((k, v) => MapEntry(k, v as int)));
+    }
+    if (prefs.containsKey('perkCosts')) {
+      Map<String, dynamic> loadedCosts = jsonDecode(prefs.getString('perkCosts')!);
+      perkCosts.addAll(loadedCosts.map((k, v) => MapEntry(k, v as int)));
+    }
 
     final rigsString = prefs.getString('rigs');
     if (rigsString != null) {

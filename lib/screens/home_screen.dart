@@ -6,6 +6,7 @@ import '../widgets/rig_list_item.dart';
 import '../widgets/floating_text.dart';
 import '../widgets/pulse_button.dart';
 import '../theme/app_theme.dart';
+import 'perks_screen.dart';
 import 'dart:math';
 
 class HomeScreen extends StatefulWidget {
@@ -24,7 +25,6 @@ class _HomeScreenState extends State<HomeScreen> {
     // Basic unique key to ensure widget identity
     final  key = UniqueKey();
     final text = textOverride ?? '+${Provider.of<GameLogic>(context, listen: false).prestigeMultiplier.toStringAsFixed(1)}';
-    final isNegative = text.startsWith('-');
     
     setState(() {
       _floatingTexts.add(
@@ -136,6 +136,22 @@ class _HomeScreenState extends State<HomeScreen> {
                                 child: Text('HARD FORK (+${game.pendingGovTokens} Tokens)'),
                               ),
                             ),
+                          // Always show Perks Shop button if we have tokens or have prestiged once
+                          if (game.govTokens > 0 || game.lifetimeEarnings > 1000)
+                             Padding(
+                               padding: const EdgeInsets.only(top: 8.0),
+                               child: OutlinedButton(
+                                 onPressed: () => Navigator.push(
+                                   context, 
+                                   MaterialPageRoute(builder: (_) => const PerksScreen())
+                                 ),
+                                 style: OutlinedButton.styleFrom(
+                                   foregroundColor: AppTheme.accent,
+                                   side: const BorderSide(color: AppTheme.accent),
+                                 ),
+                                 child: const Text('PERMANENT PERKS SHOP'),
+                               ),
+                             ),
                         ],
                       ),
                     ),
