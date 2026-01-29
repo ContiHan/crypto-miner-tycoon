@@ -13,46 +13,53 @@ class AppTheme {
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,
-      scaffoldBackgroundColor: background,
-      colorScheme: ColorScheme.dark(
+      brightness: Brightness.dark,
+      colorScheme: const ColorScheme.dark(
         primary: accent,
+        secondary: accent,
         surface: surface,
-        // background: background, // Deprecated, surface is enough or use onSurface
       ),
-      textTheme: GoogleFonts.orbitronTextTheme().apply(
-        bodyColor: textPrimary,
-        displayColor: textPrimary,
+      scaffoldBackgroundColor: background,
+      // Apply Orbitron globally
+      textTheme: GoogleFonts.orbitronTextTheme(ThemeData.dark().textTheme).apply(
+        bodyColor: Colors.white,
+        displayColor: accent,
       ),
-      appBarTheme: const AppBarTheme(
-        backgroundColor: surface,
-        foregroundColor: accent,
+      appBarTheme: AppBarTheme(
+        backgroundColor: Colors.transparent, // Transparent for overlay feel? Or surface.
         elevation: 0,
         centerTitle: true,
-        titleTextStyle: TextStyle(
+        titleTextStyle: GoogleFonts.orbitron(
           color: accent,
           fontSize: 24,
           fontWeight: FontWeight.bold,
-          letterSpacing: 1.2,
+          letterSpacing: 2,
         ),
+        iconTheme: const IconThemeData(color: accent),
       ),
+
       elevatedButtonTheme: ElevatedButtonThemeData(
         style: ElevatedButton.styleFrom(
           backgroundColor: accent,
           foregroundColor: Colors.black,
-          textStyle: const TextStyle(fontWeight: FontWeight.bold),
-          shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(4), // Slightly angular
-            side: const BorderSide(color: border, width: 2),
-          ),
+          shape: const BeveledRectangleBorder(
+              borderRadius: BorderRadius.all(Radius.circular(4))),
+          textStyle: GoogleFonts.orbitron(fontWeight: FontWeight.bold),
         ),
       ),
+      
+      // Additional standard buttons alignment
+      textButtonTheme: TextButtonThemeData(
+         style: TextButton.styleFrom(
+            textStyle: GoogleFonts.orbitron(fontWeight: FontWeight.bold),
+         ),
+      ),
+      
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: accent,
         foregroundColor: Colors.black,
         shape: BeveledRectangleBorder(
-          borderRadius: BorderRadius.all(Radius.circular(8)),
-          side: BorderSide(color: border, width: 2),
-        ),
+            borderRadius: BorderRadius.all(Radius.circular(8))),
       ),
     );
   }

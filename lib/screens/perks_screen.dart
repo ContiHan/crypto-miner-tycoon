@@ -2,18 +2,18 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
+import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
 
 class PerksScreen extends StatelessWidget {
-  const PerksScreen({super.key});
+  final bool isEmbedded;
+
+  const PerksScreen({super.key, this.isEmbedded = false});
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('PERMANENT PERKS'),
-      ),
-      body: Consumer<GameLogic>(
+    // If embedded, don't use Scaffold/AppBar, just return the content
+    final content = Consumer<GameLogic>(
         builder: (context, game, child) {
           return Column(
             children: [
@@ -27,7 +27,7 @@ class PerksScreen extends StatelessWidget {
                     const Text('GOVERNANCE TOKENS', style: TextStyle(color: AppTheme.textSecondary, letterSpacing: 2)),
                     const SizedBox(height: 10),
                     Text(
-                      '${game.govTokens}',
+                      Formatter.formatNumber(game.govTokens.toDouble()),
                       style: const TextStyle(
                         fontSize: 48,
                         fontWeight: FontWeight.w900,
@@ -47,7 +47,7 @@ class PerksScreen extends StatelessWidget {
                       game, 
                       id: 'click_power', 
                       name: 'CYBERNETIC FINGERS', 
-                      desc: 'Increases manual click power by +1 per level.',
+                      desc: 'Increases manual click power by +2 per level.',
                       icon: Icons.touch_app,
                     ),
                     _buildPerkItem(
@@ -72,7 +72,17 @@ class PerksScreen extends StatelessWidget {
             ],
           );
         },
+      );
+
+    if (isEmbedded) {
+      return content;
+    }
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('PERMANENT PERKS'),
       ),
+      body: content,
     );
   }
 
@@ -123,7 +133,7 @@ class PerksScreen extends StatelessWidget {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   const Text('BUY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text('$cost', style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(Formatter.formatNumber(cost.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),

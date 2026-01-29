@@ -10,10 +10,10 @@ class GameLogic with ChangeNotifier {
   double lifetimeEarnings = 0;
   
   List<Rig> rigs = [
-    Rig(id: 'cpu_rig', name: 'Starter CPU Rig', baseCost: 10, baseHashRate: 0.1),
-    Rig(id: 'gpu_rig', name: 'GPU Rack', baseCost: 150, baseHashRate: 2.0),
-    Rig(id: 'asic_rig', name: 'ASIC Miner', baseCost: 1200, baseHashRate: 25.0),
-    Rig(id: 'quantum', name: 'Quantum Computer', baseCost: 15000, baseHashRate: 500.0),
+    Rig(id: 'cpu_rig', name: 'Starter CPU Rig', baseCost: 100, baseHashRate: 1.0),
+    Rig(id: 'gpu_rig', name: 'GPU Rack', baseCost: 1500, baseHashRate: 20.0),
+    Rig(id: 'asic_rig', name: 'ASIC Miner', baseCost: 12000, baseHashRate: 250.0),
+    Rig(id: 'quantum', name: 'Quantum Computer', baseCost: 150000, baseHashRate: 5000.0),
   ];
 
   int govTokens = 0;
@@ -72,9 +72,9 @@ class GameLogic with ChangeNotifier {
   
   // Calculate tokens available to claim based on run earnings
   int get pendingGovTokens {
-    if (lifetimeEarnings < 1000) return 0;
-    // Formula: Sqrt(Earnings / 1000)
-    return (sqrt(lifetimeEarnings / 1000).floor());
+    if (lifetimeEarnings < 10000) return 0;
+    // Formula: Sqrt(Earnings / 10000) - adjusted for 10x economy scale
+    return (sqrt(lifetimeEarnings / 10000).floor());
   }
 
   void hardFork() {
@@ -97,8 +97,8 @@ class GameLogic with ChangeNotifier {
   }
 
   void clickMine() {
-    // Base 1 + 1 per level
-    double clickValue = (1.0 + perks['click_power']!) * prestigeMultiplier;
+    // Base 5 + (2 * level) - Clicking should feel impactful
+    double clickValue = (5.0 + (perks['click_power']! * 2)) * prestigeMultiplier;
     wallet += clickValue;
     lifetimeEarnings += clickValue;
     notifyListeners();

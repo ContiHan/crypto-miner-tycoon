@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import '../models/rig.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
+import '../utils/formatter.dart';
 import 'stylized_card.dart';
 
 class RigListItem extends StatefulWidget {
@@ -42,10 +43,16 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
   void _checkAnimation() {
     if (widget.rig.amount > 0) {
       if (!_controller.isAnimating) {
-        _controller.repeat();
+        // Pulse speed scales slightly with amount
+        double speedFactor = 1.0 + (widget.rig.amount * 0.05);
+        if (speedFactor > 3.0) speedFactor = 3.0; // Cap pulse speed
+        
+        _controller.duration = Duration(milliseconds: (1000 / speedFactor).round());
+        _controller.repeat(reverse: true);
       }
     } else {
       _controller.stop();
+      _controller.value = 1.0; // Reset scale
     }
   }
 
@@ -74,9 +81,9 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
             child: Stack(
               alignment: Alignment.center,
               children: [
-                RotationTransition(
-                  turns: _controller,
-                  child: const Icon(Icons.toys, color: Colors.white24, size: 40),
+                ScaleTransition(
+                  scale: Tween(begin: 0.8, end: 1.2).animate(CurvedAnimation(parent: _controller, curve: Curves.easeInOut)),
+                  child: Icon(_getRigIcon(widget.rig.id), color: Colors.white24, size: 40),
                 ),
                 Text(
                   '${widget.rig.amount}',
@@ -102,7 +109,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                   ),
                 ),
                 Text(
-                  '+${widget.rig.baseHashRate} H/s',
+                  '+${Formatter.formatNumber(widget.rig.baseHashRate)} H/s',
                   style: TextStyle(
                     color: AppTheme.textSecondary,
                     fontSize: 12,
@@ -121,13 +128,28 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
               foregroundColor: Colors.black,
             ),
             child: Text(
-              'BUY \n${widget.rig.currentCost.toStringAsFixed(0)}',
+              'BUY \n${Formatter.formatCurrency(widget.rig.currentCost)}',
               textAlign: TextAlign.center,
-              style: const TextStyle(fontSize: 12),
+              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.bold),
             ),
           ),
         ],
       ),
     );
+  }
+
+  IconData _getRigIcon(String id) {
+    switch (id) {
+      case 'cpu_rig':
+        return Icons.memory;
+      case 'gpu_rig':
+        return Icons.developer_board;
+      case 'asic_rig':
+        return Icons.dns;
+      case 'quantum':
+        return Icons.hub;
+      default:
+        return Icons.cyclone;
+    }
   }
 }
