@@ -3,6 +3,7 @@ import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import 'perks_screen.dart';
+import 'research_tab.dart';
 import 'mining_tab.dart';
 import '../utils/formatter.dart';
 
@@ -19,26 +20,45 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
-    // Check for offline earnings after first frame
+    final game = Provider.of<GameLogic>(context, listen: false);
+    
+    // Check initially (in case it loaded instantly)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      final game = Provider.of<GameLogic>(context, listen: false);
       if (game.offlineEarningsAmount != null) {
         _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
       }
     });
+
+    // Listen for future updates (async load)
+    game.addListener(_onGameUpdate);
+  }
+
+  @override
+  void dispose() {
+    final game = Provider.of<GameLogic>(context, listen: false);
+    game.removeListener(_onGameUpdate);
+    super.dispose();
+  }
+
+  void _onGameUpdate() {
+    if (!mounted) return;
+    final game = Provider.of<GameLogic>(context, listen: false);
+    if (game.offlineEarningsAmount != null) {
+      _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
+    }
   }
 
   @override
   Widget build(BuildContext context) {
     // Pages for the navigation
     final List<Widget> pages = [
-      const PerksScreen(isEmbedded: true), // Index 0: Perks
-      _buildPlaceholder('LABORATORY\n(Research Coming Soon)', Icons.science), // Index 1: Research
-      _buildPlaceholder('WAREHOUSE\n(Reserve Coming Soon)', Icons.inventory_2), // Index 2: Reserve
-      const SizedBox.shrink(), // Index 3: Spacer/Empty
-      MiningTab( // Index 4: Mine
+      const PerksScreen(isEmbedded: true), // Index 0: PERKS
+      const ResearchTab(), // Index 1: LAB
+      _buildPlaceholder('SECRET STASH\n(Coming Soon)', Icons.lock), // Index 2: STASH
+      const SizedBox.shrink(), // Index 3: Spacer
+      MiningTab( // Index 4: HACK
         onHardFork: () => _showHardForkDialog(context, Provider.of<GameLogic>(context, listen: false)),
-        onBuyRig: (cost) {}, // Managed internally by tab now
+        onBuyRig: (cost) {}, 
       ),
     ];
 
@@ -75,16 +95,16 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'LAB'
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2), 
-              label: 'RESERVE'
+              icon: Icon(Icons.lock), 
+              label: 'STASH'
             ),
              BottomNavigationBarItem(
               icon: Icon(Icons.circle, color: Colors.transparent), // Invisible spacer
               label: ''
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.touch_app), 
-              label: 'MINE'
+              icon: Icon(Icons.terminal), 
+              label: 'HACK'
             ),
           ],
         ),

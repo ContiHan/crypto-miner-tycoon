@@ -50,7 +50,7 @@ class _FloatingTextState extends State<FloatingText> with SingleTickerProviderSt
         child: Text(
           widget.text,
           style: TextStyle(
-            color: isNegative ? Colors.redAccent : Colors.white, // Red for costs
+            color: isNegative ? Colors.redAccent : (widget.text.startsWith('+') ? Colors.greenAccent : Colors.white),
             fontSize: 24,
             fontWeight: FontWeight.bold,
             shadows: const [Shadow(color: Colors.black, blurRadius: 4)],

@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/rig.dart';
+import '../models/research_node.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -32,6 +33,90 @@ class GameLogic with ChangeNotifier {
     'hash_bonus': 15,
   };
   
+  // RESEARCH SYSTEM
+  List<ResearchNode> researchNodes = [
+    ResearchNode(
+      id: 'basic_overclock',
+      name: 'Basic Overclocking',
+      description: '+5% Global Hash Rate',
+      cost: 500,
+      icon: Icons.speed,
+      isUnlocked: true,
+    ),
+    ResearchNode(
+      id: 'better_cooling',
+      name: 'Better Cooling',
+      description: 'Rigs are 10% cheaper',
+      cost: 2500,
+      icon: Icons.ac_unit,
+      requirements: ['basic_overclock'],
+    ),
+    ResearchNode(
+      id: 'solar_power',
+      name: 'Solar Power',
+      description: 'Unlocks Energy Efficiency (Coming Soon)',
+      cost: 10000,
+      icon: Icons.sunny,
+      requirements: ['better_cooling'],
+    ),
+     ResearchNode(
+      id: 'chip_fab',
+      name: 'Chip Fabrication',
+      description: '+20% CPU & GPU Hash Rate',
+      cost: 50000,
+      icon: Icons.memory,
+      requirements: ['basic_overclock'],
+    ),
+     ResearchNode(
+      id: 'ai_manager',
+      name: 'AI Management',
+      description: 'Auto-clicks every 5 seconds',
+      cost: 1000000,
+      icon: Icons.psychology,
+      requirements: ['chip_fab'],
+    ),
+  ];
+  
+  int _autoClickCounter = 0;
+
+  void buyResearch(String researchId) {
+    int index = researchNodes.indexWhere((r) => r.id == researchId);
+    if (index == -1) return;
+
+    ResearchNode node = researchNodes[index];
+    if (node.isCompleted) return;
+    
+    if (wallet >= node.cost) {
+      wallet -= node.cost;
+      node.isCompleted = true;
+      _checkUnlocks();
+      notifyListeners();
+      _saveGame();
+    }
+  }
+
+  void _checkUnlocks() {
+    for (var node in researchNodes) {
+      if (!node.isUnlocked && !node.isCompleted) {
+         bool allMet = node.requirements.every((reqId) {
+            var reqNode = researchNodes.firstWhere((r) => r.id == reqId, orElse: () => ResearchNode(id: '', name: '', description: '', cost: 0, icon: Icons.error));
+            return reqNode.isCompleted;
+         });
+         if (allMet) node.isUnlocked = true;
+      }
+    }
+  }
+
+  bool isResearched(String id) {
+     return researchNodes.firstWhere((r) => r.id == id, orElse: () => ResearchNode(id: '', name: '', description: '', cost: 0, icon: Icons.error)).isCompleted;
+  }
+  
+  double get _researchHashMultiplier {
+    double mult = 1.0;
+    if (isResearched('basic_overclock')) mult += 0.05;
+    return mult;
+  }
+  
   // 10% bonus per token
   double get prestigeMultiplier => 1.0 + (govTokens * 0.10);
 
@@ -55,13 +140,41 @@ class GameLogic with ChangeNotifier {
     });
   }
 
-  void _mine() {
-    double totalHashRate = rigs.fold(0, (sum, rig) => sum + rig.totalHashRate);
+  double get globalHashRate {
+    double total = 0;
+    
+    // Calculate per-rig hashrate with research bonuses
+    for (var rig in rigs) {
+      double rigRate = rig.totalHashRate;
+      
+      // Chip Fab bonus for CPU/GPU
+      if (isResearched('chip_fab') && (rig.id == 'cpu_rig' || rig.id == 'gpu_rig')) {
+        rigRate *= 1.20; 
+      }
+      
+      total += rigRate;
+    }
+    
+    // Global multiplier
+    total *= _researchHashMultiplier;
     
     // Apply 'hash_bonus' perk (10% per level)
     double perkMultiplier = 1.0 + (perks['hash_bonus']! * 0.10);
-    double finalHashRate = totalHashRate * perkMultiplier;
+    return total * perkMultiplier;
+  }
+
+  void _mine() {
+    double finalHashRate = globalHashRate;
     
+    // AI Manager Auto-Click logic
+    if (isResearched('ai_manager')) {
+       _autoClickCounter++;
+       if (_autoClickCounter >= 5) { 
+         clickMine();
+         _autoClickCounter = 0;
+       }
+    }
+
     if (finalHashRate > 0) {
       double income = finalHashRate * prestigeMultiplier;
       wallet += income;
@@ -127,7 +240,15 @@ class GameLogic with ChangeNotifier {
   double getRigCost(Rig rig) {
     double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
     if (discountFactor < 0.1) discountFactor = 0.1; 
-    return rig.currentCost * discountFactor;
+    
+    double cost = rig.currentCost * discountFactor;
+    
+    // Research Discount
+    if (isResearched('better_cooling')) {
+      cost *= 0.90;
+    }
+    
+    return cost;
   }
 
   void buyPerk(String perkId) {
@@ -160,6 +281,10 @@ class GameLogic with ChangeNotifier {
     // Serialize Rigs
     final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
     await prefs.setString('rigs', rigsJson);
+    
+    // Serialize Research
+    final researchJson = jsonEncode(researchNodes.map((r) => r.toJson()).toList());
+    await prefs.setString('research', researchJson);
     
     // Save Timestamp
     await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
@@ -196,6 +321,23 @@ class GameLogic with ChangeNotifier {
       }
     }
     
+    // Load Research
+    final researchString = prefs.getString('research');
+    if (researchString != null) {
+      final List<dynamic> decoded = jsonDecode(researchString);
+      for (var jsonItem in decoded) {
+        final id = jsonItem['id'];
+        final isUnlocked = jsonItem['isUnlocked'];
+        final isCompleted = jsonItem['isCompleted'];
+        
+        final index = researchNodes.indexWhere((r) => r.id == id);
+        if (index != -1) {
+          researchNodes[index].isUnlocked = isUnlocked;
+          researchNodes[index].isCompleted = isCompleted;
+        }
+      }
+    }
+    
     // Offline Earnings Logic
     final lastSaveTime = prefs.getInt('last_save_time');
     if (lastSaveTime != null) {
@@ -225,10 +367,6 @@ class GameLogic with ChangeNotifier {
     offlineEarningsAmount = null;
     notifyListeners();
   }
-
-  @override
-  void dispose() {
-    _gameTimer?.cancel();
-    super.dispose();
-  }
 }
+
+
