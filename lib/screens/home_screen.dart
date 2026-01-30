@@ -5,6 +5,7 @@ import '../theme/app_theme.dart';
 import 'perks_screen.dart';
 import 'research_tab.dart';
 import 'mining_tab.dart';
+import 'settings_screen.dart';
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -65,6 +66,17 @@ class _HomeScreenState extends State<HomeScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('BTC ONLY TYCOON'),
+        actions: [
+           IconButton(
+             icon: const Icon(Icons.settings),
+             onPressed: () {
+               Navigator.push(
+                 context,
+                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
+               );
+             },
+           ),
+        ],
       ),
       body: pages[_currentIndex],
       bottomNavigationBar: Theme(

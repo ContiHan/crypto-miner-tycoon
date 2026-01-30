@@ -25,6 +25,48 @@ class GameLogic with ChangeNotifier {
     'rig_cost': 0,
     'hash_bonus': 0,
   };
+  
+  bool soundEnabled = true;
+
+  Future<void> toggleSound() async {
+    soundEnabled = !soundEnabled;
+    await _saveGame();
+    notifyListeners();
+  }
+
+  // Full Reset (Wipe Save)
+  Future<void> resetGame() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.clear(); // Wipe disk
+    
+    // Reset Memory
+    wallet = 0;
+    lifetimeEarnings = 0;
+    govTokens = 0;
+    soundEnabled = true;
+    
+    perks.updateAll((key, value) => 0);
+    // Reset costs
+    perkCosts.updateAll((key, value) {
+       switch(key) {
+         case 'click_power': return 5;
+         case 'rig_cost': return 10;
+         case 'hash_bonus': return 15;
+         default: return 10;
+       }
+    });
+
+    for (var rig in rigs) {
+      rig.amount = 0;
+    }
+    
+    for (var node in researchNodes) {
+        node.isCompleted = false;
+        node.isUnlocked = node.requirements.isEmpty; // Basic ones unlock
+    }
+
+    notifyListeners();
+  }
 
   // Perk Config
   final Map<String, int> perkCosts = {
@@ -288,13 +330,18 @@ class GameLogic with ChangeNotifier {
     
     // Save Timestamp
     await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
+    
+    // Save Settings
+    await prefs.setBool('sound_enabled', soundEnabled);
   }
 
   Future<void> loadGame() async {
     final prefs = await SharedPreferences.getInstance();
     wallet = prefs.getDouble('wallet') ?? 0;
     lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
+    lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
     govTokens = prefs.getInt('govTokens') ?? 0;
+    soundEnabled = prefs.getBool('sound_enabled') ?? true;
     
     // Load Perks
     if (prefs.containsKey('perks')) {

@@ -88,5 +88,36 @@ void main() {
       // 1.0 + (10 * 0.1) = 2.0
       expect(game.prestigeMultiplier, 2.0);
     });
+
+    test('Sound Toggle persistence', () async {
+      SharedPreferences.setMockInitialValues({});
+      game = GameLogic(); // Re-init
+      
+      // Allow constructor loadGame to finish
+      await Future.delayed(const Duration(milliseconds: 50)); 
+      
+      expect(game.soundEnabled, true); // Default
+      
+      await game.toggleSound();
+      expect(game.soundEnabled, false);
+      
+      // Verify persistence
+      final prefs = await SharedPreferences.getInstance();
+      expect(prefs.getBool('sound_enabled'), false);
+    });
+
+    test('Hard Reset wipes data', () async {
+      game.wallet = 1000;
+      game.govTokens = 50;
+      game.rigs.first.amount = 5;
+      game.buyResearch('basic_overclock');
+      
+      await game.resetGame();
+      
+      expect(game.wallet, 0);
+      expect(game.govTokens, 0);
+      expect(game.rigs.first.amount, 0);
+      expect(game.isResearched('basic_overclock'), false);
+    });
   });
 }
