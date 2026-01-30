@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
+import '../models/news_event.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -162,11 +163,20 @@ class GameLogic with ChangeNotifier {
   // 10% bonus per token
   double get prestigeMultiplier => 1.0 + (govTokens * 0.10);
 
+  // ECONOMY 2.0
+  double networkDifficulty = 100.0;
+  double blockReward = 50.0;
+  int blocksMined = 0;
+  int nextHalvingThreshold = 5000; // Halve every 5000 'blocks' (ticks)
+
   Timer? _gameTimer;
+  Timer? _chaosTimer;
+  NewsEvent? currentNews;
 
   GameLogic() {
     loadGame().then((_) {
       _startGameLoop();
+      _startChaosTimer();
     });
   }
 
@@ -179,6 +189,63 @@ class GameLogic with ChangeNotifier {
     Timer.periodic(const Duration(seconds: 30), (timer) {
       _saveGame();
       debugPrint('Auto-Saved Game');
+    });
+  }
+  
+  void _startChaosTimer() {
+    // Random event every 60-180 seconds? 
+    // For testing, let's say every 30s check with 50% chance
+    _chaosTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
+      if (Random().nextBool()) {
+        _triggerRandomEvent();
+      }
+    });
+  }
+  
+  void _triggerRandomEvent() {
+    final random = Random();
+    final type = EventType.values[random.nextInt(EventType.values.length)];
+    
+    String message = '';
+    double value = 0;
+    
+    switch(type) {
+      case EventType.info:
+         message = "BREAKING: Bitcoin adoption hits 90% globally!";
+         break;
+      case EventType.marketCrash:
+         message = "FUD ALERT: Major country bans crypto mining.";
+         value = 0.5; // -50% H/s (Not implemented yet)
+         break;
+      case EventType.bullRun:
+         message = "MOON: BTC ETF Approved by SEC!";
+         value = 2.0; // +100% income (Not yet implemented)
+         break;
+      case EventType.hack:
+         message = "SECURITY BREACH: Hot wallet compromised!";
+         // Lose 5%
+         double loss = wallet * 0.05;
+         wallet -= loss;
+         value = loss;
+         break;
+      case EventType.cheapEnergy:
+         message = "Surplus Energy: Electricity costs drop significantly.";
+         // Discount rigs?
+         break;
+    }
+    
+    currentNews = NewsEvent(
+      message: message, 
+      type: type, 
+      value: value, 
+      durationSeconds: 10
+    );
+    notifyListeners();
+    
+    // Clear news after duration
+    Future.delayed(Duration(seconds: currentNews!.durationSeconds), () {
+      currentNews = null;
+      notifyListeners();
     });
   }
 
@@ -218,11 +285,40 @@ class GameLogic with ChangeNotifier {
     }
 
     if (finalHashRate > 0) {
-      double income = finalHashRate * prestigeMultiplier;
+      // Formula: (Hash / Difficulty) * Reward * Prestige
+      double income = (finalHashRate / networkDifficulty) * blockReward * prestigeMultiplier;
+      
       wallet += income;
       lifetimeEarnings += income;
+      
+      // Update Difficulty (Linear growth: +0.05 per tick + 10% of player hash growth?)
+      // Simple: 0.1 per second
+      networkDifficulty += 0.1;
+
+      // Track Halving Progress
+      // Conceptually, every tick with positive hash "mines" a fraction of a block?
+      // Or simplify: 1 Tick = 1 "Block Attempt".
+      blocksMined++;
+      
+      if (blocksMined >= nextHalvingThreshold) {
+        _triggerHalving();
+      }
+      
       notifyListeners();
     }
+  }
+
+  void _triggerHalving() {
+    blockReward /= 2;
+    nextHalvingThreshold += 10000; // Next halving takes longer? Or constant?
+    
+    // Announce Halving
+    currentNews = NewsEvent(
+      message: "BITCOIN HALVING: Block Reward Cut in Half!", 
+      type: EventType.info,
+      durationSeconds: 15
+    );
+    notifyListeners();
   }
   
   // Calculate tokens available to claim based on run earnings
@@ -241,9 +337,22 @@ class GameLogic with ChangeNotifier {
     // Reset Progress
     wallet = 0;
     lifetimeEarnings = 0;
+    
+    // Reset Economy 2.0 (New Chain)
+    networkDifficulty = 100.0;
+    blockReward = 50.0;
+    blocksMined = 0;
+    nextHalvingThreshold = 5000;
+    
     // Note: We do NOT reset perks. They are permanent.
     for (var rig in rigs) {
       rig.amount = 0;
+    }
+    
+    // Reset Research (Economy 2.0)
+    for (var node in researchNodes) {
+        node.isCompleted = false;
+        node.isUnlocked = node.requirements.isEmpty; // Basic ones unlock
     }
      
     _saveGame();
@@ -253,7 +362,11 @@ class GameLogic with ChangeNotifier {
 
   void clickMine() {
     // Base 5 + (2 * level) - Clicking should feel impactful
-    double clickValue = (5.0 + (perks['click_power']! * 2)) * prestigeMultiplier;
+    double clickPower = (5.0 + (perks['click_power']! * 2));
+    
+    // Formula: (ClickPower / Difficulty) * Reward * Prestige
+    double clickValue = (clickPower / networkDifficulty) * blockReward * prestigeMultiplier;
+    
     wallet += clickValue;
     lifetimeEarnings += clickValue;
     notifyListeners();
@@ -333,15 +446,25 @@ class GameLogic with ChangeNotifier {
     
     // Save Settings
     await prefs.setBool('sound_enabled', soundEnabled);
+    
+    // Save Economy 2.0
+    await prefs.setDouble('networkDifficulty', networkDifficulty);
+    await prefs.setDouble('blockReward', blockReward);
+    await prefs.setInt('blocksMined', blocksMined);
+    await prefs.setInt('nextHalvingThreshold', nextHalvingThreshold);
   }
 
   Future<void> loadGame() async {
     final prefs = await SharedPreferences.getInstance();
     wallet = prefs.getDouble('wallet') ?? 0;
     lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
-    lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
     govTokens = prefs.getInt('govTokens') ?? 0;
     soundEnabled = prefs.getBool('sound_enabled') ?? true;
+    
+    networkDifficulty = prefs.getDouble('networkDifficulty') ?? 100.0;
+    blockReward = prefs.getDouble('blockReward') ?? 50.0;
+    blocksMined = prefs.getInt('blocksMined') ?? 0;
+    nextHalvingThreshold = prefs.getInt('nextHalvingThreshold') ?? 5000;
     
     // Load Perks
     if (prefs.containsKey('perks')) {

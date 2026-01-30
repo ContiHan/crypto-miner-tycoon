@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
+import '../widgets/news_ticker.dart';
 import 'perks_screen.dart';
 import 'research_tab.dart';
 import 'mining_tab.dart';
@@ -78,7 +79,12 @@ class _HomeScreenState extends State<HomeScreen> {
            ),
         ],
       ),
-      body: pages[_currentIndex],
+      body: Column(
+        children: [
+           const NewsTicker(),
+           Expanded(child: pages[_currentIndex]),
+        ],
+      ),
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
            canvasColor: AppTheme.surface, // Background for Nav Bar

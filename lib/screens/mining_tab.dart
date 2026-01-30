@@ -163,7 +163,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                           children: [
                             const Icon(Icons.flash_on, color: Colors.amber, size: 20),
                             const SizedBox(width: 5),
-                            Text(
+                          Text(
                               '${Formatter.formatNumber(game.globalHashRate)} H/s',
                               style: const TextStyle(
                                   color: Colors.white,
@@ -171,6 +171,52 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   fontSize: 18),
                             ),
                           ],
+                        ),
+                        // ECONOMY 2.0 STATS
+                        const SizedBox(height: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          decoration: BoxDecoration(
+                            color: Colors.black26, 
+                            borderRadius: BorderRadius.circular(8),
+                            border: Border.all(color: Colors.white12)
+                          ),
+                          child: Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                               Tooltip(
+                                 message: 'Network Difficulty\nHigher = Less BTC per Hash',
+                                 child: Text(
+                                   'DIFF: ${game.networkDifficulty.toStringAsFixed(1)}',
+                                   style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'Orbitron'),
+                                 ),
+                               ),
+                               const SizedBox(width: 12),
+                               Tooltip(
+                                 message: 'Block Reward\nHalves periodically',
+                                 child: Text(
+                                   'BLOCK: ${game.blockReward.toStringAsFixed(1)} ₿',
+                                   style: const TextStyle(color: Colors.amber, fontSize: 10, fontFamily: 'Orbitron', fontWeight: FontWeight.bold),
+                                 ),
+                               ),
+                            ],
+                          ),
+                        ),
+                        const SizedBox(height: 4),
+                        // Halving Progress
+                        SizedBox(
+                          width: 150,
+                          child: LinearProgressIndicator(
+                             value: game.blocksMined / game.nextHalvingThreshold,
+                             backgroundColor: Colors.black45,
+                             color: Colors.purpleAccent,
+                             minHeight: 2,
+                          ),
+                        ),
+                        const SizedBox(height: 2),
+                        Text(
+                           'HALVING: ${(game.blocksMined / game.nextHalvingThreshold * 100).toStringAsFixed(1)}%',
+                           style: const TextStyle(color: Colors.purpleAccent, fontSize: 8),
                         ),
                         const SizedBox(height: 10),
                             if (game.govTokens > 0)
@@ -261,10 +307,12 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               ],
                             ),
                             Consumer<GameLogic>(builder: (context, game, _) {
-                               // Formula: (5 + (Level * 2)) * Prestige
-                               double base = 5.0 + (game.perks['click_power']! * 2);
+                               // Formula: (Power / Diff) * Reward * Prestige
+                               double basePower = 5.0 + (game.perks['click_power']! * 2);
+                               double estimatedValue = (basePower / game.networkDifficulty) * game.blockReward * game.prestigeMultiplier;
+
                                return Text(
-                                 'Click Power: ${Formatter.formatNumber(base)} x ${game.prestigeMultiplier.toStringAsFixed(1)} (Prestige)',
+                                 'EST. CLICK: ${Formatter.formatCurrency(estimatedValue)} ₿',
                                  style: const TextStyle(fontSize: 10, color: Colors.black87),
                                );
                             }),
