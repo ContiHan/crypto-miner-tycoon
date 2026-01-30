@@ -139,7 +139,8 @@ void main() {
        game.blockReward = 50.0;
        game.nextHalvingThreshold = 5;
        game.blocksMined = 4;
-       game.networkDifficulty = 1.0; 
+       game.blocksMined = 4;
+       // game.networkDifficulty is calculated dynamically 
        
        game.buyRig('cpu_rig'); // Have some hash to trigger mine
        
@@ -161,7 +162,6 @@ void main() {
     
     test('Chaos Multipliers affect Income and Cost', () {
       game.wallet = 10000;
-      game.networkDifficulty = 100.0;
       game.blockReward = 50.0;
       game.perks['click_power'] = 0;
       

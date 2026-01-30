@@ -175,9 +175,14 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                             'BUY',
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                           ),
-                          Text(
-                            Formatter.formatCurrency(widget.game.getRigCost(widget.rig)),
-                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              widget.game.showFiatPrices 
+                                  ? '\$ ${Formatter.formatNumber(widget.game.getRigCostInCredits(widget.rig))}'
+                                  : Formatter.formatBitcoin(widget.game.getRigCost(widget.rig)),
+                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                            ),
                           ),
                         ],
                       ),

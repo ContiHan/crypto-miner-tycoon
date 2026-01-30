@@ -23,10 +23,13 @@ class SettingsScreen extends StatelessWidget {
                 subtitle: Text(game.soundEnabled ? 'On' : 'Off', style: const TextStyle(color: Colors.white70)),
                 trailing: Switch(
                   value: game.soundEnabled,
-                  activeColor: AppTheme.accent,
+                  activeThumbColor: AppTheme.accent,
+                  activeTrackColor: AppTheme.accent.withValues(alpha: 0.3),
                   onChanged: (val) => game.toggleSound(),
                 ),
               ),
+              const Divider(color: Colors.white24),
+
               const Divider(color: Colors.white24),
               
               // Danger Zone
@@ -37,9 +40,9 @@ class SettingsScreen extends StatelessWidget {
               
               Container(
                 decoration: BoxDecoration(
-                  border: Border.all(color: Colors.redAccent.withOpacity(0.5)),
+                  border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),
                   borderRadius: BorderRadius.circular(8),
-                  color: Colors.redAccent.withOpacity(0.1),
+                  color: Colors.redAccent.withValues(alpha: 0.1),
                 ),
                 child: ListTile(
                   title: const Text('HARD RESET GAME', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold)),

@@ -96,7 +96,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
 
   void addFloatingText([String? textOverride, Offset? position]) {
     final  key = UniqueKey();
-    final text = textOverride ?? '+${Formatter.formatCurrency(1.0)}'; 
+    final text = textOverride ?? '+${Formatter.formatBitcoin(1.0)}'; 
     
     // Default position
     double bottom = position == null ? 80 + (Random().nextInt(40).toDouble()) : 0; 
@@ -176,13 +176,27 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               fontWeight: FontWeight.bold,
                               fontSize: 12),
                         ),
-                        Text(
-                          '₿ ${Formatter.formatCurrency(game.wallet)}',
-                          style: const TextStyle(
-                            fontSize: 36,
-                            fontWeight: FontWeight.w900,
-                            color: AppTheme.accent,
-                            letterSpacing: 1.5,
+                        GestureDetector(
+                          onTap: () {
+                             game.toggleFiatDisplay();
+                             ScaffoldMessenger.of(context).showSnackBar(
+                               SnackBar(
+                                 content: Text(game.showFiatPrices ? 'Display: Astronomical (Fiat)' : 'Display: Bitcoin (Sats)'),
+                                 duration: const Duration(milliseconds: 500),
+                                 backgroundColor: AppTheme.accent,
+                               )
+                             );
+                          },
+                          child: Text(
+                            game.showFiatPrices 
+                               ? '\$ ${Formatter.formatNumber(game.wallet * game.bitcoinExchangeRate)}'
+                               : Formatter.formatBitcoin(game.wallet),
+                            style: const TextStyle(
+                              fontSize: 36,
+                              fontWeight: FontWeight.w900,
+                              color: AppTheme.accent,
+                              letterSpacing: 1.5,
+                            ),
                           ),
                         ),
                         const Divider(color: Colors.black54, thickness: 2, height: 20),
@@ -214,9 +228,9 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               Row(
                                 mainAxisAlignment: MainAxisAlignment.spaceEvenly,
                                 children: [
-                                   _buildStatItem('DIFFICULTY', game.networkDifficulty.toStringAsFixed(1), Colors.white70),
+                                   _buildStatItem('DIFFICULTY', Formatter.formatNumber(game.networkDifficulty), Colors.white70),
                                    Container(width: 1, height: 30, color: Colors.white24),
-                                   _buildStatItem('REWARD', '${game.blockReward.toStringAsFixed(1)} ₿', Colors.amber),
+                                   _buildStatItem('REWARD', Formatter.formatBitcoin(game.blockReward), Colors.amber),
                                 ],
                               ),
                               const SizedBox(height: 8),
@@ -229,7 +243,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     child: LinearProgressIndicator(
                                        value: game.blocksMined / game.nextHalvingThreshold,
                                        backgroundColor: Colors.black54,
-                                       color: Colors.purpleAccent.withOpacity(0.5),
+                                       color: Colors.purpleAccent.withValues(alpha: 0.5),
                                        minHeight: 14,
                                     ),
                                   ),
@@ -279,10 +293,9 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                       return RigListItem(
                         rig: rig, 
                         game: game,
-                        // Trigger visual feedback
-                        onBuy: (pos) {
-                           addFloatingText('-₿', pos); 
-                        }, 
+                           onBuy: (pos) {
+                              addFloatingText(game.showFiatPrices ? '-\$' : '-Ş', pos); 
+                           }, 
                       );
                     },
                   ),
@@ -336,12 +349,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               ],
                             ),
                             Consumer<GameLogic>(builder: (context, game, _) {
-                               // Formula: (Power / Diff) * Reward * Prestige
-                               double basePower = 5.0 + (game.perks['click_power']! * 2);
-                               double estimatedValue = (basePower / game.networkDifficulty) * game.blockReward * game.prestigeMultiplier;
-
                                return Text(
-                                 'EST. CLICK: ${Formatter.formatNumber(estimatedValue)} ₿',
+                                 'EST. CLICK: ${Formatter.formatBitcoin(game.estimatedClickValue)}',
                                  style: const TextStyle(fontSize: 10, color: Colors.black87),
                                );
                             }),

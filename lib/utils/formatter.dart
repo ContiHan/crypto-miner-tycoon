@@ -1,18 +1,87 @@
 
+import 'dart:math';
 
 class Formatter {
+  static const List<String> _suffixes = [
+    '', 'k', 'M', 'B', 'T', 'Qa', 'Qi', 'Sx', 'Sp', 'Oc', 'No', 'Dc'
+  ];
+
   static String formatNumber(double number) {
     if (number < 1000) {
+      if (number >= 10) {
+        return number.toInt().toString();
+      }
+      // Small numbers precise? Or just int? User said "3 digits".
+      // Let's keep small ints as ints (1, 999). 123.4 might be overkill for regular numbers < 1000 unless float.
+      // But user said "format 123.4k" (for scaled).
       return number.toInt().toString();
-    } else if (number < 1000000) {
-      return '${(number / 1000).toStringAsFixed(1)}k';
-    } else if (number < 1000000000) {
-      return '${(number / 1000000).toStringAsFixed(2)}M';
-    } else if (number < 1000000000000) {
-      return '${(number / 1000000000).toStringAsFixed(2)}B';
-    } else {
-      return '${(number / 1000000000000).toStringAsFixed(2)}T';
     }
+
+    final int index = (log(number) / log(1000)).floor();
+
+    if (index >= _suffixes.length) {
+      return number.toStringAsExponential(2);
+    }
+
+    final double base = number / pow(1000.0, index);
+    final String suffix = _suffixes[index];
+
+    // Always 1 decimal place for suffixes to match "123.4k" style
+    // Use toInt() to ensure truncation (14.99 -> 14 -> 1.4)
+    return '${((base * 10).toInt() / 10).toStringAsFixed(1)}$suffix';
+  }
+
+  static String formatBitcoin(double sats) {
+    if (sats == 0) return '0 Ş';
+    // 1 BTC = 100,000,000 Sats
+    if (sats >= 100000000) { 
+      // >= 1 BTC. Display as BTC.
+      double btc = sats / 100000000;
+      if (btc < 1000) {
+         // Show decimals for small BTC amounts (e.g. 1.5 ₿)
+         // Remove trailing zeros? 1.50 -> 1.5. 1.0 -> 1.
+         // Let's use standard toString() but capped precision?
+         String btcStr = btc.toStringAsFixed(2);
+         if (btcStr.endsWith('00')) btcStr = btcStr.substring(0, btcStr.length - 3);
+         else if (btcStr.endsWith('0')) btcStr = btcStr.substring(0, btcStr.length - 1);
+         return '$btcStr ₿';
+      }
+      return '${formatNumber(btc)} ₿';
+    }
+    
+    // < 1 BTC. Use Sats with suffixes.
+    if (sats >= 1) {
+       return '${formatNumber(sats)} Ş';
+    }
+    
+    // Sub-Satoshi
+    if (sats >= 0.001) { // >= 1 mSat
+       return '${(sats * 1000).toStringAsFixed(1)} mŞ';
+    }
+    if (sats >= 0.000001) { // >= 1 uSat
+       return '${(sats * 1000000).toStringAsFixed(1)} μŞ';
+    }
+    if (sats >= 0.000000001) { // >= 1 nSat
+       return '${(sats * 1000000000).toStringAsFixed(1)} nŞ';
+    }
+    if (sats >= 0.000000000001) { // >= 1 pSat
+       return '${(sats * 1000000000000).toStringAsFixed(1)} pŞ';
+    }
+    if (sats >= 0.000000000000001) { // >= 1 fSat
+       return '${(sats * 1000000000000000).toStringAsFixed(1)} fŞ';
+    }
+    // Atto-Sat (1e-18)
+    if (sats >= 1e-18) { 
+        return '${(sats * 1e18).toStringAsFixed(1)} aŞ';
+    }
+    
+    // Extremely small numbers (Deep Deflation)
+    // Uses 'Ş' symbol
+    if (sats > 0) {
+       return '${sats.toStringAsExponential(2)} Ş';
+    }
+    
+    return '0 Ş';
   }
 
   static String formatCurrency(double amount) {

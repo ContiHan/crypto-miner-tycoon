@@ -180,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> {
             const Text('While you were away, your rigs mined:', style: TextStyle(color: Colors.white70)),
             const SizedBox(height: 20),
             Text(
-              '₿ ${Formatter.formatCurrency(amount)}',
+              Formatter.formatBitcoin(amount),
               style: const TextStyle(
                 fontSize: 32, 
                 fontWeight: FontWeight.bold, 

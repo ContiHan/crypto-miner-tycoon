@@ -20,6 +20,7 @@ class PersistenceService {
     required double blockReward,
     required int blocksMined,
     required int nextHalvingThreshold,
+    required double bitcoinExchangeRate,
   }) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setDouble('wallet', wallet);
@@ -50,6 +51,7 @@ class PersistenceService {
     await prefs.setDouble('blockReward', blockReward);
     await prefs.setInt('blocksMined', blocksMined);
     await prefs.setInt('nextHalvingThreshold', nextHalvingThreshold);
+    await prefs.setDouble('bitcoinExchangeRate', bitcoinExchangeRate);
   }
 
   Future<Map<String, dynamic>> loadGame() async {
@@ -66,6 +68,7 @@ class PersistenceService {
     data['blockReward'] = prefs.getDouble('blockReward') ?? 50.0;
     data['blocksMined'] = prefs.getInt('blocksMined') ?? 0;
     data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ?? 5000;
+    data['bitcoinExchangeRate'] = prefs.getDouble('bitcoinExchangeRate') ?? 1.0;
     data['last_save_time'] = prefs.getInt('last_save_time');
 
     // Perks

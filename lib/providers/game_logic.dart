@@ -1,6 +1,5 @@
 import 'dart:async';
 import 'dart:math';
-import 'dart:convert';
 import 'package:flutter/material.dart';
 
 import '../models/rig.dart';
@@ -37,9 +36,16 @@ class GameLogic with ChangeNotifier {
 
   
   bool soundEnabled = true;
+  bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
 
   Future<void> toggleSound() async {
     soundEnabled = !soundEnabled;
+    await _saveGame();
+    notifyListeners();
+  }
+
+  Future<void> toggleFiatDisplay() async {
+    showFiatPrices = !showFiatPrices;
     await _saveGame();
     notifyListeners();
   }
@@ -54,6 +60,7 @@ class GameLogic with ChangeNotifier {
     govTokens = 0;
     spentGovTokens = 0;
     soundEnabled = true;
+    showFiatPrices = false; // Reset this too
     
     perks.updateAll((key, value) => 0);
     // Reset costs
@@ -75,6 +82,21 @@ class GameLogic with ChangeNotifier {
         node.isUnlocked = node.requirements.isEmpty; // Basic ones unlock
     }
 
+    // Reset Economy 2.0
+    blockReward = 50.0 * 100000000; // 50 BTC in Sats
+    blocksMined = 0;
+    nextHalvingThreshold = 5000;
+    bitcoinExchangeRate = 0.05; // 1 Sat = $0.05? No, 1 BTC = $5M? 
+    // User wants "Early Days" feel.
+    // Real early: 1 BTC = $0.01. => 1 Sat = $0.0000000001
+    // IF we show "$ 0.0000..." it looks bad.
+    // Let's abstract "Fiat" to just "Credits".
+    // Let's start with 1 Sat = $1. Simple. prices are $100.
+    // Then HF -> $1000/Sat.
+    bitcoinExchangeRate = 1.0;
+    
+    // networkDifficulty is calculated dynamically via getter now
+    
     notifyListeners();
   }
 
@@ -175,8 +197,33 @@ class GameLogic with ChangeNotifier {
   double get prestigeMultiplier => _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
 
   // ECONOMY 2.0
-  double networkDifficulty = 100.0;
-  double blockReward = 50.0;
+  // networkDifficulty is dynamic based on Total Mined.
+  // Formula: Base + Linear (Simulated Growth) + Asymptote (Wall)
+  double get networkDifficulty {
+     double totalMined = lifetimeEarnings;
+     if (totalMined >= _maxSupplySats) return double.infinity;
+     
+     // 1. Asymptote (The Wall at 21M)
+     double asymptote = 0.0;
+     if (totalMined > 0) {
+        asymptote = 100.0 / pow(1.0 - (totalMined / _maxSupplySats), 2) - 100.0;
+     }
+
+     // 2. Linear Growth (Simulated Competition)
+     // Adds difficulty based on progress to make early game feel alive.
+     // e.g. every 1000 Sats mined adds +1 difficulty.
+     double linearGrowth = totalMined / 1000.0; 
+     
+     // Base Difficulty 100.0 (User Request)
+     return 100.0 + linearGrowth + asymptote;
+  }
+  
+  // Mining Divisor to balance 50 BTC reward with 100 Difficulty.
+  // 5B Sats / 50M = 100 Sats effective pool.
+  // 1 Hash / 100 Diff * 100 Sats = 1 Sat Income.
+  static const double _miningDivisor = 50000000.0;
+  
+  double blockReward = 50.0 * 100000000; // 50 BTC
   int blocksMined = 0;
   int nextHalvingThreshold = 5000;
   
@@ -299,11 +346,24 @@ class GameLogic with ChangeNotifier {
     return _economy.calculateGlobalHashRate(rigs, perks, isResearched('chip_fab'), _researchHashMultiplier);
   }
 
+  // ECONOMY 2.0 - Exchange Rate Model
+  
+  // Wallet is now in SATOSHIS. 
+  // Max Supply = 21,000,000 BTC * 100,000,000 Sats = 2,100,000,000,000,000 Sats.
+  static const double _maxSupplySats = 2100000000000000;
+  
+  // Exchange Rate: How many "Credits" is 1 Satoshi worth?
+  // Starts at 1.0. Increases with HashRate/Progress.
+  // Rig costs are in Credits.
+  double bitcoinExchangeRate = 1.0; 
+  
+  // Mining Logic
+  // Network Difficulty acts as the "Wall".
+  // As mined supply approaches Max, Difficulty -> Infinity.
   void _mine() {
-    double finalHashRate = globalHashRate; // Uses economy service internally now via getter
-
+    double finalHashRate = globalHashRate; 
     
-    // AI Manager
+    // Auto Clicker
     if (isResearched('ai_manager')) {
        _autoClickCounter++;
        if (_autoClickCounter >= 5) { 
@@ -313,15 +373,39 @@ class GameLogic with ChangeNotifier {
     }
 
     if (finalHashRate > 0) {
-      // Formula: (Hash / Difficulty) * Reward * Prestige * Chaos
-      double income = (finalHashRate / networkDifficulty) * blockReward * prestigeMultiplier * chaosIncomeMultiplier;
+      // Mining Formula:
+      // Reward (Sats) = HashRate / Difficulty * Multipliers
       
-      wallet += income;
-      lifetimeEarnings += income;
+      double difficulty = networkDifficulty;
+      if (difficulty.isInfinite) return;
+
+      double baseReward = finalHashRate / difficulty;
+      // Apply Mining Divisor to balance economy
+      double adjustedReward = blockReward / _miningDivisor;
+      double incomeSats = baseReward * adjustedReward * prestigeMultiplier * chaosIncomeMultiplier;
       
-      networkDifficulty += 0.1;
-      blocksMined++;
+      // Safety cap to strictly never exceed max (though difficulty should prevent this)
+      if (lifetimeEarnings + incomeSats > _maxSupplySats) {
+         incomeSats = _maxSupplySats - lifetimeEarnings;
+      }
       
+      wallet += incomeSats;
+      lifetimeEarnings += incomeSats;
+      
+      // Update Exchange Rate
+      // Rule: Rate grows with HashRate (proxy for technology).
+      // If rig costs 1e50, we need rate to be high.
+      // Let's bind Rate also to Hard Fork bonuses or just current HashRate log?
+      // "Hard Fork Bonus... Multiplikátor kurzu"
+      // Basic dynamic update:
+      // Rate = 1.0 * (1 + totalHashRate / 1000) * (GovBonus)
+      // Actually, let's keep it simple: Rate increases purely by Prestige/Gov Tokens + maybe weak dynamic factor.
+      // IMPLEMENTATION: Rate is mainly static multiplier boost, plus maybe slow drift? 
+      // User said: "Multiplikátor kurzu... Hard Fork... zvyšovat HashRate a Multiplikátor kurzu"
+      // So Exchange Rate is a stored multiplier boosted by Prestige.
+      // Let's update `bitcoinExchangeRate` in `hardFork` and getter.
+      
+      blocksMined++; 
       if (blocksMined >= nextHalvingThreshold) {
         _triggerHalving();
       }
@@ -346,44 +430,60 @@ class GameLogic with ChangeNotifier {
 
   int get pendingGovTokens => _economy.calculatePendingGovTokens(lifetimeEarnings);
 
+  void clickMine() {
+    double clickPower = _economy.calculateClickPower(perks);
+    
+    // Click Value in Sats
+    // Formula: (Power / Difficulty) * Multipliers
+    double difficulty = networkDifficulty;
+    if (difficulty.isInfinite) return;
+
+    double baseReward = clickPower / difficulty;
+    double adjustedReward = blockReward / _miningDivisor;
+    double clickSats = baseReward * adjustedReward * prestigeMultiplier * chaosIncomeMultiplier;
+    
+    if (lifetimeEarnings + clickSats > _maxSupplySats) {
+        clickSats = _maxSupplySats - lifetimeEarnings;
+    }
+    
+    wallet += clickSats;
+    lifetimeEarnings += clickSats;
+    notifyListeners();
+  }
+  
+  // Public getter for UI estimation
+  double get estimatedClickValue {
+     double clickPower = _economy.calculateClickPower(perks);
+     if (networkDifficulty.isInfinite) return 0;
+     double baseReward = clickPower / networkDifficulty;
+     double adjustedReward = blockReward / _miningDivisor;
+     return baseReward * adjustedReward * prestigeMultiplier * chaosIncomeMultiplier;
+  }
+
   void hardFork() {
     int tokensToClaim = pendingGovTokens;
     if (tokensToClaim <= 0) return;
 
     govTokens += tokensToClaim;
-    
+    // Better: Rate *= (1 + tokensToClaim);
+    bitcoinExchangeRate *= (1.0 + tokensToClaim);
+
     // Reset Progress
     wallet = 0;
     lifetimeEarnings = 0;
-    
-    // Reset Economy 2.0 (New Chain)
-    networkDifficulty = 100.0;
-    blockReward = 50.0;
     blocksMined = 0;
-    nextHalvingThreshold = 5000;
     
-    // Note: We do NOT reset perks. They are permanent.
+    // Reset Rigs but keep Perma-Perks
     for (var rig in rigs) {
       rig.amount = 0;
     }
     
-    // Reset Research (Economy 2.0)
     for (var node in researchNodes) {
         node.isCompleted = false;
-        node.isUnlocked = node.requirements.isEmpty; // Basic ones unlock
+        node.isUnlocked = node.requirements.isEmpty; 
     }
      
     _saveGame();
-    
-    notifyListeners();
-  }
-
-  void clickMine() {
-    double clickPower = _economy.calculateClickPower(perks);
-    double clickValue = (clickPower / networkDifficulty) * blockReward * prestigeMultiplier * chaosIncomeMultiplier;
-    
-    wallet += clickValue;
-    lifetimeEarnings += clickValue;
     notifyListeners();
   }
 
@@ -392,20 +492,37 @@ class GameLogic with ChangeNotifier {
     if (index != -1) {
       Rig rig = rigs[index];
       
-      double cost = getRigCost(rig); // Encapsulated logic
+      // Cost in SATOSHIS
+      double costSats = getRigCostInSats(rig);
       
-      if (wallet >= cost) {
-        wallet -= cost;
+      if (wallet >= costSats) {
+        wallet -= costSats;
         rig.amount++;
+        
+        // Slight Rate Boost for economic activity?
+        // bitcoinExchangeRate *= 1.001; 
+        
         notifyListeners();
         _saveGame();
       }
     }
   }
 
-  double getRigCost(Rig rig) {
-    return _economy.calculateRigCost(rig, perks, isResearched('better_cooling'), chaosCostMultiplier);
+
+  // COST LOGIC (Deflationary)
+  // 1. Calculate Credit Cost (Inflating Fiat Value)
+  double getRigCostInCredits(Rig rig) {
+     return _economy.calculateRigCost(rig, perks, isResearched('better_cooling'), chaosCostMultiplier);
   }
+  
+  // 2. Calculate BTC Cost (Deflating Real Cost)
+  // BTC = Credits / Rate
+  double getRigCost(Rig rig) {
+     return getRigCostInCredits(rig) / bitcoinExchangeRate;
+  }
+  
+  // Backward compatibility
+  double getRigCostInSats(Rig rig) => getRigCost(rig);
 
   void buyPerk(String perkId) {
     if (perks.containsKey(perkId) && perkCosts.containsKey(perkId)) {
@@ -447,6 +564,7 @@ class GameLogic with ChangeNotifier {
       blockReward: blockReward,
       blocksMined: blocksMined,
       nextHalvingThreshold: nextHalvingThreshold,
+      bitcoinExchangeRate: bitcoinExchangeRate,
     );
   }
 
@@ -458,11 +576,15 @@ class GameLogic with ChangeNotifier {
     govTokens = data['govTokens'];
     spentGovTokens = data['spentGovTokens'];
     soundEnabled = data['sound_enabled'];
+    showFiatPrices = data['show_fiat_prices'] ?? false;
     
-    networkDifficulty = data['networkDifficulty'];
+    // networkDifficulty is calculated
     blockReward = data['blockReward'];
     blocksMined = data['blocksMined'];
     nextHalvingThreshold = data['nextHalvingThreshold'];
+    // Default to 1.0 (Low start) if missing.
+    bitcoinExchangeRate = data['bitcoinExchangeRate'] ?? 1.0;
+    if (bitcoinExchangeRate <= 0.0) bitcoinExchangeRate = 1.0;
     
     if (data.containsKey('perks')) {
       perks.addAll(data['perks'].cast<String, int>());
@@ -504,7 +626,7 @@ class GameLogic with ChangeNotifier {
       if (diffSeconds > 10) { 
         double totalHashRate = rigs.fold(0, (sum, rig) => sum + rig.totalHashRate);
         if (totalHashRate > 0) {
-           double offline = _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens); // Reuse this for offline calc logic if needed or just use multiplier
+           // double offline = _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens); 
            // Wait, economy service logic for offline earnings wasn't imported yet fully, calculating inline for now but using multiplier from logic
            double mult = prestigeMultiplier;
            double offlineEarnings = diffSeconds * totalHashRate * mult;

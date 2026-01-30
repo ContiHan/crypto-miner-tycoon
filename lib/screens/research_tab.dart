@@ -78,7 +78,7 @@ class ResearchTab extends StatelessWidget {
     final bool isCompleted = node.isCompleted;
 
     return StylizedCard(
-      color: isCompleted ? Colors.green.withOpacity(0.1) : AppTheme.surface,
+      color: isCompleted ? Colors.green.withValues(alpha: 0.1) : AppTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -88,7 +88,7 @@ class ResearchTab extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: isCompleted ? AppTheme.accent.withOpacity(0.2) : Colors.black26,
+                color: isCompleted ? AppTheme.accent.withValues(alpha: 0.2) : Colors.black26,
                 border: Border.all(color: isCompleted ? AppTheme.accent : Colors.grey),
                 borderRadius: BorderRadius.circular(8),
               ),
@@ -137,7 +137,9 @@ class ResearchTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 child: Text(
-                  'BUY\n₿ ${Formatter.formatCurrency(node.cost)}',
+                  game.showFiatPrices 
+                      ? 'BUY\n\$ ${Formatter.formatNumber(node.cost * game.bitcoinExchangeRate)}'
+                      : 'BUY\n${Formatter.formatBitcoin(node.cost)}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                 ),
