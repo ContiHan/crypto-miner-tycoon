@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/game_logic.dart';
@@ -124,6 +125,33 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
     });
   }
 
+  Widget _buildStatItem(String label, String value, Color valueColor) {
+    return Column(
+      children: [
+        Text(
+          label,
+          style: const TextStyle(
+             color: Colors.white38,
+             fontSize: 10,
+             fontWeight: FontWeight.bold,
+             letterSpacing: 1,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          value,
+          style: GoogleFonts.orbitron(
+             color: valueColor,
+             fontSize: 16, // Larger font
+             fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
+    );
+  }
+
+
+
   @override
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
@@ -173,50 +201,51 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                           ],
                         ),
                         // ECONOMY 2.0 STATS
-                        const SizedBox(height: 12),
+                        const SizedBox(height: 16),
                         Container(
-                          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
+                          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
                           decoration: BoxDecoration(
-                            color: Colors.black26, 
-                            borderRadius: BorderRadius.circular(8),
-                            border: Border.all(color: Colors.white12)
+                            color: Colors.black45, 
+                            borderRadius: BorderRadius.circular(12),
+                            border: Border.all(color: Colors.white12, width: 1.5)
                           ),
-                          child: Row(
-                            mainAxisSize: MainAxisSize.min,
+                          child: Column(
                             children: [
-                               Tooltip(
-                                 message: 'Network Difficulty\nHigher = Less BTC per Hash',
-                                 child: Text(
-                                   'DIFF: ${game.networkDifficulty.toStringAsFixed(1)}',
-                                   style: const TextStyle(color: Colors.white54, fontSize: 10, fontFamily: 'Orbitron'),
-                                 ),
-                               ),
-                               const SizedBox(width: 12),
-                               Tooltip(
-                                 message: 'Block Reward\nHalves periodically',
-                                 child: Text(
-                                   'BLOCK: ${game.blockReward.toStringAsFixed(1)} ₿',
-                                   style: const TextStyle(color: Colors.amber, fontSize: 10, fontFamily: 'Orbitron', fontWeight: FontWeight.bold),
-                                 ),
-                               ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                                children: [
+                                   _buildStatItem('DIFFICULTY', game.networkDifficulty.toStringAsFixed(1), Colors.white70),
+                                   Container(width: 1, height: 30, color: Colors.white24),
+                                   _buildStatItem('REWARD', '${game.blockReward.toStringAsFixed(1)} ₿', Colors.amber),
+                                ],
+                              ),
+                              const SizedBox(height: 8),
+                              // Halving Progress
+                              Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  ClipRRect(
+                                    borderRadius: BorderRadius.circular(4),
+                                    child: LinearProgressIndicator(
+                                       value: game.blocksMined / game.nextHalvingThreshold,
+                                       backgroundColor: Colors.black54,
+                                       color: Colors.purpleAccent.withOpacity(0.5),
+                                       minHeight: 14,
+                                    ),
+                                  ),
+                                  Text(
+                                     'HALVING: ${(game.blocksMined / game.nextHalvingThreshold * 100).toStringAsFixed(1)}%',
+                                     style: GoogleFonts.orbitron(
+                                       color: Colors.white, 
+                                       fontSize: 10, 
+                                       fontWeight: FontWeight.bold,
+                                       shadows: [const Shadow(color: Colors.black, blurRadius: 2)]
+                                     ),
+                                  ),
+                                ],
+                              ),
                             ],
                           ),
-                        ),
-                        const SizedBox(height: 4),
-                        // Halving Progress
-                        SizedBox(
-                          width: 150,
-                          child: LinearProgressIndicator(
-                             value: game.blocksMined / game.nextHalvingThreshold,
-                             backgroundColor: Colors.black45,
-                             color: Colors.purpleAccent,
-                             minHeight: 2,
-                          ),
-                        ),
-                        const SizedBox(height: 2),
-                        Text(
-                           'HALVING: ${(game.blocksMined / game.nextHalvingThreshold * 100).toStringAsFixed(1)}%',
-                           style: const TextStyle(color: Colors.purpleAccent, fontSize: 8),
                         ),
                         const SizedBox(height: 10),
                             if (game.govTokens > 0)
@@ -312,7 +341,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                double estimatedValue = (basePower / game.networkDifficulty) * game.blockReward * game.prestigeMultiplier;
 
                                return Text(
-                                 'EST. CLICK: ${Formatter.formatCurrency(estimatedValue)} ₿',
+                                 'EST. CLICK: ${Formatter.formatNumber(estimatedValue)} ₿',
                                  style: const TextStyle(fontSize: 10, color: Colors.black87),
                                );
                             }),

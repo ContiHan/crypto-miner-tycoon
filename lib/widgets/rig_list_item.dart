@@ -43,13 +43,20 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
 
   void _checkAnimation() {
     if (widget.rig.amount > 0) {
-      if (!_controller.isAnimating) {
-        // Speed up progress bar based on amount. 
-        // Example: 1 rig = 2s, 10 rigs = 1s, 50 rigs = 0.5s
-        double speedFactor = 1.0 + (widget.rig.amount * 0.05);
-        if (speedFactor > 5.0) speedFactor = 5.0; // Cap speed
-        
-        _controller.duration = Duration(milliseconds: (2000 / speedFactor).round());
+      // Speed up progress bar based on amount.
+      double speedFactor = 1.0 + (widget.rig.amount * 0.05);
+      if (speedFactor > 5.0) speedFactor = 5.0; // Cap speed
+      
+      final newDuration = Duration(milliseconds: (2000 / speedFactor).round());
+      
+      if (_controller.duration != newDuration) {
+        _controller.duration = newDuration;
+        if (_controller.isAnimating) {
+           _controller.repeat(); // Restart with new duration
+        } else {
+           _controller.repeat();
+        }
+      } else if (!_controller.isAnimating) {
         _controller.repeat();
       }
     } else {
@@ -66,7 +73,8 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-      final canAfford = widget.game.wallet >= widget.rig.currentCost;
+      final double actualCost = widget.game.getRigCost(widget.rig);
+      final canAfford = widget.game.wallet >= actualCost;
       final neonColor = _getRigColor(widget.rig.id);
 
     return StylizedCard(
@@ -103,10 +111,10 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                           fontWeight: FontWeight.bold,
                           fontSize: 14,
                           color: Colors.white,
-                          letterSpacing: 1,
+                          letterSpacing: 0.5,
                         ),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
+                        maxLines: 2,
+                        overflow: TextOverflow.visible,
                       ),
                       const SizedBox(height: 4),
                       Row(
@@ -168,7 +176,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                             style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                           ),
                           Text(
-                            Formatter.formatCurrency(widget.rig.currentCost),
+                            Formatter.formatCurrency(widget.game.getRigCost(widget.rig)),
                             style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
                           ),
                         ],
@@ -217,7 +225,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
       case 'gpu_rig': return Colors.purpleAccent;
       case 'asic_rig': return Colors.lightGreenAccent;
       case 'quantum': return Colors.blueAccent;
-      default: return AppTheme.accent ?? Colors.amber;
+      default: return AppTheme.accent;
     }
   }
 }

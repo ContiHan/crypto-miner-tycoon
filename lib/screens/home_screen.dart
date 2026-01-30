@@ -17,7 +17,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> {
-  int _currentIndex = 4; // Start at Mine (Index 4)
+  int _currentIndex = 3; // Start at Mine (Index 3)
 
   @override
   void initState() {
@@ -57,8 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
       const PerksScreen(isEmbedded: true), // Index 0: PERKS
       const ResearchTab(), // Index 1: LAB
       _buildPlaceholder('SECRET STASH\n(Coming Soon)', Icons.lock), // Index 2: STASH
-      const SizedBox.shrink(), // Index 3: Spacer
-      MiningTab( // Index 4: HACK
+      MiningTab( // Index 3: MINE
         onHardFork: () => _showHardForkDialog(context, Provider.of<GameLogic>(context, listen: false)),
         onBuyRig: (cost) {}, 
       ),
@@ -92,12 +91,9 @@ class _HomeScreenState extends State<HomeScreen> {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-            // Index 3 is empty spacer, ignore click
-            if (index != 3) {
               setState(() {
                 _currentIndex = index;
               });
-            }
           },
           selectedItemColor: AppTheme.accent,
           unselectedItemColor: AppTheme.textSecondary,
@@ -116,13 +112,9 @@ class _HomeScreenState extends State<HomeScreen> {
               icon: Icon(Icons.lock), 
               label: 'STASH'
             ),
-             BottomNavigationBarItem(
-              icon: Icon(Icons.circle, color: Colors.transparent), // Invisible spacer
-              label: ''
-            ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.terminal), 
-              label: 'HACK'
+              icon: Icon(Icons.dashboard), 
+              label: 'MINE'
             ),
           ],
         ),

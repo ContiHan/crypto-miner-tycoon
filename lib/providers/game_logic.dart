@@ -2,15 +2,20 @@ import 'dart:async';
 import 'dart:math';
 import 'dart:convert';
 import 'package:flutter/material.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import '../models/rig.dart';
 import '../models/research_node.dart';
 import '../models/news_event.dart';
+import '../services/persistence_service.dart';
+import '../services/economy_service.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
   double lifetimeEarnings = 0;
   
+  final _persistence = PersistenceService();
+  final _economy = EconomyService();
+
   List<Rig> rigs = [
     Rig(id: 'cpu_rig', name: 'Starter CPU Rig', baseCost: 100, baseHashRate: 1.0),
     Rig(id: 'gpu_rig', name: 'GPU Rack', baseCost: 1500, baseHashRate: 20.0),
@@ -19,6 +24,8 @@ class GameLogic with ChangeNotifier {
   ];
 
   int govTokens = 0;
+  int spentGovTokens = 0; // Track spent tokens
+
   
   // Perks: keys are 'click_power', 'rig_cost', 'hash_bonus'
   Map<String, int> perks = {
@@ -26,6 +33,8 @@ class GameLogic with ChangeNotifier {
     'rig_cost': 0,
     'hash_bonus': 0,
   };
+  
+
   
   bool soundEnabled = true;
 
@@ -37,13 +46,13 @@ class GameLogic with ChangeNotifier {
 
   // Full Reset (Wipe Save)
   Future<void> resetGame() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.clear(); // Wipe disk
+    await _persistence.resetGame();
     
     // Reset Memory
     wallet = 0;
     lifetimeEarnings = 0;
     govTokens = 0;
+    spentGovTokens = 0;
     soundEnabled = true;
     
     perks.updateAll((key, value) => 0);
@@ -161,7 +170,9 @@ class GameLogic with ChangeNotifier {
   }
   
   // 10% bonus per token
-  double get prestigeMultiplier => 1.0 + (govTokens * 0.10);
+  // 10% bonus per token (Held + Spent)
+  // 10% bonus per token (Held + Spent)
+  double get prestigeMultiplier => _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
 
   // ECONOMY 2.0
   double networkDifficulty = 100.0;
@@ -176,6 +187,13 @@ class GameLogic with ChangeNotifier {
   Timer? _gameTimer;
   Timer? _chaosTimer;
   NewsEvent? currentNews;
+
+  @override
+  void dispose() {
+    _gameTimer?.cancel();
+    _chaosTimer?.cancel();
+    super.dispose();
+  }
 
   GameLogic() {
     loadGame().then((_) {
@@ -278,32 +296,14 @@ class GameLogic with ChangeNotifier {
   }
 
   double get globalHashRate {
-    double total = 0;
-    
-    // Calculate per-rig hashrate with research bonuses
-    for (var rig in rigs) {
-      double rigRate = rig.totalHashRate;
-      
-      // Chip Fab bonus for CPU/GPU
-      if (isResearched('chip_fab') && (rig.id == 'cpu_rig' || rig.id == 'gpu_rig')) {
-        rigRate *= 1.20; 
-      }
-      
-      total += rigRate;
-    }
-    
-    // Global multiplier
-    total *= _researchHashMultiplier;
-    
-    // Apply 'hash_bonus' perk (10% per level)
-    double perkMultiplier = 1.0 + (perks['hash_bonus']! * 0.10);
-    return total * perkMultiplier;
+    return _economy.calculateGlobalHashRate(rigs, perks, isResearched('chip_fab'), _researchHashMultiplier);
   }
 
   void _mine() {
-    double finalHashRate = globalHashRate;
+    double finalHashRate = globalHashRate; // Uses economy service internally now via getter
+
     
-    // AI Manager Auto-Click logic
+    // AI Manager
     if (isResearched('ai_manager')) {
        _autoClickCounter++;
        if (_autoClickCounter >= 5) { 
@@ -319,17 +319,12 @@ class GameLogic with ChangeNotifier {
       wallet += income;
       lifetimeEarnings += income;
       
-      // Update Difficulty (Linear growth: +0.05 per tick + 10% of player hash growth?)
-      // Simple: 0.1 per second
       networkDifficulty += 0.1;
-
-      // Track Halving Progress
       blocksMined++;
       
       if (blocksMined >= nextHalvingThreshold) {
         _triggerHalving();
       }
-      
       notifyListeners();
     }
   }
@@ -348,13 +343,8 @@ class GameLogic with ChangeNotifier {
     );
     notifyListeners();
   }
-  
-  // Calculate tokens available to claim based on run earnings
-  int get pendingGovTokens {
-    if (lifetimeEarnings < 10000) return 0;
-    // Formula: Sqrt(Earnings / 10000) - adjusted for 10x economy scale
-    return (sqrt(lifetimeEarnings / 10000).floor());
-  }
+
+  int get pendingGovTokens => _economy.calculatePendingGovTokens(lifetimeEarnings);
 
   void hardFork() {
     int tokensToClaim = pendingGovTokens;
@@ -389,11 +379,7 @@ class GameLogic with ChangeNotifier {
   }
 
   void clickMine() {
-    // Base 5 + (2 * level) - Clicking should feel impactful
-    double clickPower = (5.0 + (perks['click_power']! * 2));
-    
-    // Formula: (ClickPower / Difficulty) * Reward * Prestige * Chaos
-    // Note: Chaos applies to clicking too!
+    double clickPower = _economy.calculateClickPower(perks);
     double clickValue = (clickPower / networkDifficulty) * blockReward * prestigeMultiplier * chaosIncomeMultiplier;
     
     wallet += clickValue;
@@ -416,29 +402,24 @@ class GameLogic with ChangeNotifier {
       }
     }
   }
-  
+
   double getRigCost(Rig rig) {
-    double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
-    if (discountFactor < 0.1) discountFactor = 0.1; 
-    
-    // Research Discount
-    if (isResearched('better_cooling')) {
-      discountFactor -= 0.10; // Extra 10%
-    }
-    
-    double cost = rig.currentCost * discountFactor;
-    
-    // Chaos Cost Multiplier (e.g. Cheap Energy)
-    cost *= chaosCostMultiplier;
-    
-    return cost;
+    return _economy.calculateRigCost(rig, perks, isResearched('better_cooling'), chaosCostMultiplier);
   }
 
   void buyPerk(String perkId) {
     if (perks.containsKey(perkId) && perkCosts.containsKey(perkId)) {
       int cost = perkCosts[perkId]!;
+
+      
+      // Check Max Level for Rig Cost
+      if (perkId == 'rig_cost' && (perks[perkId] ?? 0) >= 18) {
+         return; // Maxed out (90%)
+      }
+
       if (govTokens >= cost) {
         govTokens -= cost;
+        spentGovTokens += cost;
         perks[perkId] = perks[perkId]! + 1;
         
         // Increase cost by +5 tokens per level
@@ -452,82 +433,60 @@ class GameLogic with ChangeNotifier {
 
   // PERSISTENCE
   Future<void> _saveGame() async {
-    final prefs = await SharedPreferences.getInstance();
-    await prefs.setDouble('wallet', wallet);
-    await prefs.setDouble('lifetimeEarnings', lifetimeEarnings);
-    await prefs.setInt('govTokens', govTokens);
-    
-    // Save Perks
-    await prefs.setString('perks', jsonEncode(perks));
-    await prefs.setString('perkCosts', jsonEncode(perkCosts));
-    
-    // Serialize Rigs
-    final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
-    await prefs.setString('rigs', rigsJson);
-    
-    // Serialize Research
-    final researchJson = jsonEncode(researchNodes.map((r) => r.toJson()).toList());
-    await prefs.setString('research', researchJson);
-    
-    // Save Timestamp
-    await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
-    
-    // Save Settings
-    await prefs.setBool('sound_enabled', soundEnabled);
-    
-    // Save Economy 2.0
-    await prefs.setDouble('networkDifficulty', networkDifficulty);
-    await prefs.setDouble('blockReward', blockReward);
-    await prefs.setInt('blocksMined', blocksMined);
-    await prefs.setInt('nextHalvingThreshold', nextHalvingThreshold);
+    await _persistence.saveGame(
+      wallet: wallet,
+      lifetimeEarnings: lifetimeEarnings,
+      govTokens: govTokens,
+      spentGovTokens: spentGovTokens,
+      perks: perks,
+      perkCosts: perkCosts,
+      rigs: rigs,
+      researchNodes: researchNodes,
+      soundEnabled: soundEnabled,
+      networkDifficulty: networkDifficulty,
+      blockReward: blockReward,
+      blocksMined: blocksMined,
+      nextHalvingThreshold: nextHalvingThreshold,
+    );
   }
 
   Future<void> loadGame() async {
-    final prefs = await SharedPreferences.getInstance();
-    wallet = prefs.getDouble('wallet') ?? 0;
-    lifetimeEarnings = prefs.getDouble('lifetimeEarnings') ?? 0;
-    govTokens = prefs.getInt('govTokens') ?? 0;
-    soundEnabled = prefs.getBool('sound_enabled') ?? true;
+    final data = await _persistence.loadGame();
     
-    networkDifficulty = prefs.getDouble('networkDifficulty') ?? 100.0;
-    blockReward = prefs.getDouble('blockReward') ?? 50.0;
-    blocksMined = prefs.getInt('blocksMined') ?? 0;
-    nextHalvingThreshold = prefs.getInt('nextHalvingThreshold') ?? 5000;
+    wallet = data['wallet'];
+    lifetimeEarnings = data['lifetimeEarnings'];
+    govTokens = data['govTokens'];
+    spentGovTokens = data['spentGovTokens'];
+    soundEnabled = data['sound_enabled'];
     
-    // Load Perks
-    if (prefs.containsKey('perks')) {
-      Map<String, dynamic> loadedPerks = jsonDecode(prefs.getString('perks')!);
-      perks.addAll(loadedPerks.map((k, v) => MapEntry(k, v as int)));
+    networkDifficulty = data['networkDifficulty'];
+    blockReward = data['blockReward'];
+    blocksMined = data['blocksMined'];
+    nextHalvingThreshold = data['nextHalvingThreshold'];
+    
+    if (data.containsKey('perks')) {
+      perks.addAll(data['perks'].cast<String, int>());
     }
-    if (prefs.containsKey('perkCosts')) {
-      Map<String, dynamic> loadedCosts = jsonDecode(prefs.getString('perkCosts')!);
-      perkCosts.addAll(loadedCosts.map((k, v) => MapEntry(k, v as int)));
+    if (data.containsKey('perkCosts')) {
+      perkCosts.addAll(data['perkCosts'].cast<String, int>());
     }
 
-    final rigsString = prefs.getString('rigs');
-    if (rigsString != null) {
-      final List<dynamic> decoded = jsonDecode(rigsString);
+    if (data.containsKey('rigs')) {
+      final List<dynamic> decoded = data['rigs'];
       for (var jsonItem in decoded) {
         final id = jsonItem['id'];
         final amount = jsonItem['amount'];
-        
-        // Update local rig list
         final index = rigs.indexWhere((r) => r.id == id);
-        if (index != -1) {
-          rigs[index].amount = amount;
-        }
+        if (index != -1) rigs[index].amount = amount;
       }
     }
     
-    // Load Research
-    final researchString = prefs.getString('research');
-    if (researchString != null) {
-      final List<dynamic> decoded = jsonDecode(researchString);
+    if (data.containsKey('research')) {
+      final List<dynamic> decoded = data['research'];
       for (var jsonItem in decoded) {
         final id = jsonItem['id'];
         final isUnlocked = jsonItem['isUnlocked'];
         final isCompleted = jsonItem['isCompleted'];
-        
         final index = researchNodes.indexWhere((r) => r.id == id);
         if (index != -1) {
           researchNodes[index].isUnlocked = isUnlocked;
@@ -535,30 +494,37 @@ class GameLogic with ChangeNotifier {
         }
       }
     }
-    
-    // Offline Earnings Logic
-    final lastSaveTime = prefs.getInt('last_save_time');
+
+    // Offline Earnings
+    final lastSaveTime = data['last_save_time'];
     if (lastSaveTime != null) {
       final now = DateTime.now().millisecondsSinceEpoch;
       final diffSeconds = (now - lastSaveTime) ~/ 1000;
       
-      if (diffSeconds > 10) { // Only count if away for more than 10 seconds
+      if (diffSeconds > 10) { 
         double totalHashRate = rigs.fold(0, (sum, rig) => sum + rig.totalHashRate);
         if (totalHashRate > 0) {
-           double offlineEarnings = diffSeconds * totalHashRate * prestigeMultiplier;
+           double offline = _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens); // Reuse this for offline calc logic if needed or just use multiplier
+           // Wait, economy service logic for offline earnings wasn't imported yet fully, calculating inline for now but using multiplier from logic
+           double mult = prestigeMultiplier;
+           double offlineEarnings = diffSeconds * totalHashRate * mult;
+           
            wallet += offlineEarnings;
            lifetimeEarnings += offlineEarnings;
-           debugPrint('Offline for $diffSeconds s. Earned $offlineEarnings');
-           // Note: We might want to expose this to UI to show a dialog
            offlineEarningsAmount = offlineEarnings;
         }
       }
     }
     
+    // Migration
+    if (spentGovTokens == 0 && perks.values.any((v) => v > 0)) {
+       spentGovTokens = _economy.recalculateSpentTokens(perks);
+       _saveGame();
+    }
+    
     notifyListeners();
   }
-  
-  // Temporary storage for UI dialog
+
   double? offlineEarningsAmount;
   
   void clearOfflineEarnings() {

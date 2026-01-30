@@ -137,7 +137,7 @@ class ResearchTab extends StatelessWidget {
                   padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
                 ),
                 child: Text(
-                  'RESEARCH\n₿ ${Formatter.formatCurrency(node.cost)}',
+                  'BUY\n₿ ${Formatter.formatCurrency(node.cost)}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
                 ),

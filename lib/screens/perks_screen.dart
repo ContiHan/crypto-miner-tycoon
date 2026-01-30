@@ -94,7 +94,23 @@ class PerksScreen extends StatelessWidget {
   }) {
     final level = game.perks[id] ?? 0;
     final cost = game.perkCosts[id] ?? 999;
-    final canAfford = game.govTokens >= cost;
+    
+    bool isMaxed = false;
+    if (id == 'rig_cost' && level >= 18) isMaxed = true;
+    
+    final canAfford = !isMaxed && game.govTokens >= cost;
+    
+    // Calculate current bonus string
+    String bonusText = '';
+    if (id == 'click_power') {
+      bonusText = '+${level * 2} Click Power';
+    } else if (id == 'rig_cost') {
+      int discount = level * 5;
+      if (discount > 90) discount = 90;
+      bonusText = '-$discount% Rig Cost';
+    } else if (id == 'hash_bonus') {
+      bonusText = '+${level * 10}% Hash Rate';
+    }
 
     return StylizedCard(
       child: Padding(
@@ -119,21 +135,23 @@ class PerksScreen extends StatelessWidget {
                   Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
                   Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 12)),
                   const SizedBox(height: 5),
-                  Text('Lvl $level', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                  Text('Level $level', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                  Text(bonusText, style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
             ElevatedButton(
               onPressed: canAfford ? () => game.buyPerk(id) : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: canAfford ? AppTheme.accent : Colors.grey[800],
+                backgroundColor: isMaxed ? Colors.grey : (canAfford ? AppTheme.accent : Colors.grey[800]),
                 foregroundColor: Colors.black,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  const Text('BUY', style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
-                  Text(Formatter.formatNumber(cost.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                  Text(isMaxed ? 'MAX' : 'BUY', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  if (!isMaxed)
+                    Text(Formatter.formatNumber(cost.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
