@@ -167,7 +167,11 @@ class GameLogic with ChangeNotifier {
   double networkDifficulty = 100.0;
   double blockReward = 50.0;
   int blocksMined = 0;
-  int nextHalvingThreshold = 5000; // Halve every 5000 'blocks' (ticks)
+  int nextHalvingThreshold = 5000;
+  
+  // Chaos Logic
+  double chaosIncomeMultiplier = 1.0;
+  double chaosCostMultiplier = 1.0;
 
   Timer? _gameTimer;
   Timer? _chaosTimer;
@@ -193,10 +197,12 @@ class GameLogic with ChangeNotifier {
   }
   
   void _startChaosTimer() {
-    // Random event every 60-180 seconds? 
-    // For testing, let's say every 30s check with 50% chance
-    _chaosTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
-      if (Random().nextBool()) {
+    // Random event check.
+    // 10% chance every 30 seconds? 
+    // Or Guaranteed every X minutes?
+    // Let's go with: Check every 10s, 5% chance. (= approx 1 event every 3.3 mins avg)
+    _chaosTimer = Timer.periodic(const Duration(seconds: 10), (timer) {
+      if (Random().nextDouble() < 0.05) {
         _triggerRandomEvent();
       }
     });
@@ -206,31 +212,47 @@ class GameLogic with ChangeNotifier {
     final random = Random();
     final type = EventType.values[random.nextInt(EventType.values.length)];
     
+    // Reset multipliers/temporary effects before applying new ones?
+    // Or allow stacking? For simplicity: Reset first.
+    chaosIncomeMultiplier = 1.0;
+    chaosCostMultiplier = 1.0;
+    
     String message = '';
     double value = 0;
+    int duration = 30; // Default duration
+    Color color = Colors.white;
     
     switch(type) {
       case EventType.info:
-         message = "BREAKING: Bitcoin adoption hits 90% globally!";
+         message = "Bitcoin adoption hits 90% globally!";
+         color = Colors.blueAccent;
          break;
       case EventType.marketCrash:
-         message = "FUD ALERT: Major country bans crypto mining.";
-         value = 0.5; // -50% H/s (Not implemented yet)
+         message = "MARKET CRASH: Panic sellers flooding the market.";
+         chaosIncomeMultiplier = 0.5; // -50% Income
+         value = -50;
+         color = Colors.redAccent;
          break;
       case EventType.bullRun:
-         message = "MOON: BTC ETF Approved by SEC!";
-         value = 2.0; // +100% income (Not yet implemented)
+         message = "BULL RUN: Institutional investors entering!";
+         chaosIncomeMultiplier = 2.0; // +100% Income
+         value = 100;
+         color = Colors.greenAccent;
          break;
       case EventType.hack:
          message = "SECURITY BREACH: Hot wallet compromised!";
-         // Lose 5%
-         double loss = wallet * 0.05;
+         // Immediate loss
+         double loss = wallet * 0.15; // 15% Loss
          wallet -= loss;
-         value = loss;
+         value = -loss;
+         color = Colors.red;
+         duration = 10; // Show for shorter time
          break;
       case EventType.cheapEnergy:
          message = "Surplus Energy: Electricity costs drop significantly.";
-         // Discount rigs?
+         chaosCostMultiplier = 0.7; // 30% Discount
+         value = -30;
+         color = Colors.cyanAccent;
          break;
     }
     
@@ -238,14 +260,20 @@ class GameLogic with ChangeNotifier {
       message: message, 
       type: type, 
       value: value, 
-      durationSeconds: 10
+      durationSeconds: duration,
+      color: color,
     );
     notifyListeners();
     
-    // Clear news after duration
-    Future.delayed(Duration(seconds: currentNews!.durationSeconds), () {
-      currentNews = null;
-      notifyListeners();
+    // Clear news and effects after duration
+    Future.delayed(Duration(seconds: duration), () {
+      // Only clear if it's still the same event (simple check)
+      if (currentNews?.message == message) {
+        currentNews = null;
+        chaosIncomeMultiplier = 1.0;
+        chaosCostMultiplier = 1.0;
+        notifyListeners();
+      }
     });
   }
 
@@ -285,8 +313,8 @@ class GameLogic with ChangeNotifier {
     }
 
     if (finalHashRate > 0) {
-      // Formula: (Hash / Difficulty) * Reward * Prestige
-      double income = (finalHashRate / networkDifficulty) * blockReward * prestigeMultiplier;
+      // Formula: (Hash / Difficulty) * Reward * Prestige * Chaos
+      double income = (finalHashRate / networkDifficulty) * blockReward * prestigeMultiplier * chaosIncomeMultiplier;
       
       wallet += income;
       lifetimeEarnings += income;
@@ -296,8 +324,6 @@ class GameLogic with ChangeNotifier {
       networkDifficulty += 0.1;
 
       // Track Halving Progress
-      // Conceptually, every tick with positive hash "mines" a fraction of a block?
-      // Or simplify: 1 Tick = 1 "Block Attempt".
       blocksMined++;
       
       if (blocksMined >= nextHalvingThreshold) {
@@ -310,13 +336,15 @@ class GameLogic with ChangeNotifier {
 
   void _triggerHalving() {
     blockReward /= 2;
-    nextHalvingThreshold += 10000; // Next halving takes longer? Or constant?
+    nextHalvingThreshold += 10000; 
     
     // Announce Halving
     currentNews = NewsEvent(
       message: "BITCOIN HALVING: Block Reward Cut in Half!", 
       type: EventType.info,
-      durationSeconds: 15
+      durationSeconds: 15,
+      color: Colors.purpleAccent,
+      value: -50
     );
     notifyListeners();
   }
@@ -364,8 +392,9 @@ class GameLogic with ChangeNotifier {
     // Base 5 + (2 * level) - Clicking should feel impactful
     double clickPower = (5.0 + (perks['click_power']! * 2));
     
-    // Formula: (ClickPower / Difficulty) * Reward * Prestige
-    double clickValue = (clickPower / networkDifficulty) * blockReward * prestigeMultiplier;
+    // Formula: (ClickPower / Difficulty) * Reward * Prestige * Chaos
+    // Note: Chaos applies to clicking too!
+    double clickValue = (clickPower / networkDifficulty) * blockReward * prestigeMultiplier * chaosIncomeMultiplier;
     
     wallet += clickValue;
     lifetimeEarnings += clickValue;
@@ -377,14 +406,10 @@ class GameLogic with ChangeNotifier {
     if (index != -1) {
       Rig rig = rigs[index];
       
-      // Calculate discounted cost
-      double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
-      if (discountFactor < 0.1) discountFactor = 0.1; // Cap at 90% discount
+      double cost = getRigCost(rig); // Encapsulated logic
       
-      double finalCost = rig.currentCost * discountFactor;
-      
-      if (wallet >= finalCost) {
-        wallet -= finalCost;
+      if (wallet >= cost) {
+        wallet -= cost;
         rig.amount++;
         notifyListeners();
         _saveGame();
@@ -396,12 +421,15 @@ class GameLogic with ChangeNotifier {
     double discountFactor = 1.0 - (perks['rig_cost']! * 0.05);
     if (discountFactor < 0.1) discountFactor = 0.1; 
     
-    double cost = rig.currentCost * discountFactor;
-    
     // Research Discount
     if (isResearched('better_cooling')) {
-      cost *= 0.90;
+      discountFactor -= 0.10; // Extra 10%
     }
+    
+    double cost = rig.currentCost * discountFactor;
+    
+    // Chaos Cost Multiplier (e.g. Cheap Energy)
+    cost *= chaosCostMultiplier;
     
     return cost;
   }

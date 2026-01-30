@@ -13,24 +13,13 @@ class NewsEvent {
   final EventType type;
   final double value; // Multiplier or amount depending on type
   final int durationSeconds;
+  final Color color;
 
   const NewsEvent({
     required this.message,
     required this.type,
     this.value = 0,
     this.durationSeconds = 10,
+    this.color = Colors.white,
   });
-  
-  Color get color {
-     switch(type) {
-       case EventType.marketCrash:
-       case EventType.hack:
-        return Colors.redAccent;
-       case EventType.bullRun:
-       case EventType.cheapEnergy:
-        return Colors.greenAccent;
-       default:
-        return Colors.white;
-     }
-  }
 }

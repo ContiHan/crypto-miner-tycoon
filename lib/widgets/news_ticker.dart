@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/scheduler.dart';
 import 'package:provider/provider.dart';
+import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_logic.dart';
-import '../theme/app_theme.dart';
 import '../models/news_event.dart';
 
 class NewsTicker extends StatelessWidget {
@@ -11,38 +12,158 @@ class NewsTicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
       builder: (context, game, child) {
-        if (game.currentNews == null) return const SizedBox.shrink();
+        
+        final NewsEvent? news = game.currentNews;
+        
+        // Determine Content
+        String text;
+        Color color;
+        Color bgColor;
+        Key key; // Key for AnimatedSwitcher
+        
+        if (news != null) {
+          text = "BREAKING: ${news.message}"; 
+          if (news.value != 0) {
+             String impact = news.value > 0 ? "+${news.value}" : "${news.value}";
+             text += " (IMPACT: $impact)";
+          }
+          color = news.color;
+          bgColor = news.color.withValues(alpha: 0.2);
+          key = ValueKey('news_${news.hashCode}');
+        } else {
+          // Idle State
+          text = "MARKET STABLE   ///   BTC PRICE: STABLE   ///   NETWORK DIFFICULTY: ${game.networkDifficulty.toStringAsFixed(1)}   ///   BLOCK REWARD: ${game.blockReward.toStringAsFixed(1)}   ///   NO THREATS DETECTED   ///   ";
+          color = Colors.white54;
+          bgColor = Colors.black45;
+          key = const ValueKey('idle');
+        }
+        
+        // Define Style with Glow
+        final textStyle = GoogleFonts.dotGothic16(
+           color: color,
+           fontSize: 14, // Slightly larger for readability
+           fontWeight: FontWeight.bold,
+           shadows: [
+             Shadow(
+               color: color.withValues(alpha: 0.6), // Was 0.8
+               blurRadius: 4, // Was 8
+             ),
+             Shadow(
+               color: color.withValues(alpha: 0.2), // Was 0.4
+               blurRadius: 8, // Was 15
+             ),
+           ]
+        );
 
-        final news = game.currentNews!;
-
-        return Container(
+        return AnimatedContainer(
+          duration: const Duration(milliseconds: 500),
           width: double.infinity,
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+          height: 36, // Increased height for font/glow
           decoration: BoxDecoration(
-            color: news.color.withValues(alpha: 0.2),
-            border: Border(bottom: BorderSide(color: news.color, width: 2)),
+            color: bgColor,
+            border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.5), width: 1)),
           ),
-          child: Row(
-            children: [
-               Icon(Icons.campaign, color: news.color),
-               const SizedBox(width: 8),
-               Expanded(
-                 child: Text(
-                   news.message.toUpperCase(),
-                   style: TextStyle(
-                     color: news.color,
-                     fontWeight: FontWeight.bold,
-                     fontFamily: 'Orbitron',
-                     fontSize: 12,
-                   ),
-                   overflow: TextOverflow.ellipsis,
-                 ),
-               ),
-            ],
+          child: ClipRect(
+            child: AnimatedSwitcher(
+              duration: const Duration(milliseconds: 500),
+              transitionBuilder: (child, animation) {
+                return FadeTransition(opacity: animation, child: child);
+              },
+              child: _ScrollingText(
+                key: key, 
+                text: text, 
+                style: textStyle,
+                speed: news != null ? 80.0 : 40.0, 
+              ),
+            ),
           ),
         );
       },
-      child: const SizedBox.shrink(),
+    );
+  }
+}
+
+class _ScrollingText extends StatefulWidget {
+  final String text;
+  final TextStyle style;
+  final double speed; 
+
+  const _ScrollingText({
+    super.key,
+    required this.text, 
+    required this.style, 
+    this.speed = 30.0
+  });
+
+  @override
+  State<_ScrollingText> createState() => _ScrollingTextState();
+}
+
+class _ScrollingTextState extends State<_ScrollingText> with SingleTickerProviderStateMixin {
+  late Ticker _ticker;
+  double _offset = 0.0;
+  double _textWidth = 0.0;
+  double _widgetWidth = 0.0;
+  
+  Duration _lastTime = Duration.zero;
+
+  @override
+  void initState() {
+    super.initState();
+    _ticker = createTicker(_tick)..start();
+  }
+  
+  void _tick(Duration elapsed) {
+     if (!mounted) return;
+     
+     double dt = (elapsed - _lastTime).inMicroseconds / 1000000.0;
+     _lastTime = elapsed;
+     
+     if (dt > 0.1) dt = 0.016; 
+
+     setState(() {
+       _offset -= widget.speed * dt;
+       
+       if (_offset < -_textWidth) {
+         _offset = _widgetWidth;
+       }
+     });
+  }
+
+  @override
+  void dispose() {
+    _ticker.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        _widgetWidth = constraints.maxWidth;
+        
+        final textPainter = TextPainter(
+          text: TextSpan(text: widget.text, style: widget.style),
+          textDirection: TextDirection.ltr,
+          maxLines: 1,
+        )..layout();
+        
+        _textWidth = textPainter.width;
+        
+        if (_offset == 0.0 && _lastTime == Duration.zero) {
+             _offset = _widgetWidth;
+        }
+
+        return Stack(
+          children: [
+            Positioned(
+              left: _offset,
+              top: (constraints.maxHeight - textPainter.height) / 2,
+              child: Text(widget.text, style: widget.style),
+            ),
+          ],
+        );
+      },
     );
   }
 }

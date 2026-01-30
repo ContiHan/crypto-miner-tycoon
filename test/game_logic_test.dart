@@ -1,6 +1,8 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+import 'package:crypto_miner_tycoon/models/rig.dart';
 
 void main() {
   group('GameLogic Tests', () {
@@ -157,9 +159,35 @@ void main() {
        // Actually `clickMine` is public. But `_mine` runs on timer.
     });
     
-    test('Halving Logic (Unit logic check via exposure if needed)', () {
-       // Since _mine is private, we can't easily unit test the cycle without refactoring.
-       // Skipping strictly coupled test for now to avoid breaking encapsulation unnecessarily.
+    test('Chaos Multipliers affect Income and Cost', () {
+      game.wallet = 10000;
+      game.networkDifficulty = 100.0;
+      game.blockReward = 50.0;
+      game.perks['click_power'] = 0;
+      
+      // Base Click = (5 / 100) * 50 = 2.5
+      
+      // 1. Test Bull Run (+100% Income)
+      game.chaosIncomeMultiplier = 2.0;
+      
+      double walletBefore = game.wallet;
+      game.clickMine();
+      // Should add 5.0
+      expect(game.wallet - walletBefore, closeTo(5.0, 0.1));
+      
+      // 2. Test Market Crash (-50% Income)
+      game.chaosIncomeMultiplier = 0.5;
+       walletBefore = game.wallet;
+      game.clickMine();
+      // Should add 1.25
+      expect(game.wallet - walletBefore, closeTo(1.25, 0.1));
+      
+      // 3. Test Cheap Energy (Cost Discount)
+      game.chaosCostMultiplier = 0.7; // 30% off
+      // Base Cost of CPU rig is 100
+      
+      Rig cpu = game.rigs.firstWhere((r) => r.id == 'cpu_rig');
+      expect(game.getRigCost(cpu), 70.0);
     });
   });
 }
