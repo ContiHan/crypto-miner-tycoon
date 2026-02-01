@@ -26,5 +26,6 @@ border a jak se zaplní, tak se to nakoupí, aby se dalo rozlišit mezi tapem = 
 
 # New Feature
 
-* Achievements / Milestones
+* achievements / milestones
   * One-time rewards for achieving goals (e.g. 1000 ASICs = 50 Chips).
+* notifikace do mobilu
