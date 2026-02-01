@@ -2,6 +2,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+import 'package:crypto_miner_tycoon/services/stash_service.dart';
 
 void main() {
   group('Stash System Tests', () {
