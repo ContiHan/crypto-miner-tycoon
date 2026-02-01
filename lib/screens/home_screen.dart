@@ -7,6 +7,7 @@ import 'perks_screen.dart';
 import 'research_tab.dart';
 import 'mining_tab.dart';
 import 'settings_screen.dart';
+import 'stash_screen.dart'; 
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -56,7 +57,7 @@ class _HomeScreenState extends State<HomeScreen> {
     final List<Widget> pages = [
       const PerksScreen(isEmbedded: true), // Index 0: PERKS
       const ResearchTab(), // Index 1: LAB
-      _buildPlaceholder('SECRET STASH\n(Coming Soon)', Icons.lock), // Index 2: STASH
+      const StashScreen(), // Index 2: STASH
       MiningTab( // Index 3: MINE
         onHardFork: () => _showHardForkDialog(context, Provider.of<GameLogic>(context, listen: false)),
         onBuyRig: (cost) {}, 
@@ -109,7 +110,7 @@ class _HomeScreenState extends State<HomeScreen> {
               label: 'LAB'
             ),
             BottomNavigationBarItem(
-              icon: Icon(Icons.lock), 
+              icon: Icon(Icons.inventory_2), 
               label: 'STASH'
             ),
             BottomNavigationBarItem(
@@ -122,19 +123,6 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
   
-  Widget _buildPlaceholder(String text, IconData icon) {
-    return Center(
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 80, color: Colors.white12),
-          const SizedBox(height: 20),
-          Text(text, textAlign: TextAlign.center, style: const TextStyle(color: Colors.white54)),
-        ],
-      ),
-    );
-  }
-
   void _showHardForkDialog(BuildContext context, GameLogic game) {
     showDialog(
       context: context,

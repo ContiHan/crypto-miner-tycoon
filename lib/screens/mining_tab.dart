@@ -363,7 +363,33 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
               ],
             ),
             ..._floatingTexts,
-            // FAB Removed
+            
+            // Anomaly Widget
+            if (game.isAnomalyActive)
+               Positioned(
+                 left: game.anomalyPosition.dx,
+                 top: game.anomalyPosition.dy,
+                 child: GestureDetector(
+                   onTap: () {
+                     game.clickAnomaly();
+                     spawnBinaryExplosion(game.anomalyPosition); // Reuse visuals
+                     addFloatingText('+1 CHIP', game.anomalyPosition);
+                   },
+                   child: AnimatedContainer(
+                     duration: const Duration(milliseconds: 300),
+                     width: 50,
+                     height: 50,
+                     decoration: const BoxDecoration(
+                       shape: BoxShape.circle,
+                       color: Colors.redAccent,
+                       boxShadow: [
+                         BoxShadow(color: Colors.red, blurRadius: 10, spreadRadius: 2)
+                       ]
+                     ),
+                     child: const Icon(Icons.bug_report, color: Colors.white, size: 30),
+                   ),
+                 ),
+               ),
           ],
         );
       },

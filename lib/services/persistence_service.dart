@@ -1,4 +1,3 @@
-
 import 'dart:convert';
 import 'package:shared_preferences/shared_preferences.dart';
 import '../models/rig.dart';
@@ -21,12 +20,16 @@ class PersistenceService {
     required int blocksMined,
     required int nextHalvingThreshold,
     required double bitcoinExchangeRate,
+    int chips = 0,
+    Map<String, dynamic>? stash,
   }) async {
     final prefs = await SharedPreferences.getInstance();
+
     await prefs.setDouble('wallet', wallet);
     await prefs.setDouble('lifetimeEarnings', lifetimeEarnings);
     await prefs.setInt('govTokens', govTokens);
     await prefs.setInt('spentGovTokens', spentGovTokens);
+    await prefs.setInt('chips', chips); 
     
     // Save Perks
     await prefs.setString('perks', jsonEncode(perks));
@@ -40,6 +43,11 @@ class PersistenceService {
     final researchJson = jsonEncode(researchNodes.map((r) => r.toJson()).toList());
     await prefs.setString('research', researchJson);
     
+    // Save Stash
+    if (stash != null) {
+      await prefs.setString('stash', jsonEncode(stash));
+    }
+
     // Save Timestamp
     await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
     
@@ -70,6 +78,11 @@ class PersistenceService {
     data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ?? 5000;
     data['bitcoinExchangeRate'] = prefs.getDouble('bitcoinExchangeRate') ?? 1.0;
     data['last_save_time'] = prefs.getInt('last_save_time');
+    
+    data['chips'] = prefs.getInt('chips') ?? 0;
+    if (prefs.containsKey('stash')) {
+      data['stash'] = jsonDecode(prefs.getString('stash')!);
+    }
 
     // Perks
     if (prefs.containsKey('perks')) {

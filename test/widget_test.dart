@@ -15,7 +15,7 @@ void main() {
   testWidgets('NewsTicker shows Idle text by default', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(),
+        create: (_) => GameLogic(startTimers: false),
         child: const MaterialApp(
           home: Scaffold(body: NewsTicker()),
         ),
@@ -31,7 +31,7 @@ void main() {
   testWidgets('MiningTab shows Economy stats', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(),
+        create: (_) => GameLogic(startTimers: false),
         child: MaterialApp(
           home: Scaffold(
             body: MiningTab(
@@ -45,22 +45,22 @@ void main() {
 
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.textContaining('DIFF:'), findsOneWidget);
-    expect(find.textContaining('BLOCK:'), findsOneWidget);
-    expect(find.textContaining('HALVING:'), findsOneWidget);
+    expect(find.textContaining('DIFFICULTY'), findsOneWidget);
+    expect(find.textContaining('REWARD'), findsOneWidget);
+    expect(find.textContaining('HALVING'), findsOneWidget);
   });
   
   testWidgets('HomeScreen navigation works', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(),
+        create: (_) => GameLogic(startTimers: false),
         child: const MaterialApp(
           home: HomeScreen(),
         ),
       ),
     );
     
-    await tester.pump(const Duration(seconds: 1)); 
+    await tester.pumpAndSettle(); 
     
     expect(find.byType(MiningTab), findsOneWidget);
     

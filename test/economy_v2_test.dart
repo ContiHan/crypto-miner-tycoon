@@ -10,7 +10,7 @@ void main() {
 
     setUp(() {
       SharedPreferences.setMockInitialValues({});
-      game = GameLogic();
+      game = GameLogic(startTimers: false);
     });
 
     test('Income Balance Check', () {
@@ -38,13 +38,13 @@ void main() {
       // Let's rely on click check as proxy for math validation.
     });
 
-    test('Difficulty Reset Check', () {
+    test('Difficulty Reset Check', () async {
       // Simulate progress
       game.lifetimeEarnings = 1000000; // Adds linear difficulty
       double diffBefore = game.networkDifficulty;
       expect(diffBefore, greaterThan(100.0));
       
-      game.resetGame();
+      await game.resetGame();
       
       // Should be back to base 100
       expect(game.networkDifficulty, 100.0);

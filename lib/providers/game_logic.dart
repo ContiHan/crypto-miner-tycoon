@@ -7,6 +7,7 @@ import '../models/research_node.dart';
 import '../models/news_event.dart';
 import '../services/persistence_service.dart';
 import '../services/economy_service.dart';
+import '../services/stash_service.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -14,6 +15,9 @@ class GameLogic with ChangeNotifier {
   
   final _persistence = PersistenceService();
   final _economy = EconomyService();
+  final _stash = StashService();
+  
+  StashService get stashService => _stash;
 
   List<Rig> rigs = [
     Rig(id: 'cpu_rig', name: 'Starter CPU Rig', baseCost: 100, baseHashRate: 1.0),
@@ -23,6 +27,7 @@ class GameLogic with ChangeNotifier {
   ];
 
   int govTokens = 0;
+  int chips = 0;
   int spentGovTokens = 0; // Track spent tokens
 
   
@@ -59,9 +64,14 @@ class GameLogic with ChangeNotifier {
     lifetimeEarnings = 0;
     govTokens = 0;
     spentGovTokens = 0;
+    chips = 0;
     soundEnabled = true;
     showFiatPrices = false; // Reset this too
     
+    // Clear Stash
+    _stash.ownedArtifacts.clear();
+    
+    // Clear Perks
     perks.updateAll((key, value) => 0);
     // Reset costs
     perkCosts.updateAll((key, value) {
@@ -86,16 +96,7 @@ class GameLogic with ChangeNotifier {
     blockReward = 50.0 * 100000000; // 50 BTC in Sats
     blocksMined = 0;
     nextHalvingThreshold = 5000;
-    bitcoinExchangeRate = 0.05; // 1 Sat = $0.05? No, 1 BTC = $5M? 
-    // User wants "Early Days" feel.
-    // Real early: 1 BTC = $0.01. => 1 Sat = $0.0000000001
-    // IF we show "$ 0.0000..." it looks bad.
-    // Let's abstract "Fiat" to just "Credits".
-    // Let's start with 1 Sat = $1. Simple. prices are $100.
-    // Then HF -> $1000/Sat.
     bitcoinExchangeRate = 1.0;
-    
-    // networkDifficulty is calculated dynamically via getter now
     
     notifyListeners();
   }
@@ -231,22 +232,69 @@ class GameLogic with ChangeNotifier {
   double chaosIncomeMultiplier = 1.0;
   double chaosCostMultiplier = 1.0;
 
+  // Anomaly Logic
+  bool isAnomalyActive = false;
+  Offset anomalyPosition = Offset.zero;
+  Timer? _anomalyTimer;
+
   Timer? _gameTimer;
   Timer? _chaosTimer;
+  Timer? _autoSaveTimer;
   NewsEvent? currentNews;
+
+  bool _isDisposed = false;
 
   @override
   void dispose() {
+    _isDisposed = true;
     _gameTimer?.cancel();
     _chaosTimer?.cancel();
+    _anomalyTimer?.cancel();
+    _autoSaveTimer?.cancel();
     super.dispose();
   }
 
-  GameLogic() {
+  GameLogic({bool startTimers = true}) {
     loadGame().then((_) {
-      _startGameLoop();
-      _startChaosTimer();
+      if (_isDisposed) return; // Prevent starting timers if already disposed
+      if (startTimers) {
+        _startGameLoop();
+        _startChaosTimer();
+        _startAnomalyTimer();
+      }
     });
+  }
+
+  // Spawns anomalies randomly
+  void _startAnomalyTimer() {
+    // Check every 5 seconds, 5% chance to spawn (approx 1 per 100 sec)
+    _anomalyTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
+      if (!isAnomalyActive && Random().nextDouble() < 0.05) { 
+         // Spawn
+         double dx = Random().nextDouble() * 300; // Simplified
+         double dy = Random().nextDouble() * 500;
+         anomalyPosition = Offset(dx, dy); 
+         isAnomalyActive = true;
+         notifyListeners();
+         
+         // Despawn after 4 seconds if not clicked
+         Future.delayed(const Duration(seconds: 4), () {
+            if (isAnomalyActive) {
+              isAnomalyActive = false;
+              notifyListeners();
+            }
+         });
+      }
+    });
+  }
+
+  void clickAnomaly() {
+    if (!isAnomalyActive) return;
+    
+    isAnomalyActive = false;
+    chips += 1; // +1 MicroChip
+    notifyListeners();
+    _saveGame();
   }
 
   void _startGameLoop() {
@@ -255,7 +303,7 @@ class GameLogic with ChangeNotifier {
     });
     
     // Auto-Save every 30 seconds
-    Timer.periodic(const Duration(seconds: 30), (timer) {
+    _autoSaveTimer = Timer.periodic(const Duration(seconds: 30), (timer) {
       _saveGame();
       debugPrint('Auto-Saved Game');
     });
@@ -343,7 +391,8 @@ class GameLogic with ChangeNotifier {
   }
 
   double get globalHashRate {
-    return _economy.calculateGlobalHashRate(rigs, perks, isResearched('chip_fab'), _researchHashMultiplier);
+    double base = _economy.calculateGlobalHashRate(rigs, perks, isResearched('chip_fab'), _researchHashMultiplier);
+    return base * _stash.getTotalHashBonus();
   }
 
   // ECONOMY 2.0 - Exchange Rate Model
@@ -373,37 +422,19 @@ class GameLogic with ChangeNotifier {
     }
 
     if (finalHashRate > 0) {
-      // Mining Formula:
-      // Reward (Sats) = HashRate / Difficulty * Multipliers
-      
       double difficulty = networkDifficulty;
       if (difficulty.isInfinite) return;
 
       double baseReward = finalHashRate / difficulty;
-      // Apply Mining Divisor to balance economy
       double adjustedReward = blockReward / _miningDivisor;
       double incomeSats = baseReward * adjustedReward * prestigeMultiplier * chaosIncomeMultiplier;
       
-      // Safety cap to strictly never exceed max (though difficulty should prevent this)
       if (lifetimeEarnings + incomeSats > _maxSupplySats) {
          incomeSats = _maxSupplySats - lifetimeEarnings;
       }
       
       wallet += incomeSats;
       lifetimeEarnings += incomeSats;
-      
-      // Update Exchange Rate
-      // Rule: Rate grows with HashRate (proxy for technology).
-      // If rig costs 1e50, we need rate to be high.
-      // Let's bind Rate also to Hard Fork bonuses or just current HashRate log?
-      // "Hard Fork Bonus... Multiplikátor kurzu"
-      // Basic dynamic update:
-      // Rate = 1.0 * (1 + totalHashRate / 1000) * (GovBonus)
-      // Actually, let's keep it simple: Rate increases purely by Prestige/Gov Tokens + maybe weak dynamic factor.
-      // IMPLEMENTATION: Rate is mainly static multiplier boost, plus maybe slow drift? 
-      // User said: "Multiplikátor kurzu... Hard Fork... zvyšovat HashRate a Multiplikátor kurzu"
-      // So Exchange Rate is a stored multiplier boosted by Prestige.
-      // Let's update `bitcoinExchangeRate` in `hardFork` and getter.
       
       blocksMined++; 
       if (blocksMined >= nextHalvingThreshold) {
@@ -417,7 +448,6 @@ class GameLogic with ChangeNotifier {
     blockReward /= 2;
     nextHalvingThreshold += 10000; 
     
-    // Announce Halving
     currentNews = NewsEvent(
       message: "BITCOIN HALVING: Block Reward Cut in Half!", 
       type: EventType.info,
@@ -432,9 +462,8 @@ class GameLogic with ChangeNotifier {
 
   void clickMine() {
     double clickPower = _economy.calculateClickPower(perks);
+    clickPower *= _stash.getClickPowerMultiplier(); // Stash Bonus
     
-    // Click Value in Sats
-    // Formula: (Power / Difficulty) * Multipliers
     double difficulty = networkDifficulty;
     if (difficulty.isInfinite) return;
 
@@ -453,7 +482,7 @@ class GameLogic with ChangeNotifier {
   
   // Public getter for UI estimation
   double get estimatedClickValue {
-     double clickPower = _economy.calculateClickPower(perks);
+     double clickPower = _economy.calculateClickPower(perks) * _stash.getClickPowerMultiplier();
      if (networkDifficulty.isInfinite) return 0;
      double baseReward = clickPower / networkDifficulty;
      double adjustedReward = blockReward / _miningDivisor;
@@ -512,7 +541,12 @@ class GameLogic with ChangeNotifier {
   // COST LOGIC (Deflationary)
   // 1. Calculate Credit Cost (Inflating Fiat Value)
   double getRigCostInCredits(Rig rig) {
-     return _economy.calculateRigCost(rig, perks, isResearched('better_cooling'), chaosCostMultiplier);
+     double base = _economy.calculateRigCost(rig, perks, isResearched('better_cooling'), chaosCostMultiplier);
+     // Apply Stash Discount
+     double discount = _stash.getMainCostDiscount();
+     double finalMult = 1.0 - discount;
+     if (finalMult < 0.05) finalMult = 0.05; 
+     return base * finalMult;
   }
   
   // 2. Calculate BTC Cost (Deflating Real Cost)
@@ -528,7 +562,6 @@ class GameLogic with ChangeNotifier {
     if (perks.containsKey(perkId) && perkCosts.containsKey(perkId)) {
       int cost = perkCosts[perkId]!;
 
-      
       // Check Max Level for Rig Cost
       if (perkId == 'rig_cost' && (perks[perkId] ?? 0) >= 18) {
          return; // Maxed out (90%)
@@ -546,6 +579,28 @@ class GameLogic with ChangeNotifier {
         notifyListeners();
       }
     }
+  }
+  
+  // === TRADING & CRATES ===
+  void buyChipsWithTokens() {
+     const int cost = 5000;
+     if (govTokens >= cost) {
+        govTokens -= cost;
+        spentGovTokens += cost; 
+        chips += 1;
+        notifyListeners();
+        _saveGame();
+     }
+  }
+  
+  void buyCrate(bool isPremium) {
+     int cost = isPremium ? 50 : 10;
+     if (chips >= cost) {
+        chips -= cost;
+        _stash.openCrate(isPremium: isPremium);
+        notifyListeners();
+        _saveGame();
+     }
   }
 
   // PERSISTENCE
@@ -565,6 +620,8 @@ class GameLogic with ChangeNotifier {
       blocksMined: blocksMined,
       nextHalvingThreshold: nextHalvingThreshold,
       bitcoinExchangeRate: bitcoinExchangeRate,
+      chips: chips,
+      stash: _stash.saveStash(),
     );
   }
 
@@ -577,6 +634,11 @@ class GameLogic with ChangeNotifier {
     spentGovTokens = data['spentGovTokens'];
     soundEnabled = data['sound_enabled'];
     showFiatPrices = data['show_fiat_prices'] ?? false;
+    chips = data['chips'] ?? 0;
+    
+    if (data.containsKey('stash')) {
+       _stash.loadStash(Map<String, dynamic>.from(data['stash']));
+    }
     
     // networkDifficulty is calculated
     blockReward = data['blockReward'];
@@ -654,5 +716,7 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 }
+
+
 
 
