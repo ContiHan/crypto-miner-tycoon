@@ -1,6 +1,6 @@
 
 import 'package:flutter_test/flutter_test.dart';
-import '../lib/utils/formatter.dart';
+import 'package:crypto_miner_tycoon/utils/formatter.dart';
 
 void main() {
   test('Format Number Rounding Check', () {
