@@ -1,0 +1,101 @@
+00:00 +0: loading C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart
+00:00 +0 -1: loading C:/Users/danie/google play/crypto_miner_tycoon/test/game_logic_test.dart [E]
+  Failed to load "C:/Users/danie/google play/crypto_miner_tycoon/test/game_logic_test.dart":
+  Compilation failed for testPath=C:/Users/danie/google play/crypto_miner_tycoon/test/game_logic_test.dart: test/game_logic_test.dart:147:12: Error: The setter 'blockReward' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'blockReward'.
+        game.blockReward = 50.0;
+             ^^^^^^^^^^^
+  test/game_logic_test.dart:148:12: Error: The setter 'nextHalvingThreshold' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'nextHalvingThreshold'.
+        game.nextHalvingThreshold = 5;
+             ^^^^^^^^^^^^^^^^^^^^
+  test/game_logic_test.dart:149:12: Error: The setter 'blocksMined' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'blocksMined'.
+        game.blocksMined = 4;
+             ^^^^^^^^^^^
+  test/game_logic_test.dart:150:12: Error: The setter 'blocksMined' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'blocksMined'.
+        game.blocksMined = 4;
+             ^^^^^^^^^^^
+  test/game_logic_test.dart:247:12: Error: The setter 'nextHalvingThreshold' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'nextHalvingThreshold'.
+        game.nextHalvingThreshold = 5;
+             ^^^^^^^^^^^^^^^^^^^^
+  test/game_logic_test.dart:248:12: Error: The setter 'blocksMined' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'blocksMined'.
+        game.blocksMined = 4;
+             ^^^^^^^^^^^
+  test/game_logic_test.dart:249:12: Error: The setter 'blockReward' isn't defined for the type 'GameLogic'.
+   - 'GameLogic' is from 'package:crypto_miner_tycoon/providers/game_logic.dart' ('lib/providers/game_logic.dart').
+  Try correcting the name to the name of an existing setter, or defining a setter or field named 'blockReward'.
+        game.blockReward = 50.0 * 100000000; // 50 BTC
+             ^^^^^^^^^^^
+  .
+00:00 +0 -2: loading C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart [E]
+  Error: The Dart compiler exited unexpectedly.
+  package:flutter_tools/src/base/common.dart 34:3  throwToolExit
+  package:flutter_tools/src/compile.dart 911:11    DefaultResidentCompiler._compile.<fn>
+  dart:async/zone.dart 1538:47                     _rootRunUnary
+  dart:async/zone.dart 1429:19                     _CustomZone.runUnary
+  dart:async/future_impl.dart 948:45               Future._propagateToListeners.handleValueCallback
+  dart:async/future_impl.dart 977:13               Future._propagateToListeners
+  dart:async/future_impl.dart 862:9                Future._propagateToListeners
+  dart:async/future_impl.dart 720:5                Future._completeWithValue
+  dart:async/future_impl.dart 804:7                Future._asyncCompleteWithValue.<fn>
+  dart:async/zone.dart 1525:13                     _rootRun
+  dart:async/zone.dart 1422:19                     _CustomZone.run
+  dart:async/zone.dart 1321:7                      _CustomZone.runGuarded
+  dart:async/zone.dart 1362:23                     _CustomZone.bindCallbackGuarded.<fn>
+  dart:async/schedule_microtask.dart 40:35         _microtaskLoop
+  dart:async/schedule_microtask.dart 49:5          _startMicrotaskLoop
+  dart:isolate-patch/isolate_patch.dart 127:13     _runPendingImmediateCallback
+  dart:isolate-patch/isolate_patch.dart 194:5      _RawReceivePort._handleMessage
+  
+00:00 +0 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculatePrestigeMultiplier returns 1.0 for 0 tokens
+00:00 +1 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculatePrestigeMultiplier returns correct bonus (10% per token)
+00:00 +2 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost applies correct discount
+00:00 +3 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost respects max perk discount (90%)
+00:00 +4 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost applies research discount
+00:00 +5 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost applies solar power discount
+00:00 +6 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost enforces minimum 5% cost cap (Anti-Free Bug)
+00:00 +7 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_service_test.dart: EconomyService calculateRigCost applies chaos multiplier
+00:00 +8 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_v2_test.dart: Economy V2 Tests Income Balance Check
+00:00 +9 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_v2_test.dart: Economy V2 Tests Difficulty Reset Check
+00:00 +10 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_v2_test.dart: Economy V2 Tests Symbol Formatting Check
+00:00 +11 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/economy_v2_test.dart: Economy V2 Tests Rounding Logic Check
+00:02 +12 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:02 +13 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:02 +14 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:02 +15 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +16 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +17 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +18 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +19 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +20 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +21 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +22 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +23 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +24 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +25 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +26 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +27 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +28 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +29 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +30 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +31 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +32 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +33 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +34 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/home_screen_test.dart: HomeScreen: Navigation works
+00:03 +35 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: NewsTicker shows Idle text by default
+00:03 +36 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: NewsTicker shows Idle text by default
+00:03 +37 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: NewsTicker shows Idle text by default
+00:04 +38 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: NewsTicker shows Idle text by default
+00:04 +39 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: MiningTab shows Economy stats
+00:04 +40 -2: C:/Users/danie/google play/crypto_miner_tycoon/test/widget_test.dart: HomeScreen navigation works
+00:04 +41 -2: Some tests failed.

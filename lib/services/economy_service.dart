@@ -1,5 +1,7 @@
 import 'dart:math';
+import '../core/constants.dart';
 import '../models/rig.dart';
+import '../core/ids.dart';
 
 class EconomyService {
   // Perks: 10% bonus per token (Held + Spent)
@@ -15,17 +17,17 @@ class EconomyService {
     bool isSolarPowerResearched = false,
   }) {
     double discountFactor =
-        1.0 - ((perks['rig_cost'] ?? 0) * 0.05); // Max 90% (0.1 left)
+        1.0 - ((perks[PerkIds.rigCost] ?? 0) * 0.05); // Max 90% (0.1 left)
     if (discountFactor < 0.1) discountFactor = 0.1; // Perk Cap at 90%
 
     // Research Discount
     if (isBetterCoolingResearched) {
-      discountFactor -= 0.10; // Better Cooling: -10%
+      discountFactor -= GameConstants.coolingDiscount; // Better Cooling: -10%
     }
 
     // Solar Power Discount
     if (isSolarPowerResearched) {
-      discountFactor -= 0.15; // Solar Power: -15%
+      discountFactor -= GameConstants.solarDiscount; // Solar Power: -15%
     }
 
     // Hard Cap: Minimum 5% cost (95% max total discount)
@@ -52,7 +54,8 @@ class EconomyService {
       double rigRate = rig.totalHashRate;
 
       // Chip Fab bonus for CPU/GPU
-      if (isChipFabResearched && (rig.id == 'cpu_rig' || rig.id == 'gpu_rig')) {
+      if (isChipFabResearched &&
+          (rig.id == RigIds.cpuRig || rig.id == RigIds.gpuRig)) {
         rigRate *= 1.20;
       }
 
@@ -63,12 +66,15 @@ class EconomyService {
     total *= researchHashMultiplier;
 
     // Apply 'hash_bonus' perk (10% per level)
-    double perkMultiplier = 1.0 + ((perks['hash_bonus'] ?? 0) * 0.10);
+    double perkMultiplier =
+        1.0 +
+        ((perks[PerkIds.hashBonus] ?? 0) * GameConstants.perkHashBonusGrowth);
     return total * perkMultiplier;
   }
 
   double calculateClickPower(Map<String, int> perks) {
-    return 5.0 + ((perks['click_power'] ?? 0) * 2);
+    return GameConstants.perkBaseClickPower +
+        ((perks[PerkIds.clickPower] ?? 0) * GameConstants.perkClickPowerGrowth);
   }
 
   int calculatePendingGovTokens(double lifetimeEarnings) {
@@ -82,8 +88,8 @@ class EconomyService {
     perks.forEach((key, level) {
       if (level > 0) {
         int base = 10;
-        if (key == 'click_power') base = 5;
-        if (key == 'hash_bonus') base = 15;
+        if (key == PerkIds.clickPower) base = 5;
+        if (key == PerkIds.hashBonus) base = 15;
 
         // Sum of arithmetic progression: n/2 * (2a + (n-1)d)
         // d = 5

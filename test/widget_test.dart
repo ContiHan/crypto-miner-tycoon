@@ -2,10 +2,11 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+
 import 'package:crypto_miner_tycoon/screens/home_screen.dart';
 import 'package:crypto_miner_tycoon/screens/mining_tab.dart';
 import 'package:crypto_miner_tycoon/widgets/news_ticker.dart';
+import 'test_helper.dart';
 
 void main() {
   setUp(() {
@@ -17,7 +18,7 @@ void main() {
   ) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(startTimers: false),
+        create: (_) => createTestGameLogic(startTimers: false),
         child: const MaterialApp(home: Scaffold(body: NewsTicker())),
       ),
     );
@@ -31,7 +32,7 @@ void main() {
   testWidgets('MiningTab shows Economy stats', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(startTimers: false),
+        create: (_) => createTestGameLogic(startTimers: false),
         child: MaterialApp(
           home: Scaffold(
             body: MiningTab(onHardFork: () {}, onBuyRig: (id) {}),
@@ -50,7 +51,7 @@ void main() {
   testWidgets('HomeScreen navigation works', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
-        create: (_) => GameLogic(startTimers: false),
+        create: (_) => createTestGameLogic(startTimers: false),
         child: const MaterialApp(home: HomeScreen()),
       ),
     );

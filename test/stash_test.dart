@@ -1,14 +1,14 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+
+import 'test_helper.dart';
 
 void main() {
   group('Stash System Tests', () {
     late GameLogic game;
 
     setUp(() {
-      SharedPreferences.setMockInitialValues({});
-      game = GameLogic(startTimers: false);
+      game = createTestGameLogic(startTimers: false);
     });
 
     test('Initial State Check', () {
@@ -62,11 +62,13 @@ void main() {
       expect(game.chips, 0); // No change
     });
 
-    test('Artifact Bonuses Apply', () {
+    test('Artifact Bonuses Apply', () async {
       // Mock an artifact in stash
       // Since _ownedArtifacts is private but we have loadStash, we can inject via load
 
       // Force a specific artifact (id: 'old_hdd', bonus: hashRate)
+      // StashService loadStash is async? No, Future<void> in GameLogic?
+      // StashService.loadStash is Future<void>.
       game.stashService.loadStash({
         'artifacts': {'old_hdd': 1},
       });

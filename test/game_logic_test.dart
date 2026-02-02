@@ -1,17 +1,24 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/models/research_node.dart';
+import 'package:crypto_miner_tycoon/services/economy_service.dart';
+import 'package:crypto_miner_tycoon/services/stash_service.dart';
+import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'fakes.dart';
 
 void main() {
   group('GameLogic Tests', () {
     late GameLogic game;
 
     setUp(() {
-      // Mock SharedPreferences
-      SharedPreferences.setMockInitialValues({});
-      game = GameLogic();
+      // No SharedPreferences mock needed!
+      game = GameLogic(
+        gameRepository: FakeGameRepository(),
+        settingsRepository: FakeSettingsRepository(),
+        economyService: EconomyService(),
+        stashService: StashService(),
+      );
     });
 
     test('Initial State should be empty', () {
@@ -72,15 +79,22 @@ void main() {
     });
 
     test('Offline Earnings should calculate correctly', () async {
-      SharedPreferences.setMockInitialValues({
-        'last_save_time': DateTime.now()
-            .subtract(const Duration(seconds: 100))
-            .millisecondsSinceEpoch,
-        'rigs': '[{"id": "cpu_rig", "amount": 1}]', // 1 CPU rig = 1 H/s
-      });
+      final fakeGameRepo = FakeGameRepository();
+      fakeGameRepo.data['last_save_time'] = DateTime.now()
+          .subtract(const Duration(seconds: 100))
+          .millisecondsSinceEpoch;
+      fakeGameRepo.data['rigs'] = [
+        {'id': RigIds.cpuRig, 'amount': 1},
+      ];
 
-      // reload game to trigger loadGame logic
-      final newGame = GameLogic();
+      final newGame = GameLogic(
+        gameRepository: fakeGameRepo,
+        settingsRepository: FakeSettingsRepository(),
+        economyService: EconomyService(),
+        stashService: StashService(),
+        loadOnStart: false, // Don't auto-load
+      );
+      // Manually load
       await newGame.loadGame();
 
       // 1 H/s * 100 seconds = 100 earnings
@@ -96,8 +110,13 @@ void main() {
     });
 
     test('Sound Toggle persistence', () async {
-      SharedPreferences.setMockInitialValues({});
-      game = GameLogic(); // Re-init
+      final fakeSettingsRepo = FakeSettingsRepository();
+      game = GameLogic(
+        gameRepository: FakeGameRepository(),
+        settingsRepository: fakeSettingsRepo,
+        economyService: EconomyService(),
+        stashService: StashService(),
+      ); // Re-init
 
       // Allow constructor loadGame to finish
       await Future.delayed(const Duration(milliseconds: 50));
@@ -108,8 +127,8 @@ void main() {
       expect(game.soundEnabled, false);
 
       // Verify persistence
-      final prefs = await SharedPreferences.getInstance();
-      expect(prefs.getBool('sound_enabled'), false);
+      final settings = await fakeSettingsRepo.loadSettings();
+      expect(settings['sound_enabled'], false);
     });
 
     test('Hard Fork resets Research', () async {

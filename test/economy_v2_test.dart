@@ -1,15 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/utils/formatter.dart';
+import 'test_helper.dart';
 
 void main() {
   group('Economy V2 Tests', () {
     late GameLogic game;
 
     setUp(() {
-      SharedPreferences.setMockInitialValues({});
-      game = GameLogic(startTimers: false);
+      game = createTestGameLogic(startTimers: false);
     });
 
     test('Income Balance Check', () {

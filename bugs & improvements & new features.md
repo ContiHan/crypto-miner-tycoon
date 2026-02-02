@@ -16,6 +16,7 @@
   * ~~stejně tak by se mohla prodloužit doba, kdy je trh stabilní~~ (FIXED)
 * Stash tab
   * ~~po hodně klikání na bedny, když nemám dostatek čipu, se zafrontuje toast hláška, že nemám čipy, takže to tam pak skáče i několik sekund pořád dokola, chtěl by to přidat ochranu, že se to nefrontuje, pokud je ta hláška zrovna aktivní~~ (FIXED)
+* nefungují zvuky
 
 # Improvements
 
@@ -28,6 +29,7 @@ border a jak se zaplní, tak se to nakoupí, aby se dalo rozlišit mezi tapem = 
 * stash nemá UI efekt, že se odemkne bedna a co ta bedna odemknula
 * přepínání mezi USD a BTC by mohlo také vyvolat toast notifikaci, jako je to u tabu MINE
 * pokud aplikaci vyloženě neukončím, ale běží nějak na pozadí, není na ni focus, tak mi prijde, že je zapauzovaná, takže není ani aktivní, ani offline
+* obohatit zvuky, aby jich bylo více na více místech při různých efektech
 
 # New Feature
 

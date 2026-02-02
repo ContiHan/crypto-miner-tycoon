@@ -1,20 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
-import 'package:shared_preferences/shared_preferences.dart';
+
 import 'package:crypto_miner_tycoon/screens/home_screen.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/screens/mining_tab.dart';
 import 'package:crypto_miner_tycoon/screens/perks_screen.dart';
 import 'package:crypto_miner_tycoon/screens/research_tab.dart';
 import 'package:crypto_miner_tycoon/screens/stash_screen.dart';
+import 'test_helper.dart';
 
 void main() {
   late GameLogic game;
 
   setUp(() {
-    SharedPreferences.setMockInitialValues({});
-    game = GameLogic(startTimers: false);
+    game = createTestGameLogic(startTimers: false);
   });
 
   Widget createWidgetUnderTest() {

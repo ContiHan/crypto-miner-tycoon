@@ -5,11 +5,25 @@ import 'screens/home_screen.dart';
 
 import 'theme/app_theme.dart';
 
+import 'repositories/game_repository.dart';
+import 'repositories/settings_repository.dart';
+import 'services/economy_service.dart';
+import 'services/stash_service.dart';
+
 void main() {
   runApp(
     MultiProvider(
       providers: [
-        ChangeNotifierProvider(create: (_) => GameLogic()),
+        ChangeNotifierProvider(
+          create: (_) {
+            return GameLogic(
+              gameRepository: GameRepository(),
+              settingsRepository: SettingsRepository(),
+              economyService: EconomyService(),
+              stashService: StashService(),
+            );
+          },
+        ),
       ],
       child: const MyApp(),
     ),

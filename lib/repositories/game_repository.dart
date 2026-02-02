@@ -3,8 +3,8 @@ import 'package:shared_preferences/shared_preferences.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
 
-class PersistenceService {
-  Future<void> saveGame({
+class GameRepository {
+  Future<void> saveGameState({
     required double wallet,
     required double lifetimeEarnings,
     required int govTokens,
@@ -13,7 +13,6 @@ class PersistenceService {
     required Map<String, int> perkCosts,
     required List<Rig> rigs,
     required List<ResearchNode> researchNodes,
-    required bool soundEnabled,
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -36,6 +35,7 @@ class PersistenceService {
     await prefs.setString('perkCosts', jsonEncode(perkCosts));
 
     // Serialize Rigs
+    // Using json_serializable generated toJson
     final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
     await prefs.setString('rigs', rigsJson);
 
@@ -53,9 +53,6 @@ class PersistenceService {
     // Save Timestamp
     await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
 
-    // Save Settings
-    await prefs.setBool('sound_enabled', soundEnabled);
-
     // Save Economy 2.0
     await prefs.setDouble('networkDifficulty', networkDifficulty);
     await prefs.setDouble('blockReward', blockReward);
@@ -64,7 +61,7 @@ class PersistenceService {
     await prefs.setDouble('bitcoinExchangeRate', bitcoinExchangeRate);
   }
 
-  Future<Map<String, dynamic>> loadGame() async {
+  Future<Map<String, dynamic>> loadGameState() async {
     final prefs = await SharedPreferences.getInstance();
     final data = <String, dynamic>{};
 
@@ -72,7 +69,6 @@ class PersistenceService {
     data['lifetimeEarnings'] = prefs.getDouble('lifetimeEarnings') ?? 0;
     data['govTokens'] = prefs.getInt('govTokens') ?? 0;
     data['spentGovTokens'] = prefs.getInt('spentGovTokens') ?? 0;
-    data['sound_enabled'] = prefs.getBool('sound_enabled') ?? true;
 
     data['networkDifficulty'] = prefs.getDouble('networkDifficulty') ?? 100.0;
     data['blockReward'] = prefs.getDouble('blockReward') ?? 50.0 * 100000000;
@@ -107,7 +103,7 @@ class PersistenceService {
     return data;
   }
 
-  Future<void> resetGame() async {
+  Future<void> clearSave() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();
   }
