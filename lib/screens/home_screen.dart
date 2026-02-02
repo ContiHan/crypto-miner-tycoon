@@ -7,7 +7,7 @@ import 'perks_screen.dart';
 import 'research_tab.dart';
 import 'mining_tab.dart';
 import 'settings_screen.dart';
-import 'stash_screen.dart'; 
+import 'stash_screen.dart';
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -19,27 +19,31 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen> {
   int _currentIndex = 3; // Start at Mine (Index 3)
+  late GameLogic _gameLogic;
 
   @override
   void initState() {
     super.initState();
-    final game = Provider.of<GameLogic>(context, listen: false);
-    
+    _gameLogic = Provider.of<GameLogic>(context, listen: false);
+
     // Check initially (in case it loaded instantly)
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (game.offlineEarningsAmount != null) {
-        _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
+      if (_gameLogic.offlineEarningsAmount != null) {
+        _showOfflineEarningsDialog(
+          context,
+          _gameLogic,
+          _gameLogic.offlineEarningsAmount!,
+        );
       }
     });
 
     // Listen for future updates (async load)
-    game.addListener(_onGameUpdate);
+    _gameLogic.addListener(_onGameUpdate);
   }
 
   @override
   void dispose() {
-    final game = Provider.of<GameLogic>(context, listen: false);
-    game.removeListener(_onGameUpdate);
+    _gameLogic.removeListener(_onGameUpdate);
     super.dispose();
   }
 
@@ -58,9 +62,13 @@ class _HomeScreenState extends State<HomeScreen> {
       const PerksScreen(isEmbedded: true), // Index 0: PERKS
       const ResearchTab(), // Index 1: LAB
       const StashScreen(), // Index 2: STASH
-      MiningTab( // Index 3: MINE
-        onHardFork: () => _showHardForkDialog(context, Provider.of<GameLogic>(context, listen: false)),
-        onBuyRig: (cost) {}, 
+      MiningTab(
+        // Index 3: MINE
+        onHardFork: () => _showHardForkDialog(
+          context,
+          Provider.of<GameLogic>(context, listen: false),
+        ),
+        onBuyRig: (cost) {},
       ),
     ];
 
@@ -68,33 +76,33 @@ class _HomeScreenState extends State<HomeScreen> {
       appBar: AppBar(
         title: const Text('BTC ONLY TYCOON'),
         actions: [
-           IconButton(
-             icon: const Icon(Icons.settings),
-             onPressed: () {
-               Navigator.push(
-                 context,
-                 MaterialPageRoute(builder: (context) => const SettingsScreen()),
-               );
-             },
-           ),
+          IconButton(
+            icon: const Icon(Icons.settings),
+            onPressed: () {
+              Navigator.push(
+                context,
+                MaterialPageRoute(builder: (context) => const SettingsScreen()),
+              );
+            },
+          ),
         ],
       ),
       body: Column(
         children: [
-           const NewsTicker(),
-           Expanded(child: pages[_currentIndex]),
+          const NewsTicker(),
+          Expanded(child: pages[_currentIndex]),
         ],
       ),
       bottomNavigationBar: Theme(
         data: Theme.of(context).copyWith(
-           canvasColor: AppTheme.surface, // Background for Nav Bar
+          canvasColor: AppTheme.surface, // Background for Nav Bar
         ),
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
-              setState(() {
-                _currentIndex = index;
-              });
+            setState(() {
+              _currentIndex = index;
+            });
           },
           selectedItemColor: AppTheme.accent,
           unselectedItemColor: AppTheme.textSecondary,
@@ -102,33 +110,30 @@ class _HomeScreenState extends State<HomeScreen> {
           type: BottomNavigationBarType.fixed,
           items: const [
             BottomNavigationBarItem(
-              icon: Icon(Icons.auto_graph), 
-              label: 'PERKS'
+              icon: Icon(Icons.auto_graph),
+              label: 'PERKS',
             ),
+            BottomNavigationBarItem(icon: Icon(Icons.science), label: 'LAB'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.science), 
-              label: 'LAB'
+              icon: Icon(Icons.inventory_2),
+              label: 'STASH',
             ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2), 
-              label: 'STASH'
-            ),
-            BottomNavigationBarItem(
-              icon: Icon(Icons.dashboard), 
-              label: 'MINE'
-            ),
+            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'MINE'),
           ],
         ),
       ),
     );
   }
-  
+
   void _showHardForkDialog(BuildContext context, GameLogic game) {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('EXECUTE HARD FORK?', style: TextStyle(color: Colors.redAccent)),
+        title: const Text(
+          'EXECUTE HARD FORK?',
+          style: TextStyle(color: Colors.redAccent),
+        ),
         content: Text(
           'This will reset your Money and Rigs.\n\n'
           'You will gain ${Formatter.formatNumber(game.pendingGovTokens.toDouble())} GovTokens.\n'
@@ -154,25 +159,35 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
-  void _showOfflineEarningsDialog(BuildContext context, GameLogic game, double amount) {
+  void _showOfflineEarningsDialog(
+    BuildContext context,
+    GameLogic game,
+    double amount,
+  ) {
     game.clearOfflineEarnings();
 
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
         backgroundColor: AppTheme.surface,
-        title: const Text('WELCOME BACK!', style: TextStyle(color: AppTheme.accent)),
+        title: const Text(
+          'WELCOME BACK!',
+          style: TextStyle(color: AppTheme.accent),
+        ),
         content: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const Text('While you were away, your rigs mined:', style: TextStyle(color: Colors.white70)),
+            const Text(
+              'While you were away, your rigs mined:',
+              style: TextStyle(color: Colors.white70),
+            ),
             const SizedBox(height: 20),
             Text(
               Formatter.formatBitcoin(amount),
               style: const TextStyle(
-                fontSize: 32, 
-                fontWeight: FontWeight.bold, 
-                color: AppTheme.accent
+                fontSize: 32,
+                fontWeight: FontWeight.bold,
+                color: AppTheme.accent,
               ),
             ),
           ],

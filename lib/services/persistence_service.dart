@@ -29,20 +29,22 @@ class PersistenceService {
     await prefs.setDouble('lifetimeEarnings', lifetimeEarnings);
     await prefs.setInt('govTokens', govTokens);
     await prefs.setInt('spentGovTokens', spentGovTokens);
-    await prefs.setInt('chips', chips); 
-    
+    await prefs.setInt('chips', chips);
+
     // Save Perks
     await prefs.setString('perks', jsonEncode(perks));
     await prefs.setString('perkCosts', jsonEncode(perkCosts));
-    
+
     // Serialize Rigs
     final rigsJson = jsonEncode(rigs.map((r) => r.toJson()).toList());
     await prefs.setString('rigs', rigsJson);
-    
+
     // Serialize Research
-    final researchJson = jsonEncode(researchNodes.map((r) => r.toJson()).toList());
+    final researchJson = jsonEncode(
+      researchNodes.map((r) => r.toJson()).toList(),
+    );
     await prefs.setString('research', researchJson);
-    
+
     // Save Stash
     if (stash != null) {
       await prefs.setString('stash', jsonEncode(stash));
@@ -50,10 +52,10 @@ class PersistenceService {
 
     // Save Timestamp
     await prefs.setInt('last_save_time', DateTime.now().millisecondsSinceEpoch);
-    
+
     // Save Settings
     await prefs.setBool('sound_enabled', soundEnabled);
-    
+
     // Save Economy 2.0
     await prefs.setDouble('networkDifficulty', networkDifficulty);
     await prefs.setDouble('blockReward', blockReward);
@@ -71,14 +73,14 @@ class PersistenceService {
     data['govTokens'] = prefs.getInt('govTokens') ?? 0;
     data['spentGovTokens'] = prefs.getInt('spentGovTokens') ?? 0;
     data['sound_enabled'] = prefs.getBool('sound_enabled') ?? true;
-    
+
     data['networkDifficulty'] = prefs.getDouble('networkDifficulty') ?? 100.0;
-    data['blockReward'] = prefs.getDouble('blockReward') ?? 50.0;
+    data['blockReward'] = prefs.getDouble('blockReward') ?? 50.0 * 100000000;
     data['blocksMined'] = prefs.getInt('blocksMined') ?? 0;
     data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ?? 5000;
     data['bitcoinExchangeRate'] = prefs.getDouble('bitcoinExchangeRate') ?? 1.0;
     data['last_save_time'] = prefs.getInt('last_save_time');
-    
+
     data['chips'] = prefs.getInt('chips') ?? 0;
     if (prefs.containsKey('stash')) {
       data['stash'] = jsonDecode(prefs.getString('stash')!);
@@ -94,17 +96,17 @@ class PersistenceService {
 
     // Rigs
     if (prefs.containsKey('rigs')) {
-       data['rigs'] = jsonDecode(prefs.getString('rigs')!);
+      data['rigs'] = jsonDecode(prefs.getString('rigs')!);
     }
 
     // Research
     if (prefs.containsKey('research')) {
-       data['research'] = jsonDecode(prefs.getString('research')!);
+      data['research'] = jsonDecode(prefs.getString('research')!);
     }
 
     return data;
   }
-  
+
   Future<void> resetGame() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.clear();

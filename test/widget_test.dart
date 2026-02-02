@@ -12,16 +12,16 @@ void main() {
     SharedPreferences.setMockInitialValues({});
   });
 
-  testWidgets('NewsTicker shows Idle text by default', (WidgetTester tester) async {
+  testWidgets('NewsTicker shows Idle text by default', (
+    WidgetTester tester,
+  ) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => GameLogic(startTimers: false),
-        child: const MaterialApp(
-          home: Scaffold(body: NewsTicker()),
-        ),
+        child: const MaterialApp(home: Scaffold(body: NewsTicker())),
       ),
     );
-    
+
     // Use pump instead of pumpAndSettle due to infinite timers
     await tester.pump(const Duration(seconds: 1));
 
@@ -34,10 +34,7 @@ void main() {
         create: (_) => GameLogic(startTimers: false),
         child: MaterialApp(
           home: Scaffold(
-            body: MiningTab(
-              onHardFork: () {},
-              onBuyRig: (id) {},
-            )
+            body: MiningTab(onHardFork: () {}, onBuyRig: (id) {}),
           ),
         ),
       ),
@@ -49,27 +46,25 @@ void main() {
     expect(find.textContaining('REWARD'), findsOneWidget);
     expect(find.textContaining('HALVING'), findsOneWidget);
   });
-  
+
   testWidgets('HomeScreen navigation works', (WidgetTester tester) async {
     await tester.pumpWidget(
       ChangeNotifierProvider(
         create: (_) => GameLogic(startTimers: false),
-        child: const MaterialApp(
-          home: HomeScreen(),
-        ),
+        child: const MaterialApp(home: HomeScreen()),
       ),
     );
-    
-    await tester.pumpAndSettle(); 
-    
+
+    await tester.pump(const Duration(seconds: 1));
+
     expect(find.byType(MiningTab), findsOneWidget);
-    
+
     final researchIcon = find.byIcon(Icons.science);
     expect(researchIcon, findsOneWidget);
-    
+
     await tester.tap(researchIcon);
-    await tester.pump(const Duration(seconds: 1)); 
-    
+    await tester.pump(const Duration(seconds: 1));
+
     // Just verify we didn't crash
   });
 }
