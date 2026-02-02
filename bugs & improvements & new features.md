@@ -27,6 +27,7 @@ border a jak se zaplní, tak se to nakoupí, aby se dalo rozlišit mezi tapem = 
   * například ikonka hexagonu, kde uvnitř budou 3 horizontální šoupátka
 * stash nemá UI efekt, že se odemkne bedna a co ta bedna odemknula
 * přepínání mezi USD a BTC by mohlo také vyvolat toast notifikaci, jako je to u tabu MINE
+* pokud aplikaci vyloženě neukončím, ale běží nějak na pozadí, není na ni focus, tak mi prijde, že je zapauzovaná, takže není ani aktivní, ani offline
 
 # New Feature
 
