@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_logic.dart';
 import '../models/news_event.dart';
+import '../utils/formatter.dart';
 
 class NewsTicker extends StatelessWidget {
   const NewsTicker({super.key});
@@ -12,47 +13,67 @@ class NewsTicker extends StatelessWidget {
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
       builder: (context, game, child) {
-        
         final NewsEvent? news = game.currentNews;
-        
+
         // Determine Content
         String text;
         Color color;
         Color bgColor;
         Key key; // Key for AnimatedSwitcher
-        
+
         if (news != null) {
-          text = "BREAKING: ${news.message}"; 
-          if (news.value != 0) {
-             String impact = news.value > 0 ? "+${news.value}" : "${news.value}";
-             text += " (IMPACT: $impact)";
+          text = "BREAKING: ${news.message}";
+
+          String impact = "";
+          switch (news.type) {
+            case EventType.marketCrash:
+              impact = "${news.value}% Income";
+              break;
+            case EventType.bullRun:
+              impact = "+${news.value}% Income";
+              break;
+            case EventType.hack:
+              impact = "Lost ${Formatter.formatBitcoin(news.value.abs())}";
+              break;
+            case EventType.cheapEnergy:
+              impact = "${news.value}% Rig Cost";
+              break;
+            case EventType.info:
+              if (news.value != 0) impact = "Reward ${news.value}%";
+              break;
           }
+
+          if (impact.isNotEmpty) {
+            text += "   ///   IMPACT: $impact";
+          }
+
           color = news.color;
           bgColor = news.color.withValues(alpha: 0.2);
           key = ValueKey('news_${news.hashCode}');
         } else {
           // Idle State
-          text = "MARKET STABLE   ///   BTC PRICE: STABLE   ///   NETWORK DIFFICULTY: ${game.networkDifficulty.toStringAsFixed(1)}   ///   BLOCK REWARD: ${game.blockReward.toStringAsFixed(1)}   ///   NO THREATS DETECTED   ///   ";
+          text =
+              "MARKET STABLE   ///   BTC PRICE: STABLE   ///   NETWORK DIFFICULTY: ${Formatter.formatNumber(game.networkDifficulty)}   ///   BLOCK REWARD: ${Formatter.formatBitcoin(game.blockReward)}   ///   NO THREATS DETECTED   ///   ";
           color = Colors.white54;
           bgColor = Colors.black45;
           key = const ValueKey('idle');
         }
-        
+
         // Define Style with Glow
         final textStyle = GoogleFonts.dotGothic16(
-           color: color,
-           fontSize: 14, // Slightly larger for readability
-           fontWeight: FontWeight.bold,
-           shadows: [
-             Shadow(
-               color: color.withValues(alpha: 0.6), // Was 0.8
-               blurRadius: 4, // Was 8
-             ),
-             Shadow(
-               color: color.withValues(alpha: 0.2), // Was 0.4
-               blurRadius: 8, // Was 15
-             ),
-           ]
+          color: color,
+          fontSize: 14, // Slightly larger for readability
+          fontWeight: FontWeight.bold,
+          shadows: [
+            Shadow(
+              color: color.withValues(alpha: 0.6), // Was 0.8
+              blurRadius: 4, // Was 8
+            ),
+            Shadow(
+              color: color.withValues(alpha: 0.2), // Was 0.4
+              blurRadius: 8, // Was 15
+            ),
+          ],
         );
 
         return AnimatedContainer(
@@ -61,7 +82,9 @@ class NewsTicker extends StatelessWidget {
           height: 36, // Increased height for font/glow
           decoration: BoxDecoration(
             color: bgColor,
-            border: Border(bottom: BorderSide(color: color.withValues(alpha: 0.5), width: 1)),
+            border: Border(
+              bottom: BorderSide(color: color.withValues(alpha: 0.5), width: 1),
+            ),
           ),
           child: ClipRect(
             child: AnimatedSwitcher(
@@ -70,10 +93,10 @@ class NewsTicker extends StatelessWidget {
                 return FadeTransition(opacity: animation, child: child);
               },
               child: _ScrollingText(
-                key: key, 
-                text: text, 
+                key: key,
+                text: text,
                 style: textStyle,
-                speed: news != null ? 80.0 : 40.0, 
+                speed: news != null ? 80.0 : 40.0,
               ),
             ),
           ),
@@ -86,25 +109,26 @@ class NewsTicker extends StatelessWidget {
 class _ScrollingText extends StatefulWidget {
   final String text;
   final TextStyle style;
-  final double speed; 
+  final double speed;
 
   const _ScrollingText({
     super.key,
-    required this.text, 
-    required this.style, 
-    this.speed = 30.0
+    required this.text,
+    required this.style,
+    this.speed = 30.0,
   });
 
   @override
   State<_ScrollingText> createState() => _ScrollingTextState();
 }
 
-class _ScrollingTextState extends State<_ScrollingText> with SingleTickerProviderStateMixin {
+class _ScrollingTextState extends State<_ScrollingText>
+    with SingleTickerProviderStateMixin {
   late Ticker _ticker;
   double _offset = 0.0;
   double _textWidth = 0.0;
   double _widgetWidth = 0.0;
-  
+
   Duration _lastTime = Duration.zero;
 
   @override
@@ -112,22 +136,22 @@ class _ScrollingTextState extends State<_ScrollingText> with SingleTickerProvide
     super.initState();
     _ticker = createTicker(_tick)..start();
   }
-  
-  void _tick(Duration elapsed) {
-     if (!mounted) return;
-     
-     double dt = (elapsed - _lastTime).inMicroseconds / 1000000.0;
-     _lastTime = elapsed;
-     
-     if (dt > 0.1) dt = 0.016; 
 
-     setState(() {
-       _offset -= widget.speed * dt;
-       
-       if (_offset < -_textWidth) {
-         _offset = _widgetWidth;
-       }
-     });
+  void _tick(Duration elapsed) {
+    if (!mounted) return;
+
+    double dt = (elapsed - _lastTime).inMicroseconds / 1000000.0;
+    _lastTime = elapsed;
+
+    if (dt > 0.1) dt = 0.016;
+
+    setState(() {
+      _offset -= widget.speed * dt;
+
+      if (_offset < -_textWidth) {
+        _offset = _widgetWidth;
+      }
+    });
   }
 
   @override
@@ -141,17 +165,17 @@ class _ScrollingTextState extends State<_ScrollingText> with SingleTickerProvide
     return LayoutBuilder(
       builder: (context, constraints) {
         _widgetWidth = constraints.maxWidth;
-        
+
         final textPainter = TextPainter(
           text: TextSpan(text: widget.text, style: widget.style),
           textDirection: TextDirection.ltr,
           maxLines: 1,
         )..layout();
-        
+
         _textWidth = textPainter.width;
-        
+
         if (_offset == 0.0 && _lastTime == Duration.zero) {
-             _offset = _widgetWidth;
+          _offset = _widgetWidth;
         }
 
         return Stack(

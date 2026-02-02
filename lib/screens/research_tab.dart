@@ -22,27 +22,35 @@ class ResearchTab extends StatelessWidget {
               width: double.infinity,
               child: Column(
                 children: [
-                   const Icon(Icons.science, size: 40, color: AppTheme.accent),
-                   const SizedBox(height: 5),
-                   const Text(
+                  const Icon(Icons.science, size: 40, color: AppTheme.accent),
+                  const SizedBox(height: 5),
+                  const Text(
                     'LABORATORY',
                     style: TextStyle(
-                        fontSize: 20,
-                        fontWeight: FontWeight.bold,
-                        color: AppTheme.accent, 
-                        letterSpacing: 2),
+                      fontSize: 20,
+                      fontWeight: FontWeight.bold,
+                      color: AppTheme.accent,
+                      letterSpacing: 2,
+                    ),
                   ),
                   const Text(
                     'Unlock advanced technologies with Money.',
-                    style: TextStyle(color: AppTheme.textSecondary, fontSize: 12),
+                    style: TextStyle(
+                      color: AppTheme.textSecondary,
+                      fontSize: 12,
+                    ),
                   ),
-                   const SizedBox(height: 10),
-                   Text(
-                    'BALANCE: ₿ ${Formatter.formatCurrency(game.wallet)}',
-                    style: const TextStyle(
+                  const SizedBox(height: 10),
+                  GestureDetector(
+                    onTap: () => game.toggleFiatDisplay(),
+                    child: Text(
+                      'BALANCE: ${game.showFiatPrices ? '\$ ${Formatter.formatNumber(game.wallet * game.bitcoinExchangeRate)}' : Formatter.formatBitcoin(game.wallet)}',
+                      style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
-                        color: Colors.white),
+                        color: Colors.white,
+                      ),
+                    ),
                   ),
                 ],
               ),
@@ -63,22 +71,28 @@ class ResearchTab extends StatelessWidget {
     );
   }
 
-  Widget _buildResearchItem(BuildContext context, GameLogic game, ResearchNode node) {
+  Widget _buildResearchItem(
+    BuildContext context,
+    GameLogic game,
+    ResearchNode node,
+  ) {
     if (!node.isUnlocked && !node.isCompleted) {
-       // Optional: Show locked items as mysterious or just hide them?
-       // Let's show them as Locked (Greyed out) if we want the user to see the tree
-       // user asked for tree/list, let's keep it simple: Show only unlocked or visible?
-       // Logic in GameLogic.checkUnlocks() handles setting isUnlocked.
-       // If isUnlocked is false, we generally shouldn't show it unless we want a "Coming Soon" feel.
-       // But let's stick to showing only Unlocked + Completed for now to reduce clutter.
-       return const SizedBox.shrink(); 
+      // Optional: Show locked items as mysterious or just hide them?
+      // Let's show them as Locked (Greyed out) if we want the user to see the tree
+      // user asked for tree/list, let's keep it simple: Show only unlocked or visible?
+      // Logic in GameLogic.checkUnlocks() handles setting isUnlocked.
+      // If isUnlocked is false, we generally shouldn't show it unless we want a "Coming Soon" feel.
+      // But let's stick to showing only Unlocked + Completed for now to reduce clutter.
+      return const SizedBox.shrink();
     }
 
     final bool canAfford = game.wallet >= node.cost;
     final bool isCompleted = node.isCompleted;
 
     return StylizedCard(
-      color: isCompleted ? Colors.green.withValues(alpha: 0.1) : AppTheme.surface,
+      color: isCompleted
+          ? Colors.green.withValues(alpha: 0.1)
+          : AppTheme.surface,
       child: Padding(
         padding: const EdgeInsets.all(12.0),
         child: Row(
@@ -88,8 +102,12 @@ class ResearchTab extends StatelessWidget {
               width: 50,
               height: 50,
               decoration: BoxDecoration(
-                color: isCompleted ? AppTheme.accent.withValues(alpha: 0.2) : Colors.black26,
-                border: Border.all(color: isCompleted ? AppTheme.accent : Colors.grey),
+                color: isCompleted
+                    ? AppTheme.accent.withValues(alpha: 0.2)
+                    : Colors.black26,
+                border: Border.all(
+                  color: isCompleted ? AppTheme.accent : Colors.grey,
+                ),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -110,7 +128,9 @@ class ResearchTab extends StatelessWidget {
                       fontWeight: FontWeight.bold,
                       fontSize: 16,
                       color: isCompleted ? AppTheme.accent : Colors.white,
-                      decoration: isCompleted ? TextDecoration.none : TextDecoration.none,
+                      decoration: isCompleted
+                          ? TextDecoration.none
+                          : TextDecoration.none,
                     ),
                   ),
                   const SizedBox(height: 4),
@@ -123,7 +143,13 @@ class ResearchTab extends StatelessWidget {
             ),
             // Action
             if (isCompleted)
-              const Text('ACTIVE', style: TextStyle(color: Colors.green, fontWeight: FontWeight.bold))
+              const Text(
+                'ACTIVE',
+                style: TextStyle(
+                  color: Colors.green,
+                  fontWeight: FontWeight.bold,
+                ),
+              )
             else
               ElevatedButton(
                 onPressed: canAfford
@@ -132,16 +158,24 @@ class ResearchTab extends StatelessWidget {
                       }
                     : null,
                 style: ElevatedButton.styleFrom(
-                  backgroundColor: canAfford ? AppTheme.accent : Colors.grey[800],
+                  backgroundColor: canAfford
+                      ? AppTheme.accent
+                      : Colors.grey[800],
                   foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 16,
+                    vertical: 12,
+                  ),
                 ),
                 child: Text(
-                  game.showFiatPrices 
+                  game.showFiatPrices
                       ? 'BUY\n\$ ${Formatter.formatNumber(node.cost * game.bitcoinExchangeRate)}'
                       : 'BUY\n${Formatter.formatBitcoin(node.cost)}',
                   textAlign: TextAlign.center,
-                  style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                  style: const TextStyle(
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
           ],
