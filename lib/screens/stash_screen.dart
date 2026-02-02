@@ -357,8 +357,9 @@ class _StashScreenState extends State<StashScreen>
     Color borderColor = Colors.grey;
     if (artifact.rarity == ArtifactRarity.rare) borderColor = Colors.blueAccent;
     if (artifact.rarity == ArtifactRarity.legendary) borderColor = Colors.amber;
-    if (artifact.rarity == ArtifactRarity.unique)
+    if (artifact.rarity == ArtifactRarity.unique) {
       borderColor = Colors.purpleAccent;
+    }
 
     return Container(
       decoration: BoxDecoration(

@@ -777,8 +777,9 @@ class GameLogic with ChangeNotifier {
     // Assuming idle mining only for now (no auto clicks offline).
 
     // Safety cap: Prevent infinite freeze if system time changed drastically (years)
-    if (remainingSeconds > 31536000)
+    if (remainingSeconds > 31536000) {
       remainingSeconds = 31536000; // Cap at 1 year
+    }
 
     // Pre-calculate constant multipliers
     final double prestige = prestigeMultiplier;
