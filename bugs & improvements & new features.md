@@ -2,6 +2,7 @@
 
 * nefungují zvuky
 * LAB, ceny v BTC jsou stejné i po hard forku, měli by se přizpůsobovat kurzu, jako ceny rigů, ale teď jsou konstantním naopak rostou ceny v USD
+* hodnoty rewards se špatně přepočítají, pokud jdeme do nižších čísel, třeba po 4 havlingu už je tam špatná hodnota
 
 # Improvements
 
