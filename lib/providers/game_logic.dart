@@ -358,6 +358,7 @@ class GameLogic with ChangeNotifier {
 
     isAnomalyActive = false;
     chips += 1;
+    _soundService.playUnlock();
     notifyListeners();
     _saveGame();
   }
@@ -667,6 +668,7 @@ class GameLogic with ChangeNotifier {
       govTokens -= cost;
       spentGovTokens += cost;
       chips += 1;
+      _soundService.playBuy();
       notifyListeners();
       _saveGame();
     }
@@ -677,6 +679,7 @@ class GameLogic with ChangeNotifier {
     if (chips >= cost) {
       chips -= cost;
       _stash.openCrate(isPremium: isPremium);
+      _soundService.playUnlock();
       notifyListeners();
       _saveGame();
     }

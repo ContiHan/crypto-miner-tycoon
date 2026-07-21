@@ -349,8 +349,11 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               ],
                             ),
                             Consumer<GameLogic>(builder: (context, game, _) {
+                               final estClick = game.showFiatPrices
+                                   ? '\$ ${Formatter.formatNumber(game.estimatedClickValue * game.bitcoinExchangeRate)}'
+                                   : Formatter.formatBitcoin(game.estimatedClickValue);
                                return Text(
-                                 'EST. CLICK: ${Formatter.formatBitcoin(game.estimatedClickValue)}',
+                                 'EST. CLICK: $estClick',
                                  style: const TextStyle(fontSize: 10, color: Colors.black87),
                                );
                             }),
