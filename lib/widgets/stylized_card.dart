@@ -38,6 +38,8 @@ class StylizedCard extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
+          // No OS click sound; the game plays its own SFX under the mute toggle.
+          enableFeedback: false,
           child: Padding(
             padding: const EdgeInsets.all(12.0),
             child: child,

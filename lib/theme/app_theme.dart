@@ -45,19 +45,34 @@ class AppTheme {
           shape: const BeveledRectangleBorder(
               borderRadius: BorderRadius.all(Radius.circular(4))),
           textStyle: GoogleFonts.orbitron(fontWeight: FontWeight.bold),
+          // Suppress the OS "touch sound" so only the game's own SFX play
+          // (and stay under the in-game mute). See also listTile/bottomNav.
+          enableFeedback: false,
         ),
       ),
-      
+
       // Additional standard buttons alignment
       textButtonTheme: TextButtonThemeData(
          style: TextButton.styleFrom(
             textStyle: GoogleFonts.orbitron(fontWeight: FontWeight.bold),
+            enableFeedback: false,
          ),
       ),
-      
+
+      iconButtonTheme: IconButtonThemeData(
+        style: IconButton.styleFrom(enableFeedback: false),
+      ),
+
+      listTileTheme: const ListTileThemeData(enableFeedback: false),
+
+      bottomNavigationBarTheme: const BottomNavigationBarThemeData(
+        enableFeedback: false,
+      ),
+
       floatingActionButtonTheme: const FloatingActionButtonThemeData(
         backgroundColor: accent,
         foregroundColor: Colors.black,
+        enableFeedback: false,
         shape: BeveledRectangleBorder(
             borderRadius: BorderRadius.all(Radius.circular(8))),
       ),
