@@ -241,14 +241,14 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   ClipRRect(
                                     borderRadius: BorderRadius.circular(4),
                                     child: LinearProgressIndicator(
-                                       value: game.blocksMined / game.nextHalvingThreshold,
+                                       value: game.halvingProgress,
                                        backgroundColor: Colors.black54,
                                        color: Colors.purpleAccent.withValues(alpha: 0.5),
                                        minHeight: 14,
                                     ),
                                   ),
                                   Text(
-                                     'HALVING: ${(game.blocksMined / game.nextHalvingThreshold * 100).toStringAsFixed(1)}%',
+                                     'HALVING: ${(game.halvingProgress * 100).toStringAsFixed(1)}%',
                                      style: GoogleFonts.orbitron(
                                        color: Colors.white, 
                                        fontSize: 10, 

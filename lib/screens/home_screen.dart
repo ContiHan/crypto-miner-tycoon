@@ -160,7 +160,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'This will reset your Money and Rigs.\n\n'
           'You will gain ${Formatter.formatNumber(game.pendingGovTokens.toDouble())} GovTokens.\n'
           'Current Multiplier: x${game.prestigeMultiplier.toStringAsFixed(1)}\n'
-          'New Multiplier: x${(1.0 + ((game.govTokens + game.pendingGovTokens) * 0.1)).toStringAsFixed(1)}',
+          'New Multiplier: x${game.prestigeMultiplierAfterHardFork.toStringAsFixed(1)}',
           style: const TextStyle(color: Colors.white70),
         ),
         actions: [

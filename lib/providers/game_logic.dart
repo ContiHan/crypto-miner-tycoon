@@ -105,6 +105,9 @@ class GameLogic with ChangeNotifier {
 
   Future<void> toggleSound() async {
     soundEnabled = !soundEnabled;
+    // Bridge the setting to the actual audio player; without this the toggle
+    // was purely cosmetic (SoundService.setMuted had no call sites).
+    _soundService.setMuted(!soundEnabled);
     await _settingsRepo.saveSettings(
       soundEnabled: soundEnabled,
       showFiatPrices: showFiatPrices,
@@ -188,6 +191,23 @@ class GameLogic with ChangeNotifier {
   double get prestigeMultiplier =>
       _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
 
+  // Multiplier the player will have right after a hard fork. The hard-fork
+  // dialog previously derived this by hand and dropped spentGovTokens, so it
+  // could claim prestiging LOWERS the multiplier.
+  double get prestigeMultiplierAfterHardFork => _economy
+      .calculatePrestigeMultiplier(govTokens + pendingGovTokens, spentGovTokens);
+
+  // Progress within the CURRENT halving interval (0..1). blocksMined is
+  // cumulative and thresholds step by 10000, so dividing by the raw threshold
+  // left the bar stuck near-full; normalise against the interval start instead.
+  double get halvingProgress {
+    final threshold = _miningManager.nextHalvingThreshold;
+    final prev = threshold - 10000 < 0 ? 0 : threshold - 10000;
+    final span = threshold - prev;
+    if (span <= 0) return 0;
+    return ((_miningManager.blocksMined - prev) / span).clamp(0.0, 1.0);
+  }
+
   double get networkDifficulty =>
       _miningManager.calculateNetworkDifficulty(lifetimeEarnings);
 
@@ -203,6 +223,8 @@ class GameLogic with ChangeNotifier {
   Timer? _gameTimer;
   Timer? _chaosTimer;
   Timer? _autoSaveTimer;
+  Timer? _chaosResetTimer;
+  Timer? _newsTimer;
   NewsEvent? currentNews;
 
   bool _isDisposed = false;
@@ -271,6 +293,11 @@ class GameLogic with ChangeNotifier {
     _chaosTimer?.cancel();
     _anomalyTimer?.cancel();
     _autoSaveTimer?.cancel();
+    _chaosResetTimer?.cancel();
+    _newsTimer?.cancel();
+    // A cancelled reset timer must not strand an active chaos multiplier.
+    chaosIncomeMultiplier = 1.0;
+    chaosCostMultiplier = 1.0;
     _timersActive = false;
   }
 
@@ -357,8 +384,9 @@ class GameLogic with ChangeNotifier {
     final random = Random();
     final type = EventType.values[random.nextInt(EventType.values.length)];
 
-    chaosIncomeMultiplier = 1.0;
-    chaosCostMultiplier = 1.0;
+    // Default: the event leaves the economy multipliers untouched.
+    double incomeMultiplier = 1.0;
+    double costMultiplier = 1.0;
 
     String message = '';
     double value = 0;
@@ -373,14 +401,14 @@ class GameLogic with ChangeNotifier {
         break;
       case EventType.marketCrash:
         message = "MARKET CRASH: Panic sellers flooding the market.";
-        chaosIncomeMultiplier = 0.5;
+        incomeMultiplier = 0.5;
         value = -50;
         color = Colors.redAccent;
         duration = 90 + random.nextInt(60);
         break;
       case EventType.bullRun:
         message = "BULL RUN: Institutional investors entering!";
-        chaosIncomeMultiplier = 2.0;
+        incomeMultiplier = 2.0;
         value = 100;
         color = Colors.greenAccent;
         duration = 90 + random.nextInt(60);
@@ -395,30 +423,59 @@ class GameLogic with ChangeNotifier {
         break;
       case EventType.cheapEnergy:
         message = "Surplus Energy: Electricity costs drop significantly.";
-        chaosCostMultiplier = 0.7;
+        costMultiplier = 0.7;
         value = -30;
         color = Colors.cyanAccent;
         duration = 120;
         break;
     }
 
-    currentNews = NewsEvent(
-      message: message,
-      type: type,
-      value: value,
-      durationSeconds: duration,
-      color: color,
+    _applyChaos(incomeMultiplier, costMultiplier, duration);
+    _showNews(
+      NewsEvent(
+        message: message,
+        type: type,
+        value: value,
+        durationSeconds: duration,
+        color: color,
+      ),
     );
-    notifyListeners();
 
-    Future.delayed(Duration(seconds: duration), () {
-      if (currentNews?.message == message) {
+    if (type == EventType.marketCrash || type == EventType.hack) {
+      _soundService.playEventBad();
+    } else {
+      _soundService.playEventGood();
+    }
+  }
+
+  // Sets the visible ticker event and schedules its own expiry. The identity
+  // guard means a later event replacing this one cannot clear the wrong banner.
+  void _showNews(NewsEvent event) {
+    currentNews = event;
+    notifyListeners();
+    _newsTimer?.cancel();
+    _newsTimer = Timer(Duration(seconds: event.durationSeconds), () {
+      if (identical(currentNews, event)) {
         currentNews = null;
-        chaosIncomeMultiplier = 1.0;
-        chaosCostMultiplier = 1.0;
         notifyListeners();
       }
     });
+  }
+
+  // Applies chaos multipliers on their own timer, independent of the news
+  // banner: a halving overwriting the banner no longer strands the multiplier,
+  // and back-to-back same-type events no longer cancel each other early.
+  void _applyChaos(double income, double cost, int durationSeconds) {
+    chaosIncomeMultiplier = income;
+    chaosCostMultiplier = cost;
+    _chaosResetTimer?.cancel();
+    if (income != 1.0 || cost != 1.0) {
+      _chaosResetTimer = Timer(Duration(seconds: durationSeconds), () {
+        chaosIncomeMultiplier = 1.0;
+        chaosCostMultiplier = 1.0;
+        notifyListeners();
+      });
+    }
   }
 
   double get globalHashRate {
@@ -468,14 +525,18 @@ class GameLogic with ChangeNotifier {
   }
 
   void _triggerHalving() {
-    currentNews = NewsEvent(
-      message: "BITCOIN HALVING: Block Reward Cut in Half!",
-      type: EventType.info,
-      durationSeconds: 15,
-      color: Colors.purpleAccent,
-      value: -50,
+    // Routed through _showNews so the banner actually expires (previously it had
+    // no cleanup and lingered until the next chaos event) and, crucially, does
+    // NOT touch the chaos multiplier timer.
+    _showNews(
+      NewsEvent(
+        message: "BITCOIN HALVING: Block Reward Cut in Half!",
+        type: EventType.info,
+        durationSeconds: 15,
+        color: Colors.purpleAccent,
+        value: -50,
+      ),
     );
-    notifyListeners();
   }
 
   int get pendingGovTokens =>
@@ -650,6 +711,7 @@ class GameLogic with ChangeNotifier {
       final settings = await _settingsRepo.loadSettings();
       soundEnabled = settings['sound_enabled'] ?? true;
       showFiatPrices = settings['show_fiat_prices'] ?? false;
+      _soundService.setMuted(!soundEnabled);
 
       final data = await _gameRepo.loadGameState();
 

@@ -5,32 +5,44 @@ import 'package:crypto_miner_tycoon/models/research_node.dart';
 import 'package:crypto_miner_tycoon/services/sound_service.dart';
 
 class FakeSoundService implements SoundService {
-  @override
-  bool get isMuted => false;
+  bool _muted = false;
+  final List<bool> setMutedCalls = [];
+  int mineCount = 0;
+  int buyCount = 0;
+  int unlockCount = 0;
+  int eventGoodCount = 0;
+  int eventBadCount = 0;
+  int halvingCount = 0;
 
   @override
-  void setMuted(bool muted) {}
+  bool get isMuted => _muted;
+
+  @override
+  void setMuted(bool muted) {
+    _muted = muted;
+    setMutedCalls.add(muted);
+  }
 
   @override
   Future<void> playSound(String text) async {}
 
   @override
-  Future<void> playMine() async {}
+  Future<void> playMine() async => mineCount++;
 
   @override
-  Future<void> playBuy() async {}
+  Future<void> playBuy() async => buyCount++;
 
   @override
-  Future<void> playUnlock() async {}
+  Future<void> playUnlock() async => unlockCount++;
 
   @override
-  Future<void> playEventGood() async {}
+  Future<void> playEventGood() async => eventGoodCount++;
 
   @override
-  Future<void> playEventBad() async {}
+  Future<void> playEventBad() async => eventBadCount++;
 
   @override
-  Future<void> playHalving() async {}
+  Future<void> playHalving() async => halvingCount++;
 }
 
 class FakeSettingsRepository implements SettingsRepository {

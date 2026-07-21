@@ -26,6 +26,15 @@ class _StashScreenState extends State<StashScreen>
     _tabController = TabController(length: 2, vsync: this);
   }
 
+  @override
+  void dispose() {
+    // The screen is rebuilt on every bottom-nav switch, so a missing dispose
+    // leaked a TabController (and its ticker) per visit and could assert in
+    // debug when leaving mid tab-animation.
+    _tabController.dispose();
+    super.dispose();
+  }
+
   void _showCrateOpening(BuildContext context, bool isPremium, GameLogic game) {
     // Logic is handled in game.buyCrate, here we just trigger it and show feedback
     if ((isPremium && game.chips < 50) || (!isPremium && game.chips < 10)) {
