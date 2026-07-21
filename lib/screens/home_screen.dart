@@ -17,7 +17,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _currentIndex = 3; // Start at Mine (Index 3)
   late GameLogic _gameLogic;
 
@@ -25,6 +25,9 @@ class _HomeScreenState extends State<HomeScreen> {
   void initState() {
     super.initState();
     _gameLogic = Provider.of<GameLogic>(context, listen: false);
+
+    // Observe app lifecycle so backgrounded time is saved and later reconciled.
+    WidgetsBinding.instance.addObserver(this);
 
     // Check initially (in case it loaded instantly)
     WidgetsBinding.instance.addPostFrameCallback((_) {
@@ -43,8 +46,27 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _gameLogic.removeListener(_onGameUpdate);
     super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    switch (state) {
+      case AppLifecycleState.paused:
+      case AppLifecycleState.hidden:
+      case AppLifecycleState.detached:
+        // Leaving the foreground: persist now and stop the loop.
+        _gameLogic.onAppPaused();
+        break;
+      case AppLifecycleState.resumed:
+        // Returning: credit the elapsed background time and restart the loop.
+        _gameLogic.onAppResumed();
+        break;
+      case AppLifecycleState.inactive:
+        break;
+    }
   }
 
   void _onGameUpdate() {

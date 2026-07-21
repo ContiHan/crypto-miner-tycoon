@@ -7,8 +7,10 @@ import 'theme/app_theme.dart';
 
 import 'repositories/game_repository.dart';
 import 'repositories/settings_repository.dart';
+
 import 'services/economy_service.dart';
 import 'services/stash_service.dart';
+import 'services/sound_service.dart';
 
 void main() {
   runApp(
@@ -19,8 +21,10 @@ void main() {
             return GameLogic(
               gameRepository: GameRepository(),
               settingsRepository: SettingsRepository(),
+
               economyService: EconomyService(),
               stashService: StashService(),
+              soundService: SoundService(),
             );
           },
         ),

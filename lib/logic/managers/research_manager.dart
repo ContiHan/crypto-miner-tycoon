@@ -55,19 +55,30 @@ class ResearchManager {
   }
 
   // Returns cost if success (so caller can deduct wallet), 0 if failed
-  double tryBuy(String researchId, double currentWallet) {
+  double tryBuy(
+    String researchId,
+    double currentWallet,
+    double bitcoinExchangeRate,
+  ) {
     int index = researchNodes.indexWhere((r) => r.id == researchId);
     if (index == -1) return 0;
 
     ResearchNode node = researchNodes[index];
     if (node.isCompleted) return 0;
 
-    if (currentWallet >= node.cost) {
+    double costSats = getCostInSats(node, bitcoinExchangeRate);
+
+    if (currentWallet >= costSats) {
       node.isCompleted = true;
       _checkUnlocks();
-      return node.cost;
+      return costSats;
     }
     return 0;
+  }
+
+  double getCostInSats(ResearchNode node, double bitcoinExchangeRate) {
+    if (bitcoinExchangeRate <= 0) return node.cost; // Fallback
+    return node.cost / bitcoinExchangeRate;
   }
 
   void _checkUnlocks() {

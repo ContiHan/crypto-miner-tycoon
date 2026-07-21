@@ -86,7 +86,12 @@ class ResearchTab extends StatelessWidget {
       return const SizedBox.shrink();
     }
 
-    final bool canAfford = game.wallet >= node.cost;
+    // node.cost is denominated in credits (USD). The wallet holds sats, and the
+    // real charge is credits / exchangeRate (see GameLogic.getResearchCost), so
+    // affordability and the BTC price must both go through that converter — the
+    // sats price falls after a hard fork, exactly like rig prices do.
+    final double costSats = game.getResearchCost(node.id);
+    final bool canAfford = game.wallet >= costSats;
     final bool isCompleted = node.isCompleted;
 
     return StylizedCard(
@@ -169,8 +174,8 @@ class ResearchTab extends StatelessWidget {
                 ),
                 child: Text(
                   game.showFiatPrices
-                      ? 'BUY\n\$ ${Formatter.formatNumber(node.cost * game.bitcoinExchangeRate)}'
-                      : 'BUY\n${Formatter.formatBitcoin(node.cost)}',
+                      ? 'BUY\n\$ ${Formatter.formatNumber(node.cost)}'
+                      : 'BUY\n${Formatter.formatBitcoin(costSats)}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(
                     fontSize: 10,

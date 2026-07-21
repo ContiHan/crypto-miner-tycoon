@@ -2,6 +2,36 @@ import 'package:crypto_miner_tycoon/repositories/game_repository.dart';
 import 'package:crypto_miner_tycoon/repositories/settings_repository.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/models/research_node.dart';
+import 'package:crypto_miner_tycoon/services/sound_service.dart';
+
+class FakeSoundService implements SoundService {
+  @override
+  bool get isMuted => false;
+
+  @override
+  void setMuted(bool muted) {}
+
+  @override
+  Future<void> playSound(String text) async {}
+
+  @override
+  Future<void> playMine() async {}
+
+  @override
+  Future<void> playBuy() async {}
+
+  @override
+  Future<void> playUnlock() async {}
+
+  @override
+  Future<void> playEventGood() async {}
+
+  @override
+  Future<void> playEventBad() async {}
+
+  @override
+  Future<void> playHalving() async {}
+}
 
 class FakeSettingsRepository implements SettingsRepository {
   Map<String, dynamic> data = {
@@ -53,6 +83,12 @@ class FakeGameRepository implements GameRepository {
   }
 
   @override
+  Future<int?> readLastSaveTime() async {
+    final t = data['last_save_time'];
+    return t is int ? t : null;
+  }
+
+  @override
   Future<void> saveGameState({
     required double wallet,
     required double lifetimeEarnings,
@@ -100,5 +136,8 @@ class FakeGameRepository implements GameRepository {
     data['blocksMined'] = blocksMined;
     data['nextHalvingThreshold'] = nextHalvingThreshold;
     data['bitcoinExchangeRate'] = bitcoinExchangeRate;
+
+    // Mirror the real repository, which stamps the save time inside the blob.
+    data['last_save_time'] = DateTime.now().millisecondsSinceEpoch;
   }
 }

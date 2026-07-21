@@ -9,10 +9,13 @@ GameLogic createTestGameLogic({
 }) {
   return GameLogic(
     gameRepository: FakeGameRepository(),
+
     settingsRepository: FakeSettingsRepository(),
     economyService: EconomyService(),
     stashService: StashService(),
+    soundService: FakeSoundService(),
     startTimers: startTimers,
+
     loadOnStart: loadOnStart,
   );
 }

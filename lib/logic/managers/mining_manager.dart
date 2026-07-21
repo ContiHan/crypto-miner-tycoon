@@ -78,13 +78,15 @@ class MiningManager {
   }
 
   // Returns true if halving occurred
+
   bool checkHalving() {
-    if (blocksMined >= nextHalvingThreshold) {
+    bool halved = false;
+    while (blocksMined >= nextHalvingThreshold) {
       blockReward /= 2;
       nextHalvingThreshold += 10000;
-      return true;
+      halved = true;
     }
-    return false;
+    return halved;
   }
 
   void incrementBlocksMined() {

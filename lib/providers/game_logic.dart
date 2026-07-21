@@ -14,6 +14,9 @@ import '../services/stash_service.dart';
 import '../repositories/game_repository.dart';
 import '../repositories/settings_repository.dart';
 
+// Services
+import '../services/sound_service.dart';
+
 // Managers
 import '../logic/managers/mining_manager.dart';
 import '../logic/managers/research_manager.dart';
@@ -27,9 +30,11 @@ class GameLogic with ChangeNotifier {
   final SettingsRepository _settingsRepo;
   final EconomyService _economy;
   final StashService _stash;
+  final SoundService _soundService;
 
   // Managers
   late final MiningManager _miningManager;
+
   late final ResearchManager _researchManager;
   late final PerkManager _perkManager;
 
@@ -147,7 +152,12 @@ class GameLogic with ChangeNotifier {
   int _autoClickCounter = 0;
 
   void buyResearch(String researchId) {
-    double cost = _researchManager.tryBuy(researchId, wallet);
+    double cost = _researchManager.tryBuy(
+      researchId,
+      wallet,
+      _miningManager.bitcoinExchangeRate,
+    );
+
     if (cost > 0) {
       wallet -= cost;
       notifyListeners();
@@ -156,6 +166,24 @@ class GameLogic with ChangeNotifier {
   }
 
   bool isResearched(String id) => _researchManager.isResearched(id);
+
+  double getResearchCost(String researchId) {
+    var node = _researchManager.researchNodes.firstWhere(
+      (r) => r.id == researchId,
+      orElse: () => ResearchNode(
+        id: '',
+        name: '',
+        description: '',
+        cost: 0,
+        icon: Icons.error,
+      ),
+    );
+    if (node.id.isEmpty) return 0;
+    return _researchManager.getCostInSats(
+      node,
+      _miningManager.bitcoinExchangeRate,
+    );
+  }
 
   double get prestigeMultiplier =>
       _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
@@ -179,42 +207,102 @@ class GameLogic with ChangeNotifier {
 
   bool _isDisposed = false;
 
+  // Guards saves so a not-yet-loaded game can never overwrite a real save with
+  // a blank default state (load/first-interaction race).
+  bool _isLoaded = false;
+  bool get isLoaded => _isLoaded;
+
+  // Lifecycle: whether the game loop should be running, and whether it is.
+  bool _autoStartTimers = true;
+  bool _timersActive = false;
+
+  // Below this gap (seconds) a resume reconciles income silently; above it we
+  // surface the "welcome back" dialog.
+  static const int _minAnnounceSeconds = 60;
+
   @override
   void dispose() {
     _isDisposed = true;
-    _gameTimer?.cancel();
-    _chaosTimer?.cancel();
-    _anomalyTimer?.cancel();
-    _autoSaveTimer?.cancel();
+    _stopAllTimers();
     super.dispose();
   }
 
   GameLogic({
     required GameRepository gameRepository,
+
     required SettingsRepository settingsRepository,
     required EconomyService economyService,
     required StashService stashService,
+    required SoundService soundService,
     bool startTimers = true,
     bool loadOnStart = true,
   }) : _gameRepo = gameRepository,
        _settingsRepo = settingsRepository,
        _economy = economyService,
-       _stash = stashService {
+       _stash = stashService,
+       _soundService = soundService {
     // Initialize Managers
     _miningManager = MiningManager();
     _researchManager = ResearchManager();
     _perkManager = PerkManager();
 
+    _autoStartTimers = startTimers;
+
     if (loadOnStart) {
       loadGame().then((_) {
         if (_isDisposed) return;
-        if (startTimers) {
-          _startGameLoop();
-          _startChaosTimer();
-          _startAnomalyTimer();
-        }
+        if (_autoStartTimers) _startAllTimers();
       });
     }
+  }
+
+  // Starts every game timer exactly once. Idempotent so pause/resume and the
+  // initial load cannot double-start the loop.
+  void _startAllTimers() {
+    if (_timersActive || _isDisposed) return;
+    _startGameLoop();
+    _startChaosTimer();
+    _startAnomalyTimer();
+    _timersActive = true;
+  }
+
+  void _stopAllTimers() {
+    _gameTimer?.cancel();
+    _chaosTimer?.cancel();
+    _anomalyTimer?.cancel();
+    _autoSaveTimer?.cancel();
+    _timersActive = false;
+  }
+
+  // ---- App lifecycle ------------------------------------------------------
+  // Wired from HomeScreen's WidgetsBindingObserver. Without this the game
+  // simply froze in the background: the periodic timer stopped firing and no
+  // offline reconciliation ran, so backgrounded time earned nothing.
+
+  Future<void> onAppPaused() async {
+    _stopAllTimers();
+    if (_isLoaded) {
+      // Persists last_save_time = now, so resume/cold-start can measure the gap.
+      await _saveGame();
+    }
+  }
+
+  Future<void> onAppResumed() async {
+    if (_isLoaded) {
+      final lastSaveTime = await _gameRepo.readLastSaveTime();
+      if (lastSaveTime != null) {
+        final elapsed =
+            (DateTime.now().millisecondsSinceEpoch - lastSaveTime) ~/ 1000;
+        if (elapsed > 0) {
+          _simulateOfflineMining(
+            elapsed,
+            announce: elapsed >= _minAnnounceSeconds,
+          );
+        }
+      }
+    }
+    if (_autoStartTimers) _startAllTimers();
+    notifyListeners();
   }
 
   // Spawns anomalies randomly
@@ -373,6 +461,7 @@ class GameLogic with ChangeNotifier {
 
       if (_miningManager.checkHalving()) {
         _triggerHalving();
+        _soundService.playHalving();
       }
       notifyListeners();
     }
@@ -406,8 +495,10 @@ class GameLogic with ChangeNotifier {
       lifetimeEarnings: lifetimeEarnings,
     );
 
-    wallet += clickSats;
     lifetimeEarnings += clickSats;
+    wallet += clickSats;
+    _soundService.playMine();
+
     notifyListeners();
   }
 
@@ -465,7 +556,9 @@ class GameLogic with ChangeNotifier {
 
       if (wallet >= costSats) {
         wallet -= costSats;
+
         rig.amount++;
+        _soundService.playBuy();
         notifyListeners();
         _saveGame();
       }
@@ -498,7 +591,9 @@ class GameLogic with ChangeNotifier {
     int cost = _perkManager.tryBuy(perkId, govTokens);
     if (cost > 0) {
       govTokens -= cost;
+
       spentGovTokens += cost;
+      _soundService.playUnlock();
       _saveGame();
       notifyListeners();
     }
@@ -527,6 +622,9 @@ class GameLogic with ChangeNotifier {
 
   // PERSISTENCE
   Future<void> _saveGame() async {
+    // Never persist before the initial load finishes, or a corrupt/slow load
+    // would let a blank default state clobber the real save on disk.
+    if (!_isLoaded) return;
     await _gameRepo.saveGameState(
       wallet: wallet,
       lifetimeEarnings: lifetimeEarnings,
@@ -548,91 +646,113 @@ class GameLogic with ChangeNotifier {
   }
 
   Future<void> loadGame() async {
-    final settings = await _settingsRepo.loadSettings();
-    soundEnabled = settings['sound_enabled'];
-    showFiatPrices = settings['show_fiat_prices'];
+    try {
+      final settings = await _settingsRepo.loadSettings();
+      soundEnabled = settings['sound_enabled'] ?? true;
+      showFiatPrices = settings['show_fiat_prices'] ?? false;
 
-    final data = await _gameRepo.loadGameState();
+      final data = await _gameRepo.loadGameState();
 
-    wallet = data['wallet'];
-    lifetimeEarnings = data['lifetimeEarnings'];
-    govTokens = data['govTokens'];
-    spentGovTokens = data['spentGovTokens'];
+      // Numeric fields are coerced defensively: JSON does not distinguish int
+      // from double, so a whole-number double round-trips as an int and a raw
+      // assignment would throw "int is not a subtype of double".
+      wallet = _toDouble(data['wallet']);
+      lifetimeEarnings = _toDouble(data['lifetimeEarnings']);
+      govTokens = _toInt(data['govTokens']);
+      spentGovTokens = _toInt(data['spentGovTokens']);
+      chips = _toInt(data['chips']);
 
-    // chips was missing in loadGameState initial impl?
-    // Wait, let's check GameRepository.loadGameState content provided previously.
-    // Yes, data['chips'] was added.
-    chips = data['chips'] ?? 0;
-
-    if (data.containsKey('stash')) {
-      _stash.loadStash(Map<String, dynamic>.from(data['stash']));
-    }
-
-    // Load Mining Manager Data
-    _miningManager.blockReward = data['blockReward'];
-    _miningManager.blocksMined = data['blocksMined'];
-    _miningManager.nextHalvingThreshold = data['nextHalvingThreshold'];
-    double rate = data['bitcoinExchangeRate'] ?? 1.0;
-    if (rate <= 0.0) rate = 1.0;
-    _miningManager.bitcoinExchangeRate = rate;
-
-    // Load Perk Manager Data
-    if (data.containsKey('perks')) {
-      _perkManager.perks.addAll(data['perks'].cast<String, int>());
-    }
-    if (data.containsKey('perkCosts')) {
-      _perkManager.perkCosts.addAll(data['perkCosts'].cast<String, int>());
-    }
-
-    // Load Rigs (Still local)
-    if (data.containsKey('rigs')) {
-      final List<dynamic> decoded = data['rigs'];
-      for (var jsonItem in decoded) {
-        final id = jsonItem['id'];
-        final amount = jsonItem['amount'];
-        final index = rigs.indexWhere((r) => r.id == id);
-        if (index != -1) rigs[index].amount = amount;
+      if (data.containsKey('stash') && data['stash'] != null) {
+        _stash.loadStash(Map<String, dynamic>.from(data['stash']));
       }
-    }
 
-    // Load Research Manager Data
-    if (data.containsKey('research')) {
-      final List<dynamic> decoded = data['research'];
-      for (var jsonItem in decoded) {
-        final id = jsonItem['id'];
-        final isUnlocked = jsonItem['isUnlocked'];
-        final isCompleted = jsonItem['isCompleted'];
-        final index = _researchManager.researchNodes.indexWhere(
-          (r) => r.id == id,
+      // Load Mining Manager Data
+      _miningManager.blockReward = _toDouble(data['blockReward']);
+      _miningManager.blocksMined = _toInt(data['blocksMined']);
+      _miningManager.nextHalvingThreshold = _toInt(data['nextHalvingThreshold']);
+      double rate = _toDouble(data['bitcoinExchangeRate']);
+      if (rate <= 0.0) rate = 1.0;
+      _miningManager.bitcoinExchangeRate = rate;
+
+      // Load Perk Manager Data
+      if (data.containsKey('perks')) {
+        _perkManager.perks.addAll(
+          Map<String, dynamic>.from(data['perks']).map(
+            (k, v) => MapEntry(k, _toInt(v)),
+          ),
         );
-        if (index != -1) {
-          _researchManager.researchNodes[index].isUnlocked = isUnlocked;
-          _researchManager.researchNodes[index].isCompleted = isCompleted;
+      }
+      if (data.containsKey('perkCosts')) {
+        _perkManager.perkCosts.addAll(
+          Map<String, dynamic>.from(data['perkCosts']).map(
+            (k, v) => MapEntry(k, _toInt(v)),
+          ),
+        );
+      }
+
+      // Load Rigs (Still local)
+      if (data.containsKey('rigs')) {
+        final List<dynamic> decoded = data['rigs'];
+        for (var jsonItem in decoded) {
+          final id = jsonItem['id'];
+          final amount = _toInt(jsonItem['amount']);
+          final index = rigs.indexWhere((r) => r.id == id);
+          if (index != -1) rigs[index].amount = amount;
         }
       }
-    }
 
-    // Offline Earnings
-    final lastSaveTime = data['last_save_time'];
-    if (lastSaveTime != null) {
-      final now = DateTime.now().millisecondsSinceEpoch;
-      final diffSeconds = (now - lastSaveTime) ~/ 1000;
-
-      if (diffSeconds > 10) {
-        _simulateOfflineMining(diffSeconds);
+      // Load Research Manager Data
+      if (data.containsKey('research')) {
+        final List<dynamic> decoded = data['research'];
+        for (var jsonItem in decoded) {
+          final id = jsonItem['id'];
+          final isUnlocked = jsonItem['isUnlocked'] ?? false;
+          final isCompleted = jsonItem['isCompleted'] ?? false;
+          final index = _researchManager.researchNodes.indexWhere(
+            (r) => r.id == id,
+          );
+          if (index != -1) {
+            _researchManager.researchNodes[index].isUnlocked = isUnlocked;
+            _researchManager.researchNodes[index].isCompleted = isCompleted;
+          }
+        }
       }
-    }
 
-    // Migration
-    if (spentGovTokens == 0 && _perkManager.perks.values.any((v) => v > 0)) {
-      spentGovTokens = _economy.recalculateSpentTokens(_perkManager.perks);
-      _saveGame();
+      // The load has succeeded far enough to be authoritative; saves are now
+      // safe to persist (and offline sim below relies on this).
+      _isLoaded = true;
+
+      // Offline Earnings
+      final lastSaveTime = data['last_save_time'];
+      if (lastSaveTime != null) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final diffSeconds = (now - lastSaveTime) ~/ 1000;
+
+        if (diffSeconds > 10) {
+          _simulateOfflineMining(diffSeconds);
+        }
+      }
+
+      // Migration
+      if (spentGovTokens == 0 && _perkManager.perks.values.any((v) => v > 0)) {
+        spentGovTokens = _economy.recalculateSpentTokens(_perkManager.perks);
+        _saveGame();
+      }
+    } catch (e, st) {
+      // A failed load must not brick the game: log, keep the in-code defaults,
+      // and still mark the game loaded so timers start and play can continue.
+      debugPrint('GameLogic.loadGame failed, using defaults: $e\n$st');
+    } finally {
+      _isLoaded = true;
     }
 
     notifyListeners();
   }
 
-  void _simulateOfflineMining(int totalSeconds) {
+  static double _toDouble(dynamic v) => v is num ? v.toDouble() : 0.0;
+  static int _toInt(dynamic v) => v is num ? v.toInt() : 0;
+
+  void _simulateOfflineMining(int totalSeconds, {bool announce = true}) {
     if (totalSeconds <= 0) return;
 
     if (totalSeconds > 31536000) {
@@ -682,6 +802,12 @@ class GameLogic with ChangeNotifier {
       timePerTick = totalSeconds / 5000.0;
     }
 
+    // 1 second == 1 block online, so a chunk of `timePerTick` seconds is
+    // `timePerTick` blocks. Accumulate the fraction instead of truncating it
+    // every iteration (the old `timePerTick.toInt()` lost up to ~50% of halving
+    // progress on long absences and let offline over-pay vs. online play).
+    double blockCarry = 0;
+
     for (int i = 0; i < iterations; i++) {
       // Difficulty at CURRENT lifetimeEarnings
       double diff = networkDifficulty;
@@ -704,23 +830,20 @@ class GameLogic with ChangeNotifier {
       lifetimeEarnings += income;
       accrued += income;
 
-      // Update blocks?
-      // MiningManager.incrementBlocksMined() is per TICK/Block.
-      // Theoretically 1 sec = 1 block?
-      // Original code: _mine() runs every 1 second.
-      // So yes.
-      _miningManager.blocksMined += timePerTick.toInt();
-      if (_miningManager.checkHalving()) {
-        // Halving happened?
-        // _triggerHalving() is UI. Offline we just slash reward?
-        // checkHalving() already slashes reward.
+      blockCarry += timePerTick;
+      final wholeBlocks = blockCarry.floor();
+      if (wholeBlocks > 0) {
+        _miningManager.blocksMined += wholeBlocks;
+        blockCarry -= wholeBlocks;
+        // checkHalving() slashes the reward for every threshold crossed.
+        _miningManager.checkHalving();
       }
 
       if (lifetimeEarnings >= GameConstants.maxSupplySats) break;
     }
 
     if (accrued > 0) {
-      offlineEarningsAmount = accrued;
+      if (announce) offlineEarningsAmount = accrued;
       _saveGame();
     }
   }

@@ -48,14 +48,15 @@ class Formatter {
       // >= 1 BTC. Display as BTC.
       double btc = sats / 100000000;
       if (btc < 1000) {
-        // Show decimals for small BTC amounts (e.g. 1.5 ₿)
-        // Remove trailing zeros? 1.50 -> 1.5. 1.0 -> 1.
-        // Let's use standard toString() but capped precision?
-        String btcStr = btc.toStringAsFixed(2);
-        if (btcStr.endsWith('00')) {
-          btcStr = btcStr.substring(0, btcStr.length - 3);
-        } else if (btcStr.endsWith('0')) {
-          btcStr = btcStr.substring(0, btcStr.length - 1);
+        // Show enough precision to represent halved block rewards faithfully.
+        // Rewards halve as 50, 25, 12.5, 6.25, 3.125, 1.5625, ... so 2 decimals
+        // (the old behaviour) rounded 3.125 -> "3.13" and corrupted every reward
+        // from the 4th halving on. Format at high precision, then trim trailing
+        // zeros (and a dangling '.') so whole/short values stay clean.
+        String btcStr = btc.toStringAsFixed(4);
+        if (btcStr.contains('.')) {
+          btcStr = btcStr.replaceAll(RegExp(r'0+$'), '');
+          btcStr = btcStr.replaceAll(RegExp(r'\.$'), '');
         }
         return '$btcStr ₿';
       }
