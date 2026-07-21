@@ -163,6 +163,7 @@ class GameLogic with ChangeNotifier {
 
     if (cost > 0) {
       wallet -= cost;
+      _soundService.playUnlock();
       notifyListeners();
       _saveGame();
     }
