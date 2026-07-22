@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:flutter/material.dart';
 import '../models/rig.dart';
 import '../providers/game_logic.dart';
@@ -24,6 +25,13 @@ class RigListItem extends StatefulWidget {
 class _RigListItemState extends State<RigListItem> with SingleTickerProviderStateMixin {
   late AnimationController _controller;
 
+  // Hold-to-buy state.
+  final GlobalKey _buttonKey = GlobalKey();
+  Timer? _holdTimer;
+  int _holdMs = 0;
+  int _batch = 1;
+  bool _holding = false;
+
   @override
   void initState() {
     super.initState();
@@ -33,6 +41,56 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
       vsync: this,
     );
     _checkAnimation();
+  }
+
+  // Batch size grows the longer the button is held: 1 -> 2 -> 10 -> 100.
+  int _batchForElapsed(int ms) {
+    if (ms < 800) return 1;
+    if (ms < 1800) return 2;
+    if (ms < 3000) return 10;
+    return 100;
+  }
+
+  void _emitFloatingText() {
+    final box = _buttonKey.currentContext?.findRenderObject() as RenderBox?;
+    if (box == null) return;
+    widget.onBuy?.call(box.localToGlobal(box.size.center(Offset.zero)));
+  }
+
+  void _startHold() {
+    // Immediate first buy so a hold feels responsive.
+    if (widget.game.buyRigMax(widget.rig.id, 1) > 0) _emitFloatingText();
+    _holding = true;
+    _holdMs = 0;
+    _batch = 1;
+    _holdTimer?.cancel();
+    _holdTimer = Timer.periodic(const Duration(milliseconds: 200), (t) {
+      if (!mounted) {
+        _stopHold();
+        return;
+      }
+      _holdMs += 200;
+      final int batch = _batchForElapsed(_holdMs);
+      final int bought = widget.game.buyRigMax(widget.rig.id, batch);
+      if (bought == 0) {
+        // Ran out of money — stop auto-buying.
+        _stopHold();
+        return;
+      }
+      _emitFloatingText();
+      setState(() => _batch = batch);
+    });
+  }
+
+  void _stopHold() {
+    _holdTimer?.cancel();
+    _holdTimer = null;
+    if (mounted) {
+      setState(() {
+        _holding = false;
+        _batch = 1;
+      });
+    }
   }
 
   @override
@@ -67,6 +125,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
 
   @override
   void dispose() {
+    _holdTimer?.cancel();
     _controller.dispose();
     super.dispose();
   }
@@ -150,44 +209,68 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                   ),
                 ),
                 
-                // Buy Button
-                Builder(
-                  builder: (ctx) {
-                    return ElevatedButton(
-                      onPressed: canAfford ? () {
-                        widget.game.buyRig(widget.rig.id);
-                        
-                        // Find position of this button
-                        final RenderBox box = ctx.findRenderObject() as RenderBox;
-                        final Offset position = box.localToGlobal(box.size.center(Offset.zero));
-                        
-                        widget.onBuy?.call(position);
-                      } : null,
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: canAfford ? AppTheme.accent : Colors.grey[800],
-                        foregroundColor: Colors.black,
-                        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                        minimumSize: const Size(80, 40),
-                      ),
-                      child: Column(
-                        children: [
-                          const Text(
-                            'BUY',
-                            style: TextStyle(fontSize: 10, fontWeight: FontWeight.bold),
+                // Buy Button — tap buys one; hold auto-buys with an escalating
+                // batch (1 -> 2 -> 10 -> 100), stopping when funds run out.
+                GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTap: canAfford
+                      ? () {
+                          widget.game.buyRig(widget.rig.id);
+                          _emitFloatingText();
+                        }
+                      : null,
+                  onLongPressStart: canAfford ? (_) => _startHold() : null,
+                  onLongPressEnd: (_) => _stopHold(),
+                  onLongPressCancel: _stopHold,
+                  child: AnimatedContainer(
+                    key: _buttonKey,
+                    duration: const Duration(milliseconds: 120),
+                    constraints: const BoxConstraints(minWidth: 80, minHeight: 40),
+                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    decoration: BoxDecoration(
+                      color: canAfford ? AppTheme.accent : Colors.grey[800],
+                      borderRadius: BorderRadius.circular(4),
+                      border: _holding
+                          ? Border.all(color: Colors.white, width: 2)
+                          : null,
+                      boxShadow: _holding
+                          ? [
+                              BoxShadow(
+                                color: AppTheme.accent.withValues(alpha: 0.9),
+                                blurRadius: 14,
+                                spreadRadius: 2,
+                              ),
+                            ]
+                          : null,
+                    ),
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text(
+                          _holding ? '×$_batch' : 'BUY',
+                          style: TextStyle(
+                            fontSize: _holding ? 14 : 10,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.black,
                           ),
-                          FittedBox(
-                            fit: BoxFit.scaleDown,
-                            child: Text(
-                              widget.game.showFiatPrices 
-                                  ? '\$ ${Formatter.formatNumber(widget.game.getRigCostInCredits(widget.rig))}'
-                                  : Formatter.formatBitcoin(widget.game.getRigCost(widget.rig)),
-                              style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w900),
+                        ),
+                        FittedBox(
+                          fit: BoxFit.scaleDown,
+                          child: Text(
+                            widget.game.showFiatPrices
+                                ? '\$ ${Formatter.formatNumber(widget.game.getRigCostInCredits(widget.rig))}'
+                                : Formatter.formatBitcoin(
+                                    widget.game.getRigCost(widget.rig)),
+                            style: const TextStyle(
+                              fontSize: 12,
+                              fontWeight: FontWeight.w900,
+                              color: Colors.black,
                             ),
                           ),
-                        ],
-                      ),
-                    );
-                  }
+                        ),
+                      ],
+                    ),
+                  ),
                 ),
               ],
             ),

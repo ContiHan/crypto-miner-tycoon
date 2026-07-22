@@ -618,21 +618,33 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 
-  void buyRig(String rigId) {
-    int index = rigs.indexWhere((r) => r.id == rigId);
-    if (index != -1) {
-      Rig rig = rigs[index];
-      double costSats = getRigCostInSats(rig);
+  void buyRig(String rigId) => buyRigMax(rigId, 1);
 
-      if (wallet >= costSats) {
-        wallet -= costSats;
+  /// Buys up to [maxCount] units of a rig, stopping early when the wallet can no
+  /// longer afford the next (each unit costs 15% more than the last). Batches the
+  /// sound/notify/save so holding-to-buy 100 units is one update, not 100.
+  /// Returns how many were actually bought (0 if none were affordable).
+  int buyRigMax(String rigId, int maxCount) {
+    if (maxCount <= 0) return 0;
+    final int index = rigs.indexWhere((r) => r.id == rigId);
+    if (index == -1) return 0;
+    final Rig rig = rigs[index];
 
-        rig.amount++;
-        _soundService.playBuy();
-        notifyListeners();
-        _saveGame();
-      }
+    int bought = 0;
+    while (bought < maxCount) {
+      final double costSats = getRigCostInSats(rig);
+      if (wallet < costSats) break;
+      wallet -= costSats;
+      rig.amount++;
+      bought++;
     }
+
+    if (bought > 0) {
+      _soundService.playBuy();
+      notifyListeners();
+      _saveGame();
+    }
+    return bought;
   }
 
   double getRigCostInCredits(Rig rig) {
