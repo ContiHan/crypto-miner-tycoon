@@ -1,5 +1,4 @@
 import 'dart:async';
-import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
@@ -24,6 +23,7 @@ import '../logic/managers/mining_manager.dart';
 import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
 import '../logic/systems/anomaly_system.dart';
+import '../logic/systems/chaos_event_system.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -220,9 +220,14 @@ class GameLogic with ChangeNotifier {
   double get networkDifficulty =>
       _miningManager.calculateNetworkDifficulty(lifetimeEarnings);
 
-  // Chaos Logic
-  double chaosIncomeMultiplier = 1.0;
-  double chaosCostMultiplier = 1.0;
+  // Chaos/news events — extracted into ChaosEventSystem (lib/logic/systems).
+  late final ChaosEventSystem _events;
+  double get chaosIncomeMultiplier => _events.incomeMultiplier;
+  set chaosIncomeMultiplier(double v) => _events.incomeMultiplier = v;
+  double get chaosCostMultiplier => _events.costMultiplier;
+  set chaosCostMultiplier(double v) => _events.costMultiplier = v;
+  NewsEvent? get currentNews => _events.currentNews;
+  set currentNews(NewsEvent? v) => _events.currentNews = v;
 
   // Anomaly Logic — extracted into AnomalySystem (lib/logic/systems).
   late final AnomalySystem _anomaly;
@@ -232,11 +237,7 @@ class GameLogic with ChangeNotifier {
   set anomalyPosition(Offset v) => _anomaly.position = v;
 
   Timer? _gameTimer;
-  Timer? _chaosTimer;
   Timer? _autoSaveTimer;
-  Timer? _chaosResetTimer;
-  Timer? _newsTimer;
-  NewsEvent? currentNews;
 
   bool _isDisposed = false;
 
@@ -288,6 +289,17 @@ class GameLogic with ChangeNotifier {
       },
     );
 
+    _events = ChaosEventSystem(
+      onChanged: notifyListeners,
+      onHackLoss: () {
+        final loss = wallet * 0.15;
+        wallet -= loss;
+        return loss;
+      },
+      onEventSound: (good) =>
+          good ? _soundService.playEventGood() : _soundService.playEventBad(),
+    );
+
     _autoStartTimers = startTimers;
 
     if (loadOnStart) {
@@ -303,21 +315,16 @@ class GameLogic with ChangeNotifier {
   void _startAllTimers() {
     if (_timersActive || _isDisposed) return;
     _startGameLoop();
-    _startChaosTimer();
+    _events.start();
     _anomaly.start();
     _timersActive = true;
   }
 
   void _stopAllTimers() {
     _gameTimer?.cancel();
-    _chaosTimer?.cancel();
-    _anomaly.stop();
     _autoSaveTimer?.cancel();
-    _chaosResetTimer?.cancel();
-    _newsTimer?.cancel();
-    // A cancelled reset timer must not strand an active chaos multiplier.
-    chaosIncomeMultiplier = 1.0;
-    chaosCostMultiplier = 1.0;
+    _events.stop();
+    _anomaly.stop();
     _timersActive = false;
   }
 
@@ -364,112 +371,6 @@ class GameLogic with ChangeNotifier {
       _saveGame();
       debugPrint('Auto-Saved Game');
     });
-  }
-
-  void _startChaosTimer() {
-    int nextInterval = 60 + Random().nextInt(240);
-    _chaosTimer = Timer(Duration(seconds: nextInterval), () {
-      _triggerRandomEvent();
-      _startChaosTimer();
-    });
-  }
-
-  void _triggerRandomEvent() {
-    final random = Random();
-    final type = EventType.values[random.nextInt(EventType.values.length)];
-
-    // Default: the event leaves the economy multipliers untouched.
-    double incomeMultiplier = 1.0;
-    double costMultiplier = 1.0;
-
-    String message = '';
-    double value = 0;
-    int duration = 30;
-    Color color = Colors.white;
-
-    switch (type) {
-      case EventType.info:
-        message = "Bitcoin adoption hits 90% globally!";
-        color = Colors.blueAccent;
-        duration = 60;
-        break;
-      case EventType.marketCrash:
-        message = "MARKET CRASH: Panic sellers flooding the market.";
-        incomeMultiplier = 0.5;
-        value = -50;
-        color = Colors.redAccent;
-        duration = 90 + random.nextInt(60);
-        break;
-      case EventType.bullRun:
-        message = "BULL RUN: Institutional investors entering!";
-        incomeMultiplier = 2.0;
-        value = 100;
-        color = Colors.greenAccent;
-        duration = 90 + random.nextInt(60);
-        break;
-      case EventType.hack:
-        message = "SECURITY BREACH: Hot wallet compromised!";
-        double loss = wallet * 0.15;
-        wallet -= loss;
-        value = -loss;
-        color = Colors.red;
-        duration = 45;
-        break;
-      case EventType.cheapEnergy:
-        message = "Surplus Energy: Electricity costs drop significantly.";
-        costMultiplier = 0.7;
-        value = -30;
-        color = Colors.cyanAccent;
-        duration = 120;
-        break;
-    }
-
-    _applyChaos(incomeMultiplier, costMultiplier, duration);
-    _showNews(
-      NewsEvent(
-        message: message,
-        type: type,
-        value: value,
-        durationSeconds: duration,
-        color: color,
-      ),
-    );
-
-    if (type == EventType.marketCrash || type == EventType.hack) {
-      _soundService.playEventBad();
-    } else {
-      _soundService.playEventGood();
-    }
-  }
-
-  // Sets the visible ticker event and schedules its own expiry. The identity
-  // guard means a later event replacing this one cannot clear the wrong banner.
-  void _showNews(NewsEvent event) {
-    currentNews = event;
-    notifyListeners();
-    _newsTimer?.cancel();
-    _newsTimer = Timer(Duration(seconds: event.durationSeconds), () {
-      if (identical(currentNews, event)) {
-        currentNews = null;
-        notifyListeners();
-      }
-    });
-  }
-
-  // Applies chaos multipliers on their own timer, independent of the news
-  // banner: a halving overwriting the banner no longer strands the multiplier,
-  // and back-to-back same-type events no longer cancel each other early.
-  void _applyChaos(double income, double cost, int durationSeconds) {
-    chaosIncomeMultiplier = income;
-    chaosCostMultiplier = cost;
-    _chaosResetTimer?.cancel();
-    if (income != 1.0 || cost != 1.0) {
-      _chaosResetTimer = Timer(Duration(seconds: durationSeconds), () {
-        chaosIncomeMultiplier = 1.0;
-        chaosCostMultiplier = 1.0;
-        notifyListeners();
-      });
-    }
   }
 
   /// Aggregates all channel bonuses (research + perks + stash) into one place —
@@ -546,10 +447,9 @@ class GameLogic with ChangeNotifier {
   }
 
   void _triggerHalving() {
-    // Routed through _showNews so the banner actually expires (previously it had
-    // no cleanup and lingered until the next chaos event) and, crucially, does
-    // NOT touch the chaos multiplier timer.
-    _showNews(
+    // Routed through the event system's news banner (which auto-expires and
+    // does NOT touch the chaos multiplier timer).
+    _events.showNews(
       NewsEvent(
         message: "BITCOIN HALVING: Block Reward Cut in Half!",
         type: EventType.info,
