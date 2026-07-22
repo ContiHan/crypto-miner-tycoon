@@ -324,41 +324,105 @@ class _StashScreenState extends State<StashScreen>
   Widget _buildCollectionTab(BuildContext context, GameLogic game) {
     final owned = game.stashService.ownedArtifacts;
 
-    if (owned.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.widgets_outlined, size: 64, color: Colors.white24),
-            SizedBox(height: 16),
-            Text("No Artifacts Yet", style: TextStyle(color: Colors.white54)),
-          ],
+    // Completion log: every artifact, ordered by rarity then name. Undiscovered
+    // ones show as rarity-tinted "???" silhouettes so the collection is a
+    // long-tail discovery goal (not just a list of what you happen to own).
+    final all = [...StashService.allArtifacts]..sort((a, b) {
+      final r = a.rarity.index.compareTo(b.rarity.index);
+      return r != 0 ? r : a.name.compareTo(b.name);
+    });
+    final discovered = all.where((a) => (owned[a.id] ?? 0) > 0).length;
+    final pct = all.isEmpty ? 0.0 : discovered / all.length;
+
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'COLLECTION  $discovered / ${all.length}  (${(pct * 100).toStringAsFixed(0)}%)',
+                style: GoogleFonts.orbitron(
+                  color: AppTheme.accent,
+                  fontWeight: FontWeight.bold,
+                  fontSize: 13,
+                  letterSpacing: 1,
+                ),
+              ),
+              const SizedBox(height: 6),
+              ClipRRect(
+                borderRadius: BorderRadius.circular(4),
+                child: LinearProgressIndicator(
+                  value: pct,
+                  minHeight: 6,
+                  backgroundColor: Colors.black45,
+                  color: AppTheme.accent,
+                ),
+              ),
+            ],
+          ),
         ),
-      );
-    }
+        Expanded(
+          child: GridView.builder(
+            padding: const EdgeInsets.all(12),
+            gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
+              crossAxisCount: 2,
+              childAspectRatio: 0.8,
+              crossAxisSpacing: 12,
+              mainAxisSpacing: 12,
+            ),
+            itemCount: all.length,
+            itemBuilder: (context, index) {
+              final artifact = all[index];
+              final count = owned[artifact.id] ?? 0;
+              return count > 0
+                  ? _buildArtifactCard(artifact, count)
+                  : _buildLockedArtifactCard(artifact);
+            },
+          ),
+        ),
+      ],
+    );
+  }
 
-    return GridView.builder(
-      padding: const EdgeInsets.all(12),
-      gridDelegate: const SliverGridDelegateWithFixedCrossAxisCount(
-        crossAxisCount: 2,
-        childAspectRatio: 0.8,
-        crossAxisSpacing: 12,
-        mainAxisSpacing: 12,
+  /// Rarity-tinted "???" silhouette for an undiscovered artifact.
+  Widget _buildLockedArtifactCard(Artifact artifact) {
+    final color = _rarityColor(artifact.rarity).withValues(alpha: 0.35);
+    return Container(
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color),
       ),
-      itemCount: owned.length,
-      itemBuilder: (context, index) {
-        String id = owned.keys.elementAt(index);
-        int count = owned.values.elementAt(index);
-        // We need a helper to get Artifact details.
-        // Since StashService.allArtifacts is static public, we can access it.
-        // But looking it up is O(N).
-        final artifact = StashService.allArtifacts.firstWhere(
-          (a) => a.id == id,
-          orElse: () => StashService.allArtifacts.first,
-        );
-
-        return _buildArtifactCard(artifact, count);
-      },
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.center,
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(Icons.help_outline, color: color, size: 34),
+          const SizedBox(height: 10),
+          const Text(
+            '???',
+            style: TextStyle(
+              color: Colors.white38,
+              fontWeight: FontWeight.bold,
+              fontSize: 16,
+              letterSpacing: 3,
+            ),
+          ),
+          const SizedBox(height: 4),
+          Text(
+            artifact.rarity.name.toUpperCase(),
+            style: TextStyle(
+              color: color,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 1,
+            ),
+          ),
+        ],
+      ),
     );
   }
 
