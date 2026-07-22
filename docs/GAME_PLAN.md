@@ -33,6 +33,22 @@ slot in without breaking the numbers.
 
 ---
 
+## Decisions locked (2026-07-21)
+
+- **Endgame length:** a dedicated player reaches **New Blockchain (tier 3) in ~3–4 weeks**. This sets
+  every threshold constant in the 14-day sim.
+- **Big numbers:** **keep the 21M / `2.1e15` sat cap, but strictly per-era** (reset on Hard Fork and
+  New Blockchain — already true since it tracks `lifetimeEarnings`, which resets there). No
+  big-number library. Bonus: `2.1e15 < 2^53 (≈9e15)`, so `double` stays exact — the precision risk
+  disappears. The per-era cap becomes a soft prestige trigger; the difficulty fix (§2.3) paces the
+  climb to it. **Note §2.4 is superseded by this decision** (do NOT remove the cap; scope it per-era).
+- **Monetization:** **none for now.** Build the architecture so ads/IAP can be added later without a
+  rewrite (keep currency flows and reward hooks clean), but ship no monetization and keep soft walls
+  as tight as feels good single-player.
+- **Casino age rating:** deferred to Phase 7 (not yet decided).
+
+---
+
 ## 1. Retention model & pacing targets
 
 Design for **three nested time horizons on one loop** (industry standard):
