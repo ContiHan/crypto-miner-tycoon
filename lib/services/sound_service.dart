@@ -27,6 +27,7 @@ class SoundService {
     for (final name in _effects) {
       final player = AudioPlayer();
       player.setReleaseMode(ReleaseMode.stop);
+      player.setVolume(1.0);
       // The mine click fires rapidly; give it the low-latency path.
       if (name == 'click') {
         player.setPlayerMode(PlayerMode.lowLatency);
