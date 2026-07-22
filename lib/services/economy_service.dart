@@ -1,6 +1,5 @@
 import 'dart:math';
 import '../core/constants.dart';
-import '../logic/channels.dart';
 import '../models/rig.dart';
 import '../core/ids.dart';
 
@@ -14,48 +13,28 @@ class EconomyService {
         ((govTokens + spentGovTokens) * GameConstants.perTokenIncomeBonus);
   }
 
+  /// Rig cost after a total additive [costDiscount] (0.10 == 10% off), coming
+  /// from the RIG_COST channel (perks + research + stash), clamped to a hard 95%
+  /// max discount, then the chaos cost multiplier.
   double calculateRigCost(
     Rig rig,
-    Map<String, int> perks,
-    bool isBetterCoolingResearched,
-    double chaosCostMultiplier, {
-    bool isSolarPowerResearched = false,
-  }) {
-    double discountFactor =
-        1.0 - ((perks[PerkIds.rigCost] ?? 0) * 0.05); // Max 90% (0.1 left)
-    if (discountFactor < 0.1) discountFactor = 0.1; // Perk Cap at 90%
-
-    // Research Discount
-    if (isBetterCoolingResearched) {
-      discountFactor -= GameConstants.coolingDiscount; // Better Cooling: -10%
-    }
-
-    // Solar Power Discount
-    if (isSolarPowerResearched) {
-      discountFactor -= GameConstants.solarDiscount; // Solar Power: -15%
-    }
-
-    // Hard Cap: Minimum 5% cost (95% max total discount)
-    if (discountFactor < 0.05) discountFactor = 0.05;
-
-    double cost = rig.currentCost * discountFactor;
-
-    // Chaos Cost Multiplier
-    cost *= chaosCostMultiplier;
-
-    return cost;
+    double costDiscount,
+    double chaosCostMultiplier,
+  ) {
+    double factor = 1.0 - costDiscount;
+    if (factor < 0.05) factor = 0.05; // hard cap: 95% max total discount
+    return rig.currentCost * factor * chaosCostMultiplier;
   }
 
+  /// Global hash rate: summed per-rig base (with the per-rig-type Chip Fab
+  /// bonus) times the pre-computed HASH-channel multiplier (research + perks +
+  /// stash, aggregated by GameLogic.buildChannels).
   double calculateGlobalHashRate(
     List<Rig> rigs,
-    Map<String, int> perks,
     bool isChipFabResearched,
-    double researchHashMultiplier,
+    double hashMultiplier,
   ) {
     double base = 0;
-
-    // Per-rig base hash rate. Chip Fab is a per-rig-TYPE bonus (CPU/GPU only),
-    // so it is applied here before summing rather than in the global channel.
     for (var rig in rigs) {
       double rigRate = rig.totalHashRate;
       if (isChipFabResearched &&
@@ -64,16 +43,7 @@ class EconomyService {
       }
       base += rigRate;
     }
-
-    // HASH channel: global research overclock and the hash-bonus perk stack
-    // ADDITIVELY (channel model), not multiplicatively.
-    final channels = Channels();
-    channels.add(Channel.hash, researchHashMultiplier - 1.0);
-    channels.add(
-      Channel.hash,
-      (perks[PerkIds.hashBonus] ?? 0) * GameConstants.perkHashBonusGrowth,
-    );
-    return base * channels.multiplier(Channel.hash);
+    return base * hashMultiplier;
   }
 
   double calculateClickPower(Map<String, int> perks) {

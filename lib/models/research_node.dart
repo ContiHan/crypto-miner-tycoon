@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:json_annotation/json_annotation.dart';
+import '../logic/channels.dart';
 
 part 'research_node.g.dart';
 
@@ -41,6 +42,14 @@ class ResearchNode {
   @JsonKey(includeToJson: false, includeFromJson: false)
   final List<String> requirements;
 
+  // Data-driven effect: when completed, adds [effectValue] to [effectChannel]
+  // of the economy's channel model. Null channel = a special/mechanic node
+  // (e.g. Chip Fab per-rig-type bonus, AI auto-clicker) handled explicitly.
+  @JsonKey(includeToJson: false, includeFromJson: false)
+  final Channel? effectChannel;
+  @JsonKey(includeToJson: false, includeFromJson: false)
+  final double effectValue;
+
   ResearchNode({
     required this.id,
     this.name = '',
@@ -50,6 +59,8 @@ class ResearchNode {
     this.isUnlocked = false,
     this.isCompleted = false,
     this.requirements = const [],
+    this.effectChannel,
+    this.effectValue = 0,
   });
 
   factory ResearchNode.fromJson(Map<String, dynamic> json) =>

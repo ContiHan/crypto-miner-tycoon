@@ -1,4 +1,5 @@
 import 'dart:math';
+import '../logic/channels.dart';
 
 /// Six rarities (content plan). Order is ascending power; `.index` doubles as a
 /// rank for sorting/coloring.
@@ -145,6 +146,13 @@ class StashService {
       }
     });
     return 1.0 + total;
+  }
+
+  /// Adds owned-artifact hash & rig-cost bonuses to the shared channel model.
+  /// (Click power stays applied via getClickPowerMultiplier in the click path.)
+  void contributeChannels(Channels ch) {
+    ch.add(Channel.hash, getTotalHashBonus() - 1.0); // getTotalHashBonus = 1+sum
+    ch.add(Channel.rigCost, getMainCostDiscount()); // already a raw sum
   }
   
   // === LOOT LOGIC ===

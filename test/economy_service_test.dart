@@ -19,91 +19,25 @@ void main() {
       },
     );
 
-    test('calculateRigCost applies correct discount', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-      final perks = {'rig_cost': 2}; // 10% discount
+    Rig testRig() =>
+        Rig(id: 'test', name: 'Test', baseCost: 100, baseHashRate: 10);
 
-      // Cost: 100 * 0.9 = 90
-      expect(economy.calculateRigCost(rig, perks, false, 1.0), 90.0);
+    test('calculateRigCost applies an additive discount fraction', () {
+      // 10% discount -> 100 * 0.9 = 90
+      expect(economy.calculateRigCost(testRig(), 0.10, 1.0), 90.0);
+      // 15% discount -> 85
+      expect(economy.calculateRigCost(testRig(), 0.15, 1.0), 85.0);
     });
 
-    test('calculateRigCost respects max perk discount (90%)', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-      final perks = {'rig_cost': 50}; // 250% discount (theoretical)
-
-      // Should cap at 90% discount (0.1 multiplier) -> Cost 10
-      expect(economy.calculateRigCost(rig, perks, false, 1.0), 10.0);
+    test('calculateRigCost enforces the 95% max discount (Anti-Free Bug)', () {
+      // Any discount >= 95% clamps to a 5% cost floor.
+      expect(economy.calculateRigCost(testRig(), 0.90, 1.0), closeTo(10.0, 1e-9));
+      expect(economy.calculateRigCost(testRig(), 1.0, 1.0), 5.0);
+      expect(economy.calculateRigCost(testRig(), 2.5, 1.0), 5.0);
     });
 
-    test('calculateRigCost applies research discount', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-
-      // 10% Research Discount -> Cost 90
-      expect(economy.calculateRigCost(rig, {}, true, 1.0), 90.0);
-    });
-
-    test('calculateRigCost applies solar power discount', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-
-      // 15% Solar Discount -> Cost 85
-      expect(
-        economy.calculateRigCost(
-          rig,
-          {},
-          false,
-          1.0,
-          isSolarPowerResearched: true,
-        ),
-        85.0,
-      );
-    });
-
-    test('calculateRigCost enforces minimum 5% cost cap (Anti-Free Bug)', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-      final perks = {'rig_cost': 18}; // 18 * 5 = 90% discount
-
-      // 90% Perk + 10% Research = 100% Discount (0.0 multiplier)
-      // Should hit hard cap of 0.05
-
-      // Expected: 100 * 0.05 = 5.0
-      expect(economy.calculateRigCost(rig, perks, true, 1.0), 5.0);
-    });
-
-    test('calculateRigCost applies chaos multiplier', () {
-      final rig = Rig(
-        id: 'test',
-        name: 'Test',
-        baseCost: 100,
-        baseHashRate: 10,
-      );
-
-      // 50% Chaos Discount
-      expect(economy.calculateRigCost(rig, {}, false, 0.5), 50.0);
+    test('calculateRigCost applies the chaos cost multiplier', () {
+      expect(economy.calculateRigCost(testRig(), 0.0, 0.5), 50.0);
     });
   });
 }

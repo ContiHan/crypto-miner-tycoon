@@ -13,6 +13,9 @@ class ResearchIds {
   static const String solarPower = 'solar_power';
   static const String chipFab = 'chip_fab';
   static const String aiManager = 'ai_manager';
+  static const String advancedOverclock = 'advanced_overclock';
+  static const String bulkProcurement = 'bulk_procurement';
+  static const String neuralNet = 'neural_net';
 }
 
 class PerkIds {

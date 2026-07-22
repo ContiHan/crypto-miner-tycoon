@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../core/constants.dart';
 import '../core/ids.dart';
 import '../content/rig_defs.dart';
+import '../logic/channels.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
 import '../models/news_event.dart';
@@ -474,15 +475,22 @@ class GameLogic with ChangeNotifier {
     }
   }
 
+  /// Aggregates all channel bonuses (research + perks + stash) into one place —
+  /// the single source of truth for the economy's multipliers (channel model).
+  Channels buildChannels() {
+    final ch = Channels();
+    _researchManager.contributeChannels(ch);
+    _perkManager.contributeChannels(ch);
+    _stash.contributeChannels(ch);
+    return ch;
+  }
+
   double get globalHashRate {
-    // 1. Calculate Base Hash Rate
-    double base = _economy.calculateGlobalHashRate(
+    return _economy.calculateGlobalHashRate(
       rigs,
-      _perkManager.perks,
       _researchManager.isResearched(ResearchIds.chipFab),
-      _researchManager.getResearchHashMultiplier(),
+      buildChannels().multiplier(Channel.hash),
     );
-    return base * _stash.getTotalHashBonus();
   }
 
   void _mine() {
@@ -641,19 +649,13 @@ class GameLogic with ChangeNotifier {
   }
 
   double getRigCostInCredits(Rig rig) {
-    double base = _economy.calculateRigCost(
+    // Total rig-cost discount (perks + cooling/solar research + stash) comes
+    // from the RIG_COST channel; calculateRigCost applies the 95% hard cap.
+    return _economy.calculateRigCost(
       rig,
-      _perkManager.perks,
-      _researchManager.isResearched(ResearchIds.betterCooling),
+      buildChannels().sum(Channel.rigCost),
       chaosCostMultiplier,
-      isSolarPowerResearched: _researchManager.isResearched(
-        ResearchIds.solarPower,
-      ),
     );
-    double discount = _stash.getMainCostDiscount();
-    double finalMult = 1.0 - discount;
-    if (finalMult < 0.05) finalMult = 0.05;
-    return base * finalMult;
   }
 
   double getRigCost(Rig rig) {

@@ -71,9 +71,9 @@ _SimResult _runSim({required int maxSeconds, required bool withPrestige}) {
   final snapshotAt = <int>[60, 3600, 21600, 86400, 259200, 604800, 1209600, 2592000];
   final snapAtSet = snapshotAt.toSet();
 
-  double hashOf() => economy.calculateGlobalHashRate(rigs, {}, false, 1.0);
+  double hashOf() => economy.calculateGlobalHashRate(rigs, false, 1.0);
   double rigCostSats(Rig r) =>
-      economy.calculateRigCost(r, {}, false, 1.0) / exchangeRate;
+      economy.calculateRigCost(r, 0.0, 1.0) / exchangeRate;
 
   for (int t = 1; t <= maxSeconds; t++) {
     final hash = hashOf();
