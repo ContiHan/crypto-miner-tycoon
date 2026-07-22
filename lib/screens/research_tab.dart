@@ -71,19 +71,74 @@ class ResearchTab extends StatelessWidget {
     );
   }
 
+  /// Dim "???" silhouette for a locked frontier research node.
+  Widget _buildLockedResearchTeaser() {
+    return StylizedCard(
+      color: Colors.black26,
+      child: Padding(
+        padding: const EdgeInsets.all(12.0),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.black26,
+                border: Border.all(color: Colors.white24),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: const Icon(
+                Icons.lock_outline,
+                color: Colors.white38,
+                size: 28,
+              ),
+            ),
+            const SizedBox(width: 15),
+            const Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '???',
+                    style: TextStyle(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 16,
+                      color: Colors.white54,
+                      letterSpacing: 3,
+                    ),
+                  ),
+                  SizedBox(height: 4),
+                  Text(
+                    'Locked — complete the prerequisite research',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildResearchItem(
     BuildContext context,
     GameLogic game,
     ResearchNode node,
   ) {
     if (!node.isUnlocked && !node.isCompleted) {
-      // Optional: Show locked items as mysterious or just hide them?
-      // Let's show them as Locked (Greyed out) if we want the user to see the tree
-      // user asked for tree/list, let's keep it simple: Show only unlocked or visible?
-      // Logic in GameLogic.checkUnlocks() handles setting isUnlocked.
-      // If isUnlocked is false, we generally shouldn't show it unless we want a "Coming Soon" feel.
-      // But let's stick to showing only Unlocked + Completed for now to reduce clutter.
-      return const SizedBox.shrink();
+      // Progressive discovery: show a "???" silhouette only for FRONTIER nodes
+      // (every prerequisite is at least visible) so the next research teases
+      // into view; hide deeper nodes entirely.
+      final onFrontier = node.requirements.every((reqId) {
+        final req = game.researchNodes.firstWhere(
+          (r) => r.id == reqId,
+          orElse: () => node,
+        );
+        return req.isCompleted || req.isUnlocked;
+      });
+      if (!onFrontier) return const SizedBox.shrink();
+      return _buildLockedResearchTeaser();
     }
 
     // node.cost is denominated in credits (USD). The wallet holds sats, and the
