@@ -493,6 +493,42 @@ class GameLogic with ChangeNotifier {
     );
   }
 
+  // Fractional block accumulator, shared by the live tick and offline catch-up.
+  double _blockCarry = 0;
+
+  /// Applies [seconds] of passive mining at the CURRENT hash rate and returns
+  /// the income earned. Single source of truth for both the 1-second live tick
+  /// and the chunked offline catch-up so the two can never diverge.
+  double _accrueMining(double seconds, {required double chaosMultiplier}) {
+    final hashRate = globalHashRate;
+    if (hashRate <= 0) return 0;
+    final perSecond = _miningManager.calculateMiningIncome(
+      hashRate: hashRate,
+      difficulty: networkDifficulty,
+      prestigeMultiplier: prestigeMultiplier,
+      chaosMultiplier: chaosMultiplier,
+      lifetimeEarnings: lifetimeEarnings,
+    );
+    double income = perSecond * seconds;
+    final room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) return 0;
+    if (income > room) income = room;
+    wallet += income;
+    lifetimeEarnings += income;
+    return income;
+  }
+
+  /// Advances the block counter by [seconds] (1 second == 1 block), carrying the
+  /// fraction. Returns true if a halving occurred.
+  bool _advanceBlocks(double seconds) {
+    _blockCarry += seconds;
+    final whole = _blockCarry.floor();
+    if (whole <= 0) return false;
+    _miningManager.blocksMined += whole;
+    _blockCarry -= whole;
+    return _miningManager.checkHalving();
+  }
+
   void _mine() {
     // Auto Clicker
     if (_researchManager.isResearched(ResearchIds.aiManager)) {
@@ -503,29 +539,13 @@ class GameLogic with ChangeNotifier {
       }
     }
 
-    double finalHashRate = globalHashRate;
-    if (finalHashRate > 0) {
-      double diff = networkDifficulty;
-
-      double incomeSats = _miningManager.calculateMiningIncome(
-        hashRate: finalHashRate,
-        difficulty: diff,
-        prestigeMultiplier: prestigeMultiplier,
-        chaosMultiplier: chaosIncomeMultiplier,
-        lifetimeEarnings: lifetimeEarnings,
-      );
-
-      wallet += incomeSats;
-      lifetimeEarnings += incomeSats;
-
-      _miningManager.incrementBlocksMined();
-
-      if (_miningManager.checkHalving()) {
-        _triggerHalving();
-        _soundService.playHalving();
-      }
-      notifyListeners();
+    if (globalHashRate <= 0) return;
+    _accrueMining(1, chaosMultiplier: chaosIncomeMultiplier);
+    if (_advanceBlocks(1)) {
+      _triggerHalving();
+      _soundService.playHalving();
     }
+    notifyListeners();
   }
 
   void _triggerHalving() {
@@ -834,91 +854,23 @@ class GameLogic with ChangeNotifier {
 
   void _simulateOfflineMining(int totalSeconds, {bool announce = true}) {
     if (totalSeconds <= 0) return;
+    if (totalSeconds > 31536000) totalSeconds = 31536000; // 1-year cap
+    if (globalHashRate <= 0) return;
 
-    if (totalSeconds > 31536000) {
-      totalSeconds = 31536000;
-    }
-
-    // Simplified Offline Mining:
-    // We already have logic to execute.
-    // Just run 1 loop? No, that's not enough.
-    // The original code tried to run a loop or chunks.
-    // Let's implement a simplified chunked simulation using MiningManager.
-
-    // We need 'hashRate'. Ideally hashRate is constant during offline (no updates).
-    double hashRate = globalHashRate; // Current state
-    if (hashRate <= 0) return;
-
-    // We can simulate tick by tick or in chunks.
-    // Let's do huge chunks if possible.
-    // Issue: Difficulty changes.
-    // Current difficulty depends on lifetimeEarnings.
-    // MiningManager calculates difficulty.
-
-    // Let's simulate in 10-second chunks (or 10-block chunks?).
-    // Refactored logic:
-    double accrued = 0;
-
-    // Use larger steps for performance.
-    // To speed up:
-    // This is run once on load.
-
-    // Simplification:
-    // Just add (Rate / Current Diff) * Seconds?
-    // No, diff grows.
-
-    // Let's use a simple loop, but maybe skipping if Steps is huge?
-    // For now, let's keep it simple: 1 tick = 1 second.
-    // If > 10000 seconds, maybe average it?
-    // Let's stick to a safe loop.
-
-    // Limit loop to 1000 iterations for performance?
-    // If totalSeconds > 1000, we aggregate.
+    // Chunk long absences to bound the loop; income AND blocks both scale by
+    // timePerTick through the SAME accrual helpers the live tick uses, so the
+    // offline path can't drift from online play.
     double timePerTick = 1.0;
     int iterations = totalSeconds;
-
     if (totalSeconds > 5000) {
       iterations = 5000;
       timePerTick = totalSeconds / 5000.0;
     }
 
-    // 1 second == 1 block online, so a chunk of `timePerTick` seconds is
-    // `timePerTick` blocks. Accumulate the fraction instead of truncating it
-    // every iteration (the old `timePerTick.toInt()` lost up to ~50% of halving
-    // progress on long absences and let offline over-pay vs. online play).
-    double blockCarry = 0;
-
+    double accrued = 0;
     for (int i = 0; i < iterations; i++) {
-      // Difficulty at CURRENT lifetimeEarnings
-      double diff = networkDifficulty;
-
-      double income = _miningManager.calculateMiningIncome(
-        hashRate: hashRate,
-        difficulty: diff,
-        prestigeMultiplier: prestigeMultiplier,
-        chaosMultiplier: 1.0, // No chaos offline
-        lifetimeEarnings: lifetimeEarnings,
-      );
-
-      income *= timePerTick; // Scale by time skipped
-
-      if (lifetimeEarnings + income > GameConstants.maxSupplySats) {
-        income = GameConstants.maxSupplySats - lifetimeEarnings;
-      }
-
-      wallet += income;
-      lifetimeEarnings += income;
-      accrued += income;
-
-      blockCarry += timePerTick;
-      final wholeBlocks = blockCarry.floor();
-      if (wholeBlocks > 0) {
-        _miningManager.blocksMined += wholeBlocks;
-        blockCarry -= wholeBlocks;
-        // checkHalving() slashes the reward for every threshold crossed.
-        _miningManager.checkHalving();
-      }
-
+      accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
+      _advanceBlocks(timePerTick);
       if (lifetimeEarnings >= GameConstants.maxSupplySats) break;
     }
 
