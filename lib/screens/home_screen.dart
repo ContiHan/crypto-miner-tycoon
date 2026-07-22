@@ -111,7 +111,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ),
       body: Column(
         children: [
-          const NewsTicker(),
+          // Isolated: the ticker repaints every frame (~60fps); RepaintBoundary
+          // keeps those repaints from invalidating the rest of the screen.
+          const RepaintBoundary(child: NewsTicker()),
           Expanded(child: pages[_currentIndex]),
         ],
       ),
