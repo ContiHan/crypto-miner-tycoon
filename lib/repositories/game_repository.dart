@@ -54,6 +54,8 @@ class GameRepository {
     required double bitcoinExchangeRate,
     int chips = 0,
     Map<String, dynamic>? stash,
+    int consensus = 0,
+    double lifetimeAtLastSoftFork = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -74,6 +76,8 @@ class GameRepository {
       'blocksMined': blocksMined,
       'nextHalvingThreshold': nextHalvingThreshold,
       'bitcoinExchangeRate': bitcoinExchangeRate,
+      'consensus': consensus,
+      'lifetimeAtLastSoftFork': lifetimeAtLastSoftFork,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -140,6 +144,8 @@ class GameRepository {
       'blocksMined': asInt(m['blocksMined'], 0),
       'nextHalvingThreshold': asInt(m['nextHalvingThreshold'], 5000),
       'bitcoinExchangeRate': asDouble(m['bitcoinExchangeRate'], 1.0),
+      'consensus': asInt(m['consensus'], 0),
+      'lifetimeAtLastSoftFork': asDouble(m['lifetimeAtLastSoftFork'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

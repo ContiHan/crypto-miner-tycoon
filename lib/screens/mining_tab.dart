@@ -164,205 +164,242 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
           children: [
             Column(
               children: [
-                // Stats Panel
-                StylizedCard(
-                  color: AppTheme.surface,
-                  child: Container(
-                    width: double.infinity,
-                    padding: const EdgeInsets.symmetric(vertical: 10),
-                    child: Column(
-                      children: [
-                        const Text(
-                          'WALLET BALANCE',
-                          style: TextStyle(
-                            color: AppTheme.textSecondary,
-                            letterSpacing: 2,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 12,
-                          ),
-                        ),
-                        GestureDetector(
-                          onTap: () {
-                            game.toggleFiatDisplay();
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              SnackBar(
-                                content: Text(
-                                  game.showFiatPrices
-                                      ? 'Display: Astronomical (Fiat)'
-                                      : 'Display: Bitcoin (Sats)',
-                                ),
-                                duration: const Duration(milliseconds: 500),
-                                backgroundColor: AppTheme.accent,
-                              ),
-                            );
-                          },
-                          child: Text(
-                            game.showFiatPrices
-                                ? '\$ ${Formatter.formatNumber(game.toFiat(game.wallet))}'
-                                : Formatter.formatBitcoin(game.wallet),
-                            style: const TextStyle(
-                              fontSize: 36,
-                              fontWeight: FontWeight.w900,
-                              color: AppTheme.accent,
-                              letterSpacing: 1.5,
-                            ),
-                          ),
-                        ),
-                        const Divider(
-                          color: Colors.black54,
-                          thickness: 2,
-                          height: 20,
-                        ),
-                        Row(
-                          mainAxisAlignment: MainAxisAlignment.center,
-                          children: [
-                            const Icon(
-                              Icons.flash_on,
-                              color: Colors.amber,
-                              size: 20,
-                            ),
-                            const SizedBox(width: 5),
-                            Text(
-                              '${Formatter.formatNumber(game.globalHashRate)} H/s',
-                              style: const TextStyle(
-                                color: Colors.white,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 18,
-                              ),
-                            ),
-                          ],
-                        ),
-                        // ECONOMY 2.0 STATS
-                        const SizedBox(height: 16),
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 16,
-                            vertical: 8,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.black45,
-                            borderRadius: BorderRadius.circular(12),
-                            border: Border.all(
-                              color: Colors.white12,
-                              width: 1.5,
-                            ),
-                          ),
+                Expanded(
+                  child: ListView(
+                    padding: const EdgeInsets.all(8),
+                    children: [
+                      // Stats Panel
+                      StylizedCard(
+                        color: AppTheme.surface,
+                        child: Container(
+                          width: double.infinity,
+                          padding: const EdgeInsets.symmetric(vertical: 10),
                           child: Column(
                             children: [
-                              Row(
-                                mainAxisAlignment:
-                                    MainAxisAlignment.spaceEvenly,
-                                children: [
-                                  _buildStatItem(
-                                    'DIFFICULTY',
-                                    Formatter.formatNumber(
-                                      game.networkDifficulty,
+                              const Text(
+                                'WALLET BALANCE',
+                                style: TextStyle(
+                                  color: AppTheme.textSecondary,
+                                  letterSpacing: 2,
+                                  fontWeight: FontWeight.bold,
+                                  fontSize: 12,
+                                ),
+                              ),
+                              GestureDetector(
+                                onTap: () {
+                                  game.toggleFiatDisplay();
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    SnackBar(
+                                      content: Text(
+                                        game.showFiatPrices
+                                            ? 'Display: Astronomical (Fiat)'
+                                            : 'Display: Bitcoin (Sats)',
+                                      ),
+                                      duration: const Duration(
+                                        milliseconds: 500,
+                                      ),
+                                      backgroundColor: AppTheme.accent,
                                     ),
-                                    Colors.white70,
+                                  );
+                                },
+                                child: Text(
+                                  game.showFiatPrices
+                                      ? '\$ ${Formatter.formatNumber(game.toFiat(game.wallet))}'
+                                      : Formatter.formatBitcoin(game.wallet),
+                                  style: const TextStyle(
+                                    fontSize: 36,
+                                    fontWeight: FontWeight.w900,
+                                    color: AppTheme.accent,
+                                    letterSpacing: 1.5,
                                   ),
-                                  Container(
-                                    width: 1,
-                                    height: 30,
-                                    color: Colors.white24,
+                                ),
+                              ),
+                              const Divider(
+                                color: Colors.black54,
+                                thickness: 2,
+                                height: 20,
+                              ),
+                              Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const Icon(
+                                    Icons.flash_on,
+                                    color: Colors.amber,
+                                    size: 20,
                                   ),
-                                  _buildStatItem(
-                                    'REWARD',
-                                    Formatter.formatBitcoin(game.blockReward),
-                                    Colors.amber,
+                                  const SizedBox(width: 5),
+                                  Text(
+                                    '${Formatter.formatNumber(game.globalHashRate)} H/s',
+                                    style: const TextStyle(
+                                      color: Colors.white,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 18,
+                                    ),
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 8),
-                              // Halving Progress
-                              Stack(
-                                alignment: Alignment.center,
-                                children: [
-                                  ClipRRect(
-                                    borderRadius: BorderRadius.circular(4),
-                                    child: LinearProgressIndicator(
-                                      value: game.halvingProgress,
-                                      backgroundColor: Colors.black54,
-                                      color: Colors.purpleAccent.withValues(
-                                        alpha: 0.5,
-                                      ),
-                                      minHeight: 14,
-                                    ),
+                              // ECONOMY 2.0 STATS
+                              const SizedBox(height: 16),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 16,
+                                  vertical: 8,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.black45,
+                                  borderRadius: BorderRadius.circular(12),
+                                  border: Border.all(
+                                    color: Colors.white12,
+                                    width: 1.5,
                                   ),
-                                  Text(
-                                    'HALVING: ${(game.halvingProgress * 100).toStringAsFixed(1)}%',
-                                    style: GoogleFonts.orbitron(
-                                      color: Colors.white,
-                                      fontSize: 10,
-                                      fontWeight: FontWeight.bold,
-                                      shadows: [
-                                        const Shadow(
-                                          color: Colors.black,
-                                          blurRadius: 2,
+                                ),
+                                child: Column(
+                                  children: [
+                                    Row(
+                                      mainAxisAlignment:
+                                          MainAxisAlignment.spaceEvenly,
+                                      children: [
+                                        _buildStatItem(
+                                          'DIFFICULTY',
+                                          Formatter.formatNumber(
+                                            game.networkDifficulty,
+                                          ),
+                                          Colors.white70,
+                                        ),
+                                        Container(
+                                          width: 1,
+                                          height: 30,
+                                          color: Colors.white24,
+                                        ),
+                                        _buildStatItem(
+                                          'REWARD',
+                                          Formatter.formatBitcoin(
+                                            game.blockReward,
+                                          ),
+                                          Colors.amber,
                                         ),
                                       ],
                                     ),
-                                  ),
-                                ],
+                                    const SizedBox(height: 8),
+                                    // Halving Progress
+                                    Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        ClipRRect(
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                          child: LinearProgressIndicator(
+                                            value: game.halvingProgress,
+                                            backgroundColor: Colors.black54,
+                                            color: Colors.purpleAccent
+                                                .withValues(alpha: 0.5),
+                                            minHeight: 14,
+                                          ),
+                                        ),
+                                        Text(
+                                          'HALVING: ${(game.halvingProgress * 100).toStringAsFixed(1)}%',
+                                          style: GoogleFonts.orbitron(
+                                            color: Colors.white,
+                                            fontSize: 10,
+                                            fontWeight: FontWeight.bold,
+                                            shadows: [
+                                              const Shadow(
+                                                color: Colors.black,
+                                                blurRadius: 2,
+                                              ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ],
+                                ),
                               ),
+                              const SizedBox(height: 10),
+                              if (game.consensus > 0)
+                                Text(
+                                  'CONSENSUS: ${Formatter.formatNumber(game.consensus.toDouble())} (+${game.consensus * 5}% income)',
+                                  style: const TextStyle(
+                                    color: Colors.cyanAccent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 13,
+                                  ),
+                                ),
+                              if (game.pendingConsensus > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.cyan,
+                                      foregroundColor: Colors.black,
+                                    ),
+                                    onPressed: () {
+                                      game.softFork();
+                                      ScaffoldMessenger.of(
+                                        context,
+                                      ).showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                            'Soft Fork! LAB reset, Consensus banked.',
+                                          ),
+                                          duration: Duration(milliseconds: 800),
+                                          backgroundColor: Colors.cyan,
+                                        ),
+                                      );
+                                    },
+                                    child: Text(
+                                      'SOFT FORK (+${game.pendingConsensus} Consensus)',
+                                    ),
+                                  ),
+                                ),
+                              const SizedBox(height: 6),
+                              if (game.govTokens > 0)
+                                Text(
+                                  'GOV TOKENS: ${Formatter.formatNumber(game.govTokens.toDouble())} (x${game.prestigeMultiplier.toStringAsFixed(1)})',
+                                  style: const TextStyle(
+                                    color: AppTheme.accent,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 14,
+                                  ),
+                                ),
+                              if (game.pendingGovTokens > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: PulseButton(
+                                    animate: true,
+                                    onPressed: widget.onHardFork,
+                                    child: Text(
+                                      'HARD FORK (+${Formatter.formatNumber(game.pendingGovTokens.toDouble())} Tokens)',
+                                    ),
+                                  ),
+                                ),
                             ],
                           ),
                         ),
-                        const SizedBox(height: 10),
-                        if (game.govTokens > 0)
-                          Text(
-                            'GOV TOKENS: ${Formatter.formatNumber(game.govTokens.toDouble())} (x${game.prestigeMultiplier.toStringAsFixed(1)})',
-                            style: const TextStyle(
-                              color: AppTheme.accent,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 14,
-                            ),
-                          ),
-                        if (game.pendingGovTokens > 0)
-                          Padding(
-                            padding: const EdgeInsets.only(top: 8.0),
-                            child: PulseButton(
-                              animate: true,
-                              onPressed: widget.onHardFork,
-                              child: Text(
-                                'HARD FORK (+${Formatter.formatNumber(game.pendingGovTokens.toDouble())} Tokens)',
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                Expanded(
-                  child: Builder(
-                    builder: (context) {
-                      final visible = game.visibleRigs;
-                      final teaser = game.nextLockedRig;
-                      return ListView.builder(
-                        padding: const EdgeInsets.all(8),
-                        itemCount: visible.length + (teaser != null ? 1 : 0),
-                        itemBuilder: (context, index) {
-                          if (index >= visible.length) {
-                            return _LockedRigTeaser(
-                              threshold: game.unlockThresholdFor(teaser!.id),
-                              showFiat: game.showFiatPrices,
-                              toFiat: game.toFiat,
+                      ),
+                      const SizedBox(height: 10),
+                      ...game.visibleRigs.map(
+                        (rig) => RigListItem(
+                          rig: rig,
+                          game: game,
+                          onBuy: (pos) {
+                            addFloatingText(
+                              game.showFiatPrices ? '-\$' : '-Ş',
+                              pos,
                             );
-                          }
-                          final rig = visible[index];
-                          return RigListItem(
-                            rig: rig,
-                            game: game,
-                            onBuy: (pos) {
-                              addFloatingText(
-                                game.showFiatPrices ? '-\$' : '-Ş',
-                                pos,
-                              );
-                            },
-                          );
-                        },
-                      );
-                    },
+                          },
+                        ),
+                      ),
+                      if (game.nextLockedRig != null)
+                        _LockedRigTeaser(
+                          threshold: game.unlockThresholdFor(
+                            game.nextLockedRig!.id,
+                          ),
+                          showFiat: game.showFiatPrices,
+                          toFiat: game.toFiat,
+                        ),
+                    ],
                   ),
                 ),
                 // Wide Action Button (Bottom Sticky)

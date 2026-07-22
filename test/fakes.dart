@@ -117,12 +117,16 @@ class FakeGameRepository implements GameRepository {
     required double bitcoinExchangeRate,
     int chips = 0,
     Map<String, dynamic>? stash,
+    int consensus = 0,
+    double lifetimeAtLastSoftFork = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
     data['govTokens'] = govTokens;
     data['spentGovTokens'] = spentGovTokens;
     data['chips'] = chips;
+    data['consensus'] = consensus;
+    data['lifetimeAtLastSoftFork'] = lifetimeAtLastSoftFork;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

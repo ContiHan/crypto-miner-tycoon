@@ -24,6 +24,7 @@ import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
+import '../logic/systems/prestige_system.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -151,6 +152,7 @@ class GameLogic with ChangeNotifier {
     _perkManager.reset();
     _researchManager.reset();
     _miningManager.reset();
+    _prestige.reset();
 
     for (var rig in rigs) {
       rig.amount = 0;
@@ -196,8 +198,27 @@ class GameLogic with ChangeNotifier {
     );
   }
 
+  // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
+  final PrestigeSystem _prestige = PrestigeSystem();
+  int get consensus => _prestige.consensus;
+  int get pendingConsensus => _prestige.pendingConsensus(lifetimeEarnings);
+
+  // All prestige tiers feed the PRESTIGE channel additively: GovTokens (+10%
+  // each) + Consensus (+5% each).
   double get prestigeMultiplier =>
-      _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
+      _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens) +
+      _prestige.consensusBonus;
+
+  /// Soft Fork: resets LAB only, banks Consensus, starts a new era. Frequent,
+  /// low-stakes — no confirmation needed.
+  void softFork() {
+    if (pendingConsensus <= 0) return;
+    _prestige.applySoftFork(lifetimeEarnings);
+    _researchManager.reset();
+    _soundService.playUnlock();
+    notifyListeners();
+    _saveGame();
+  }
 
   // Multiplier the player will have right after a hard fork. The hard-fork
   // dialog previously derived this by hand and dropped spentGovTokens, so it
@@ -532,6 +553,9 @@ class GameLogic with ChangeNotifier {
     // Reset Research (ResearchManager)
     _researchManager.reset();
 
+    // Consensus is an era currency wiped by a Hard Fork.
+    _prestige.onHardFork();
+
     _saveGame();
     notifyListeners();
   }
@@ -638,6 +662,8 @@ class GameLogic with ChangeNotifier {
       bitcoinExchangeRate: _miningManager.bitcoinExchangeRate,
       chips: chips,
       stash: _stash.saveStash(),
+      consensus: _prestige.consensus,
+      lifetimeAtLastSoftFork: _prestige.lifetimeAtLastSoftFork,
     );
   }
 
@@ -670,6 +696,12 @@ class GameLogic with ChangeNotifier {
       // Migration: force the (now neutralised) exchange rate to 1.0, ignoring any
       // large value saved by the old compounding mechanic.
       _miningManager.bitcoinExchangeRate = 1.0;
+
+      // Prestige tier-1 (Soft Fork / Consensus)
+      _prestige.consensus = _toInt(data['consensus']);
+      _prestige.lifetimeAtLastSoftFork = _toDouble(
+        data['lifetimeAtLastSoftFork'],
+      );
 
       // Load Perk Manager Data
       if (data.containsKey('perks')) {

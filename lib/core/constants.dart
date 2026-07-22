@@ -21,6 +21,11 @@ class GameConstants {
   static const double govTokenDivisor = 5.0e8;
   static const double perTokenIncomeBonus = 0.10; // +10% income per GovToken
 
+  // Soft Fork (Tier-1 prestige): resets LAB only, grants Consensus (CX) =
+  // floor(cbrt(eraSats / consensusDivisor)). Frequent, low-stakes, fast loop.
+  static const double consensusDivisor = 1.0e7;
+  static const double perConsensusBonus = 0.05; // +5% income per Consensus
+
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
   static const double cosmeticUsdPerSat = 1000.0;
