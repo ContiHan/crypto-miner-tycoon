@@ -56,6 +56,9 @@ class GameRepository {
     Map<String, dynamic>? stash,
     int consensus = 0,
     double lifetimeAtLastSoftFork = 0,
+    int genesisBlocks = 0,
+    double totalGovTokensEver = 0,
+    double govTokensEverAtLastNewChain = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -78,6 +81,9 @@ class GameRepository {
       'bitcoinExchangeRate': bitcoinExchangeRate,
       'consensus': consensus,
       'lifetimeAtLastSoftFork': lifetimeAtLastSoftFork,
+      'genesisBlocks': genesisBlocks,
+      'totalGovTokensEver': totalGovTokensEver,
+      'govTokensEverAtLastNewChain': govTokensEverAtLastNewChain,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -146,6 +152,14 @@ class GameRepository {
       'bitcoinExchangeRate': asDouble(m['bitcoinExchangeRate'], 1.0),
       'consensus': asInt(m['consensus'], 0),
       'lifetimeAtLastSoftFork': asDouble(m['lifetimeAtLastSoftFork'], 0),
+      'genesisBlocks': asInt(m['genesisBlocks'], 0),
+      // Tier-3 accumulator: for saves predating this field, seed it from the
+      // player's current tokens so their New-Blockchain progress isn't lost.
+      'totalGovTokensEver': m.containsKey('totalGovTokensEver')
+          ? asDouble(m['totalGovTokensEver'], 0)
+          : (asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0)).toDouble(),
+      'govTokensEverAtLastNewChain':
+          asDouble(m['govTokensEverAtLastNewChain'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

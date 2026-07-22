@@ -203,6 +203,12 @@ class GameLogic with ChangeNotifier {
   int get consensus => _prestige.consensus;
   int get pendingConsensus => _prestige.pendingConsensus(lifetimeEarnings);
 
+  // Tier-3 prestige (New Blockchain / Genesis Blocks). Genesis Blocks multiply
+  // the GAIN of the two lower prestige currencies rather than adding raw income.
+  int get genesisBlocks => _prestige.genesisBlocks;
+  int get pendingGenesis => _prestige.pendingGenesis();
+  double get genesisGainMultiplier => _prestige.genesisGainMultiplier;
+
   // All prestige tiers feed the PRESTIGE channel additively: GovTokens (+10%
   // each) + Consensus (+5% each).
   double get prestigeMultiplier =>
@@ -481,8 +487,14 @@ class GameLogic with ChangeNotifier {
     );
   }
 
-  int get pendingGovTokens =>
-      _economy.calculatePendingGovTokens(lifetimeEarnings);
+  // Base GovToken accrual, scaled by the tier-3 Genesis gain multiplier (1.0
+  // until the player has Genesis Blocks, so early play is unaffected). The
+  // multiplier is applied to the raw root inside the economy service so partial
+  // token progress is preserved, matching how Consensus (tier-1) is scaled.
+  int get pendingGovTokens => _economy.calculatePendingGovTokens(
+    lifetimeEarnings,
+    gainMultiplier: _prestige.genesisGainMultiplier,
+  );
 
   void clickMine({bool playSound = true}) {
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
@@ -534,6 +546,9 @@ class GameLogic with ChangeNotifier {
     _soundService.playHalving(); // dramatic cue for the prestige reset
 
     govTokens += tokensToClaim;
+    // Feed tier-3 progress: every GovToken ever minted counts toward the next
+    // New Blockchain / Genesis Block.
+    _prestige.recordGovTokensMinted(tokensToClaim);
     // Exchange rate is neutralised (was: *= (1 + tokensToClaim), which overflowed
     // to Infinity late-game). Cross-era power is the prestige income multiplier,
     // which rises because govTokens rose.
@@ -555,6 +570,38 @@ class GameLogic with ChangeNotifier {
 
     // Consensus is an era currency wiped by a Hard Fork.
     _prestige.onHardFork();
+
+    _saveGame();
+    notifyListeners();
+  }
+
+  /// New Blockchain (Tier-3): the deepest reset. Wipes the entire run —
+  /// currency, GovTokens, chips, rigs, research, perks, Consensus and mining
+  /// state — and keeps ONLY the permanent Stash collection plus the banked
+  /// Genesis Blocks. Rare and high-stakes, so the UI gates it behind a
+  /// confirmation dialog. Genesis Blocks permanently multiply future Consensus
+  /// and GovToken gains.
+  void newBlockchain() {
+    if (pendingGenesis <= 0) return;
+
+    _soundService.playHalving(); // dramatic cue for the deepest reset
+
+    // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
+    _prestige.applyNewBlockchain();
+
+    // Wipe the run. Stash artifacts are deliberately preserved (permanent
+    // collection); Genesis Blocks were just banked above.
+    wallet = 0;
+    lifetimeEarnings = 0;
+    govTokens = 0;
+    spentGovTokens = 0;
+    chips = 0;
+    _miningManager.hardForkReset();
+    for (var rig in rigs) {
+      rig.amount = 0;
+    }
+    _researchManager.reset();
+    _perkManager.reset();
 
     _saveGame();
     notifyListeners();
@@ -664,6 +711,9 @@ class GameLogic with ChangeNotifier {
       stash: _stash.saveStash(),
       consensus: _prestige.consensus,
       lifetimeAtLastSoftFork: _prestige.lifetimeAtLastSoftFork,
+      genesisBlocks: _prestige.genesisBlocks,
+      totalGovTokensEver: _prestige.totalGovTokensEver,
+      govTokensEverAtLastNewChain: _prestige.govTokensEverAtLastNewChain,
     );
   }
 
@@ -701,6 +751,14 @@ class GameLogic with ChangeNotifier {
       _prestige.consensus = _toInt(data['consensus']);
       _prestige.lifetimeAtLastSoftFork = _toDouble(
         data['lifetimeAtLastSoftFork'],
+      );
+
+      // Prestige tier-3 (New Blockchain / Genesis Blocks). The repository seeds
+      // totalGovTokensEver from current tokens for saves predating the field.
+      _prestige.genesisBlocks = _toInt(data['genesisBlocks']);
+      _prestige.totalGovTokensEver = _toDouble(data['totalGovTokensEver']);
+      _prestige.govTokensEverAtLastNewChain = _toDouble(
+        data['govTokensEverAtLastNewChain'],
       );
 
       // Load Perk Manager Data
@@ -765,6 +823,14 @@ class GameLogic with ChangeNotifier {
       // Migration
       if (spentGovTokens == 0 && _perkManager.perks.values.any((v) => v > 0)) {
         spentGovTokens = _economy.recalculateSpentTokens(_perkManager.perks);
+        // The tier-3 "ever minted" accumulator must be at least what the player
+        // currently holds + has spent. The repository seed for legacy saves runs
+        // BEFORE this recompute, so top it up here rather than stranding the
+        // recovered spend below the tier-3 baseline.
+        final minEver = (govTokens + spentGovTokens).toDouble();
+        if (_prestige.totalGovTokensEver < minEver) {
+          _prestige.totalGovTokensEver = minEver;
+        }
         _saveGame();
       }
     } catch (e, st) {

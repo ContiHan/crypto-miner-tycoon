@@ -119,6 +119,9 @@ class FakeGameRepository implements GameRepository {
     Map<String, dynamic>? stash,
     int consensus = 0,
     double lifetimeAtLastSoftFork = 0,
+    int genesisBlocks = 0,
+    double totalGovTokensEver = 0,
+    double govTokensEverAtLastNewChain = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -127,6 +130,9 @@ class FakeGameRepository implements GameRepository {
     data['chips'] = chips;
     data['consensus'] = consensus;
     data['lifetimeAtLastSoftFork'] = lifetimeAtLastSoftFork;
+    data['genesisBlocks'] = genesisBlocks;
+    data['totalGovTokensEver'] = totalGovTokensEver;
+    data['govTokensEverAtLastNewChain'] = govTokensEverAtLastNewChain;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

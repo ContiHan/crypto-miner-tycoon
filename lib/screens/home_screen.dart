@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/constants.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/news_ticker.dart';
@@ -87,6 +88,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       MiningTab(
         // Index 3: MINE
         onHardFork: () => _showHardForkDialog(
+          context,
+          Provider.of<GameLogic>(context, listen: false),
+        ),
+        onNewBlockchain: () => _showNewBlockchainDialog(
           context,
           Provider.of<GameLogic>(context, listen: false),
         ),
@@ -178,6 +183,46 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               Navigator.pop(ctx);
             },
             child: const Text('RESET & CLAIM'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _showNewBlockchainDialog(BuildContext context, GameLogic game) {
+    final nextMultiplier =
+        1.0 +
+        (game.genesisBlocks + game.pendingGenesis) *
+            GameConstants.perGenesisGainBonus;
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text(
+          'START A NEW BLOCKCHAIN?',
+          style: TextStyle(color: Colors.deepPurpleAccent),
+        ),
+        content: Text(
+          'THE DEEPEST RESET. This wipes your Money, Rigs, Research, Perks, '
+          'Chips, GovTokens and Consensus.\n\n'
+          'Your Stash collection is KEPT.\n\n'
+          'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
+          'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
+          '→ x${nextMultiplier.toStringAsFixed(1)}',
+          style: const TextStyle(color: Colors.white70),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx),
+            child: const Text('CANCEL'),
+          ),
+          ElevatedButton(
+            style: ElevatedButton.styleFrom(backgroundColor: Colors.deepPurple),
+            onPressed: () {
+              game.newBlockchain();
+              Navigator.pop(ctx);
+            },
+            child: const Text('REBORN'),
           ),
         ],
       ),

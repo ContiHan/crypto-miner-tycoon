@@ -15,11 +15,15 @@ class MiningTab extends StatefulWidget {
   final VoidCallback
   onHardFork; // Callback to trigger hard fork dialog from parent or here
   final Function(String) onBuyRig; // Callback for buying rig visual feedback
+  // Tier-3 prestige (New Blockchain). Optional so widget tests can omit it; the
+  // button only renders when a New Blockchain is actually available.
+  final VoidCallback? onNewBlockchain;
 
   const MiningTab({
     super.key,
     required this.onHardFork,
     required this.onBuyRig,
+    this.onNewBlockchain,
   });
 
   @override
@@ -371,6 +375,35 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     onPressed: widget.onHardFork,
                                     child: Text(
                                       'HARD FORK (+${Formatter.formatNumber(game.pendingGovTokens.toDouble())} Tokens)',
+                                    ),
+                                  ),
+                                ),
+                              // Tier-3: New Blockchain / Genesis Blocks.
+                              if (game.genesisBlocks > 0)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6.0),
+                                  child: Text(
+                                    'GENESIS BLOCKS: ${Formatter.formatNumber(game.genesisBlocks.toDouble())} '
+                                    '(x${game.genesisGainMultiplier.toStringAsFixed(1)} CX/GT gain)',
+                                    style: const TextStyle(
+                                      color: Colors.deepPurpleAccent,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
+                              if (game.pendingGenesis > 0 &&
+                                  widget.onNewBlockchain != null)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 8.0),
+                                  child: ElevatedButton(
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: Colors.deepPurple,
+                                      foregroundColor: Colors.white,
+                                    ),
+                                    onPressed: widget.onNewBlockchain,
+                                    child: Text(
+                                      'NEW BLOCKCHAIN (+${game.pendingGenesis} Genesis)',
                                     ),
                                   ),
                                 ),

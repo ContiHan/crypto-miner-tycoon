@@ -26,6 +26,16 @@ class GameConstants {
   static const double consensusDivisor = 1.0e7;
   static const double perConsensusBonus = 0.05; // +5% income per Consensus
 
+  // New Blockchain (Tier-3 prestige): resets almost everything (keeps only the
+  // permanent Stash collection + banked Genesis Blocks), grants Genesis Blocks
+  // (GB) = floor(sqrt(chainGovTokens / genesisDivisor)) where chainGovTokens is
+  // the GovTokens minted since the last New Blockchain. GB do NOT add raw income;
+  // they multiply the GAIN of the two lower prestige currencies (Consensus +
+  // GovTokens), so each New Blockchain makes every future run farm prestige
+  // faster instead of stacking yet another raw income multiplier.
+  static const double genesisDivisor = 100.0; // 100 chain-GovTokens -> 1 GB
+  static const double perGenesisGainBonus = 1.0; // +100% CX & GT gain per GB
+
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
   static const double cosmeticUsdPerSat = 1000.0;

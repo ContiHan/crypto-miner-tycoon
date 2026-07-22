@@ -210,5 +210,49 @@ void main() {
         reason: 'the unreadable key is skipped rather than crashing the load',
       );
     });
+
+    test('seeds totalGovTokensEver from tokens for saves predating the field',
+        () async {
+      // A v2 blob written before Tier-3 existed: has tokens but no accumulator.
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode({
+          'version': 2,
+          'govTokens': 50,
+          'spentGovTokens': 300,
+        }),
+      });
+      final repo = GameRepository();
+
+      final data = await repo.loadGameState();
+
+      expect(
+        data['totalGovTokensEver'],
+        350.0,
+        reason: 'seeded from govTokens + spentGovTokens when the key is absent',
+      );
+      expect(data['genesisBlocks'], 0);
+      expect(data['govTokensEverAtLastNewChain'], 0.0);
+    });
+
+    test('preserves a persisted totalGovTokensEver instead of reseeding',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode({
+          'version': 2,
+          'govTokens': 50,
+          'spentGovTokens': 300,
+          'totalGovTokensEver': 9999,
+          'govTokensEverAtLastNewChain': 4000,
+          'genesisBlocks': 3,
+        }),
+      });
+      final repo = GameRepository();
+
+      final data = await repo.loadGameState();
+
+      expect(data['totalGovTokensEver'], 9999.0, reason: 'kept, not reseeded');
+      expect(data['govTokensEverAtLastNewChain'], 4000.0);
+      expect(data['genesisBlocks'], 3);
+    });
   });
 }
