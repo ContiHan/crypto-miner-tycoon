@@ -77,6 +77,18 @@ class GameLogic with ChangeNotifier {
       .where((r) => r.amount > 0 || lifetimeEarnings >= rigUnlockThreshold(r.id))
       .toList();
 
+  /// The next still-locked rig, shown as a "???" silhouette teaser so the player
+  /// always has a visible next goal (progressive discovery). Null if all revealed.
+  Rig? get nextLockedRig {
+    for (final r in rigs) {
+      if (r.amount == 0 && lifetimeEarnings < rigUnlockThreshold(r.id)) return r;
+    }
+    return null;
+  }
+
+  /// Lifetime-earnings threshold that reveals [rigId].
+  double unlockThresholdFor(String rigId) => rigUnlockThreshold(rigId);
+
   int govTokens = 0;
   int chips = 0;
   int spentGovTokens = 0; // Track spent tokens
