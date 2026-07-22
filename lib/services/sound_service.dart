@@ -28,10 +28,6 @@ class SoundService {
       final player = AudioPlayer();
       player.setReleaseMode(ReleaseMode.stop);
       player.setVolume(1.0);
-      // The mine click fires rapidly; give it the low-latency path.
-      if (name == 'click') {
-        player.setPlayerMode(PlayerMode.lowLatency);
-      }
       _players[name] = player;
     }
   }
@@ -59,8 +55,9 @@ class SoundService {
     }
   }
 
-  /// Mining tap. Bundled low-latency asset instead of SystemSound, which was
-  /// silent when the OS "touch sounds" setting was off and ignored the mute.
+  /// Mining tap. A bundled asset instead of SystemSound (which was silent when
+  /// the OS "touch sounds" setting was off) and instead of PlayerMode.lowLatency
+  /// (which did not play at all on the test emulator).
   Future<void> playMine() => _play('click');
 
   Future<void> playSound(String soundName) => _play(soundName);

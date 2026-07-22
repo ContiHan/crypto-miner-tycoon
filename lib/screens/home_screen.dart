@@ -122,6 +122,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         child: BottomNavigationBar(
           currentIndex: _currentIndex,
           onTap: (index) {
+            _gameLogic.playUiClick();
             setState(() {
               _currentIndex = index;
             });

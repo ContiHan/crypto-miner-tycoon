@@ -117,12 +117,17 @@ class GameLogic with ChangeNotifier {
 
   Future<void> toggleFiatDisplay() async {
     showFiatPrices = !showFiatPrices;
+    _soundService.playMine(); // light UI click on the currency toggle
     await _settingsRepo.saveSettings(
       soundEnabled: soundEnabled,
       showFiatPrices: showFiatPrices,
     );
     notifyListeners();
   }
+
+  /// A light click for generic UI interactions (e.g. bottom-nav tab switches)
+  /// that have no dedicated effect of their own.
+  void playUiClick() => _soundService.playMine();
 
   // Full Reset (Wipe Save)
   Future<void> resetGame() async {
@@ -588,6 +593,8 @@ class GameLogic with ChangeNotifier {
   void hardFork() {
     int tokensToClaim = pendingGovTokens;
     if (tokensToClaim <= 0) return;
+
+    _soundService.playHalving(); // dramatic cue for the prestige reset
 
     govTokens += tokensToClaim;
     _miningManager.bitcoinExchangeRate *= (1.0 + tokensToClaim);
