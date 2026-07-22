@@ -44,7 +44,7 @@ class ResearchTab extends StatelessWidget {
                   GestureDetector(
                     onTap: () => game.toggleFiatDisplay(),
                     child: Text(
-                      'BALANCE: ${game.showFiatPrices ? '\$ ${Formatter.formatNumber(game.wallet * game.bitcoinExchangeRate)}' : Formatter.formatBitcoin(game.wallet)}',
+                      'BALANCE: ${game.showFiatPrices ? '\$ ${Formatter.formatNumber(game.toFiat(game.wallet))}' : Formatter.formatBitcoin(game.wallet)}',
                       style: const TextStyle(
                         fontSize: 16,
                         fontWeight: FontWeight.bold,
@@ -174,7 +174,7 @@ class ResearchTab extends StatelessWidget {
                 ),
                 child: Text(
                   game.showFiatPrices
-                      ? 'BUY\n\$ ${Formatter.formatNumber(node.cost)}'
+                      ? 'BUY\n\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
                       : 'BUY\n${Formatter.formatBitcoin(costSats)}',
                   textAlign: TextAlign.center,
                   style: const TextStyle(

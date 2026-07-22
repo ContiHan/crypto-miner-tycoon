@@ -9,26 +9,26 @@ void main() {
       manager = MiningManager();
     });
 
-    test('Jump in blocks should process multiple halvings immediately', () {
-      // Thresholds: 5000, 15000, 25000, 35000, 45000
-      // If we jump to 40000, we passed 5k, 15k, 25k, 35k. (4 halvings)
-      // Initial Reward: 50
-      // 1: 25
-      // 2: 12.5
-      // 3: 6.25
-      // 4: 3.125
+    test('Jump in blocks processes multiple halvings (doubling thresholds)', () {
+      // Thresholds now DOUBLE each halving: 15000, 30000, 60000, 120000, ...
+      // Jumping to 120000 crosses 15k, 30k, 60k, 120k => 4 halvings.
+      // Reward: 50 -> 25 -> 12.5 -> 6.25 -> 3.125
+      manager.blocksMined = 120000;
 
-      manager.blocksMined = 40000;
-
-      // This mimics what happens if we load a save or do a huge offline jump without looping checkHalving
+      // Mimics a save load / big offline jump processed in one call.
       manager.checkHalving();
 
-      // If bug exists, it only halving once (50 -> 25)
-      // If fixed, it should be 3.125
-
-      // Assert the FIXED state (so test FAILS now)
       expect(manager.blockReward, closeTo(3.125 * 100000000, 0.1));
-      expect(manager.nextHalvingThreshold, 45000);
+      // After crossing 120000, the next threshold has doubled to 240000.
+      expect(manager.nextHalvingThreshold, 240000);
+    });
+
+    test('single halving at the first threshold', () {
+      manager.blocksMined = 15000;
+      final halved = manager.checkHalving();
+      expect(halved, true);
+      expect(manager.blockReward, closeTo(25 * 100000000, 0.1));
+      expect(manager.nextHalvingThreshold, 30000);
     });
   });
 }

@@ -50,7 +50,9 @@ void main() {
     WidgetTester tester,
   ) async {
     game.govTokens = 0;
-    game.lifetimeEarnings = 100000;
+    // Enough lifetime to earn a GovToken under the redesigned accrual
+    // (sqrt(2e9 / 5e8) = 2), so the HARD FORK button appears.
+    game.lifetimeEarnings = 2e9;
 
     await tester.pumpWidget(createWidgetUnderTest());
 

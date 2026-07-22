@@ -1,3 +1,4 @@
+// ignore_for_file: avoid_print
 // Economy simulation harness (Phase 1 tuning tool).
 //
 // Drives the REAL EconomyService + MiningManager over simulated wall-clock time
@@ -53,7 +54,7 @@ _SimResult _runSim({required int maxSeconds, required bool withPrestige}) {
   // Bootstrap: assume the player taps to afford the first CPU rig.
   double wallet = 100;
   double lifetime = 0; // resets each hard fork (this is what the cap tracks)
-  double exchangeRate = 1.0;
+  const double exchangeRate = 1.0; // neutralised in the redesign
   int govTokens = 0;
   int eras = 0;
   int lastBuySecond = 0;
@@ -120,7 +121,6 @@ _SimResult _runSim({required int maxSeconds, required bool withPrestige}) {
       final stalled = (t - lastBuySecond) > 600;
       if (stalled && pendingTokens > 0) {
         govTokens += pendingTokens;
-        exchangeRate *= (1.0 + pendingTokens);
         eras++;
         // reset era
         wallet = 100;
@@ -168,7 +168,6 @@ void main() {
     final noPrestige = _runSim(maxSeconds: 30 * 86400, withPrestige: false);
     final withPrestige = _runSim(maxSeconds: 30 * 86400, withPrestige: true);
 
-    // ignore: avoid_print
     print('\n============= ECONOMY SIM — single era, NO prestige =============');
     print('time      | hash      | income/s    | rate     | tokens/eras');
     print('----------+-----------+-------------+----------+------------');

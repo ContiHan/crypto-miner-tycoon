@@ -8,25 +8,25 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // First interval: [0, 5000).
+      // First interval: [0, 15000) (thresholds now double each halving).
       game.blocksMined = 0;
-      game.nextHalvingThreshold = 5000;
+      game.nextHalvingThreshold = 15000;
       expect(game.halvingProgress, 0.0);
 
-      game.blocksMined = 2500;
+      game.blocksMined = 7500;
       expect(game.halvingProgress, closeTo(0.5, 0.001));
 
-      // Immediately after the first halving: 5000 mined, next threshold 15000.
-      // The old formula (blocksMined / threshold) showed 33% here.
-      game.blocksMined = 5000;
-      game.nextHalvingThreshold = 15000;
+      // Immediately after the first halving: 15000 mined, threshold doubled to
+      // 30000. The old formula (blocksMined / threshold) showed 50% here.
+      game.blocksMined = 15000;
+      game.nextHalvingThreshold = 30000;
       expect(
         game.halvingProgress,
         0.0,
         reason: 'bar must restart at 0 for the new interval',
       );
 
-      game.blocksMined = 10000;
+      game.blocksMined = 22500;
       expect(game.halvingProgress, closeTo(0.5, 0.001));
     });
   });
@@ -39,7 +39,7 @@ void main() {
 
       game.govTokens = 2;
       game.spentGovTokens = 10;
-      game.lifetimeEarnings = 90000; // pending = floor(sqrt(90000/10000)) = 3
+      game.lifetimeEarnings = 4.5e9; // pending = floor(sqrt(4.5e9 / 5e8)) = 3
 
       expect(game.pendingGovTokens, 3);
       // After fork: 1 + (2 held + 3 claimed + 10 spent) * 0.1 = x2.5

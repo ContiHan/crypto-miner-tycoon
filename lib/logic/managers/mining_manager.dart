@@ -5,7 +5,10 @@ class MiningManager {
   // State
   double blockReward = GameConstants.initialBlockReward;
   int blocksMined = 0;
-  int nextHalvingThreshold = 5000;
+  int nextHalvingThreshold = GameConstants.halvingFirstThreshold;
+  // Neutralised in the Phase 1 redesign: kept at 1.0 for save compatibility.
+  // Cross-era progression now comes from the prestige income multiplier, not a
+  // compounding exchange rate (which overflowed to Infinity late-game).
   double bitcoinExchangeRate = 1.0;
 
   // Dependencies on GameLogic state (passed in or callbacks) could be tricky.
@@ -16,23 +19,16 @@ class MiningManager {
   void reset() {
     blockReward = GameConstants.initialBlockReward;
     blocksMined = 0;
-    nextHalvingThreshold = 5000;
+    nextHalvingThreshold = GameConstants.halvingFirstThreshold;
     bitcoinExchangeRate = 1.0;
   }
 
   void hardForkReset() {
     blocksMined = 0;
     blockReward = GameConstants.initialBlockReward;
-    nextHalvingThreshold = 5000;
-    // bitcoinExchangeRate is NOT reset on hard fork completely, it's boosted, but logic in GameLogic did:
-    // bitcoinExchangeRate *= (1.0 + tokensToClaim);
-    // AND then calls _saveGame.
-    // Wait, GameLogic.hardFork() says:
-    // bitcoinExchangeRate *= (1.0 + tokensToClaim);
-    // ...
-    // blocksMined = 0;
-    // blockReward = ...;
-    // So Rate is persistent/boosted.
+    nextHalvingThreshold = GameConstants.halvingFirstThreshold;
+    // Exchange rate stays 1.0 (neutralised). Cross-era power now comes from the
+    // prestige income multiplier applied in GameLogic, not from this field.
   }
 
   // Calculate Network Difficulty
@@ -53,37 +49,47 @@ class MiningManager {
     return 100.0 + linearGrowth + asymptote;
   }
 
-  // Returns the amount earned in this tick (or click)
+  // Returns the amount earned in this tick (or click).
+  //
+  // Phase 1 income model:
+  //   income = hashRate * satPerHash * blockRewardFactor * prestige * chaos
+  // No lifetime-difficulty divider (it collapsed income to ~0 within hours);
+  // `difficulty` is retained in the signature as a display-only value and is
+  // intentionally unused here.
   double calculateMiningIncome({
     required double hashRate,
-    required double difficulty,
+    required double difficulty, // display-only; not used in the income math
     required double prestigeMultiplier,
     required double chaosMultiplier,
     required double lifetimeEarnings,
   }) {
-    if (difficulty.isInfinite) return 0;
     if (hashRate <= 0) return 0;
 
-    double baseReward = hashRate / difficulty;
-    double adjustedReward = blockReward / GameConstants.miningDivisor;
-    double incomeSats =
-        baseReward * adjustedReward * prestigeMultiplier * chaosMultiplier;
+    final double blockRewardFactor =
+        blockReward / GameConstants.initialBlockReward; // 1.0 -> 0.5 -> ...
+    double incomeSats = hashRate *
+        GameConstants.satPerHash *
+        blockRewardFactor *
+        prestigeMultiplier *
+        chaosMultiplier;
 
-    // Cap at Max Supply
-    if (lifetimeEarnings + incomeSats > GameConstants.maxSupplySats) {
-      incomeSats = GameConstants.maxSupplySats - lifetimeEarnings;
-    }
+    // Per-era thematic cap (never realistically hit; kept for safety).
+    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) return 0;
+    if (incomeSats > room) incomeSats = room;
 
     return incomeSats;
   }
 
-  // Returns true if halving occurred
-
+  // Returns true if a halving occurred. The gap between halvings DOUBLES so
+  // halvings are gentle pacing beats (an early ~hours-long era sees 0-1), not an
+  // income killer — income grows until the rig-cost wall, then the next halving
+  // tips it into the soft-wall that invites a prestige.
   bool checkHalving() {
     bool halved = false;
     while (blocksMined >= nextHalvingThreshold) {
       blockReward /= 2;
-      nextHalvingThreshold += 10000;
+      nextHalvingThreshold *= 2;
       halved = true;
     }
     return halved;

@@ -1,8 +1,29 @@
 class GameConstants {
   // Economy
-  static const double maxSupplySats = 2100000000000000;
+  static const double maxSupplySats = 2100000000000000; // per-era thematic cap
   static const double initialBlockReward = 50.0 * 100000000; // 50 BTC in Sats
-  static const double miningDivisor = 50000000.0;
+  static const double miningDivisor = 50000000.0; // legacy; no longer in income
+
+  // Income model (Phase 1 redesign): income/sec =
+  //   hashRate * satPerHash * blockRewardFactor * prestigeMult * chaosMult
+  // where blockRewardFactor = blockReward / initialBlockReward (1.0 -> 0.5 -> ...).
+  // No lifetime-difficulty divider (it collapsed income) — difficulty is now a
+  // display-only flavour stat.
+  static const double satPerHash = 1.0;
+
+  // Halving as gentle PACING: the gap between halvings doubles, so an early era
+  // (~hours) sees 0-1 halvings and income grows before the soft-wall.
+  static const int halvingFirstThreshold = 15000; // blocks (~4.2 h at 1 block/s)
+
+  // Prestige (Hard Fork): GovTokens = floor(sqrt(lifetimeSats / govTokenDivisor)).
+  // Sub-linear in production and slow enough that token counts stay in the
+  // hundreds over weeks (no 4.7M-token explosion).
+  static const double govTokenDivisor = 5.0e8;
+  static const double perTokenIncomeBonus = 0.10; // +10% income per GovToken
+
+  // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
+  // this to show a big USD-style number. Purely visual, no mechanics.
+  static const double cosmeticUsdPerSat = 1000.0;
 
   // Perks
   static const double perkBaseClickPower = 5.0;

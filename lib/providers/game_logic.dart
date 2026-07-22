@@ -61,6 +61,10 @@ class GameLogic with ChangeNotifier {
   set bitcoinExchangeRate(double value) =>
       _miningManager.bitcoinExchangeRate = value;
 
+  /// Cosmetic conversion of a sat value into the "astronomical fiat" display
+  /// used by the $/₿ toggle. Purely visual — no gameplay effect.
+  double toFiat(double sats) => sats * GameConstants.cosmeticUsdPerSat;
+
   List<Rig> rigs = [
     Rig(
       id: RigIds.cpuRig,
@@ -204,11 +208,12 @@ class GameLogic with ChangeNotifier {
       .calculatePrestigeMultiplier(govTokens + pendingGovTokens, spentGovTokens);
 
   // Progress within the CURRENT halving interval (0..1). blocksMined is
-  // cumulative and thresholds step by 10000, so dividing by the raw threshold
-  // left the bar stuck near-full; normalise against the interval start instead.
+  // cumulative and the threshold DOUBLES each halving (15000, 30000, 60000…),
+  // so the previous interval start is threshold/2 (or 0 before the first).
   double get halvingProgress {
     final threshold = _miningManager.nextHalvingThreshold;
-    final prev = threshold - 10000 < 0 ? 0 : threshold - 10000;
+    final prev =
+        threshold <= GameConstants.halvingFirstThreshold ? 0 : threshold ~/ 2;
     final span = threshold - prev;
     if (span <= 0) return 0;
     return ((_miningManager.blocksMined - prev) / span).clamp(0.0, 1.0);
@@ -599,7 +604,9 @@ class GameLogic with ChangeNotifier {
     _soundService.playHalving(); // dramatic cue for the prestige reset
 
     govTokens += tokensToClaim;
-    _miningManager.bitcoinExchangeRate *= (1.0 + tokensToClaim);
+    // Exchange rate is neutralised (was: *= (1 + tokensToClaim), which overflowed
+    // to Infinity late-game). Cross-era power is the prestige income multiplier,
+    // which rises because govTokens rose.
 
     // Reset Progress
     wallet = 0;
@@ -757,9 +764,9 @@ class GameLogic with ChangeNotifier {
       _miningManager.blockReward = _toDouble(data['blockReward']);
       _miningManager.blocksMined = _toInt(data['blocksMined']);
       _miningManager.nextHalvingThreshold = _toInt(data['nextHalvingThreshold']);
-      double rate = _toDouble(data['bitcoinExchangeRate']);
-      if (rate <= 0.0) rate = 1.0;
-      _miningManager.bitcoinExchangeRate = rate;
+      // Migration: force the (now neutralised) exchange rate to 1.0, ignoring any
+      // large value saved by the old compounding mechanic.
+      _miningManager.bitcoinExchangeRate = 1.0;
 
       // Load Perk Manager Data
       if (data.containsKey('perks')) {

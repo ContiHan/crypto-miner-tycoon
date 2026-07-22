@@ -137,7 +137,7 @@ void main() {
       game.buyResearch('basic_overclock');
       expect(game.isResearched('basic_overclock'), true);
 
-      game.lifetimeEarnings = 20000;
+      game.lifetimeEarnings = 2e9; // sqrt(2e9 / 5e8) = 2 GovTokens
 
       game.hardFork();
 

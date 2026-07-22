@@ -258,7 +258,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                           fit: BoxFit.scaleDown,
                           child: Text(
                             widget.game.showFiatPrices
-                                ? '\$ ${Formatter.formatNumber(widget.game.getRigCostInCredits(widget.rig))}'
+                                ? '\$ ${Formatter.formatNumber(widget.game.toFiat(widget.game.getRigCost(widget.rig)))}'
                                 : Formatter.formatBitcoin(
                                     widget.game.getRigCost(widget.rig)),
                             style: const TextStyle(

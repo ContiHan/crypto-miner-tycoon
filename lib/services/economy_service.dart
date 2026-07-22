@@ -4,9 +4,13 @@ import '../models/rig.dart';
 import '../core/ids.dart';
 
 class EconomyService {
-  // Perks: 10% bonus per token (Held + Spent)
+  // +perTokenIncomeBonus income per GovToken (held + spent). This is the sole
+  // cross-era power lever now (the exchange rate is neutralised); token accrual
+  // is sub-linear and slow (see calculatePendingGovTokens) so the multiplier
+  // grows steadily over weeks instead of exploding.
   double calculatePrestigeMultiplier(int govTokens, int spentGovTokens) {
-    return 1.0 + ((govTokens + spentGovTokens) * 0.10);
+    return 1.0 +
+        ((govTokens + spentGovTokens) * GameConstants.perTokenIncomeBonus);
   }
 
   double calculateRigCost(
@@ -78,9 +82,10 @@ class EconomyService {
   }
 
   int calculatePendingGovTokens(double lifetimeEarnings) {
-    if (lifetimeEarnings < 10000) return 0;
-    // Formula: Sqrt(Earnings / 10000) - adjusted for 10x economy scale
-    return (sqrt(lifetimeEarnings / 10000).floor());
+    if (lifetimeEarnings < GameConstants.govTokenDivisor) return 0;
+    // Sub-linear (sqrt) in this era's earnings; the large divisor keeps early
+    // eras to single-digit tokens and paces accrual to hundreds over weeks.
+    return sqrt(lifetimeEarnings / GameConstants.govTokenDivisor).floor();
   }
 
   int recalculateSpentTokens(Map<String, int> perks) {
