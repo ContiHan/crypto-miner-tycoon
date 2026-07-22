@@ -23,6 +23,7 @@ import '../services/sound_service.dart';
 import '../logic/managers/mining_manager.dart';
 import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
+import '../logic/systems/anomaly_system.dart';
 
 class GameLogic with ChangeNotifier {
   double wallet = 0;
@@ -223,10 +224,12 @@ class GameLogic with ChangeNotifier {
   double chaosIncomeMultiplier = 1.0;
   double chaosCostMultiplier = 1.0;
 
-  // Anomaly Logic
-  bool isAnomalyActive = false;
-  Offset anomalyPosition = Offset.zero;
-  Timer? _anomalyTimer;
+  // Anomaly Logic — extracted into AnomalySystem (lib/logic/systems).
+  late final AnomalySystem _anomaly;
+  bool get isAnomalyActive => _anomaly.active;
+  set isAnomalyActive(bool v) => _anomaly.active = v;
+  Offset get anomalyPosition => _anomaly.position;
+  set anomalyPosition(Offset v) => _anomaly.position = v;
 
   Timer? _gameTimer;
   Timer? _chaosTimer;
@@ -276,6 +279,15 @@ class GameLogic with ChangeNotifier {
     _researchManager = ResearchManager();
     _perkManager = PerkManager();
 
+    _anomaly = AnomalySystem(
+      onChanged: notifyListeners,
+      onCollect: () {
+        chips += 1;
+        _soundService.playUnlock();
+        _saveGame();
+      },
+    );
+
     _autoStartTimers = startTimers;
 
     if (loadOnStart) {
@@ -292,14 +304,14 @@ class GameLogic with ChangeNotifier {
     if (_timersActive || _isDisposed) return;
     _startGameLoop();
     _startChaosTimer();
-    _startAnomalyTimer();
+    _anomaly.start();
     _timersActive = true;
   }
 
   void _stopAllTimers() {
     _gameTimer?.cancel();
     _chaosTimer?.cancel();
-    _anomalyTimer?.cancel();
+    _anomaly.stop();
     _autoSaveTimer?.cancel();
     _chaosResetTimer?.cancel();
     _newsTimer?.cancel();
@@ -341,34 +353,7 @@ class GameLogic with ChangeNotifier {
   }
 
   // Spawns anomalies randomly
-  void _startAnomalyTimer() {
-    _anomalyTimer = Timer.periodic(const Duration(seconds: 5), (timer) {
-      if (!isAnomalyActive && Random().nextDouble() < 0.05) {
-        double dx = Random().nextDouble() * 300;
-        double dy = Random().nextDouble() * 500;
-        anomalyPosition = Offset(dx, dy);
-        isAnomalyActive = true;
-        notifyListeners();
-
-        Future.delayed(const Duration(seconds: 4), () {
-          if (isAnomalyActive) {
-            isAnomalyActive = false;
-            notifyListeners();
-          }
-        });
-      }
-    });
-  }
-
-  void clickAnomaly() {
-    if (!isAnomalyActive) return;
-
-    isAnomalyActive = false;
-    chips += 1;
-    _soundService.playUnlock();
-    notifyListeners();
-    _saveGame();
-  }
+  void clickAnomaly() => _anomaly.collect();
 
   void _startGameLoop() {
     _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
