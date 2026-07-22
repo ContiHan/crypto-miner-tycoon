@@ -46,5 +46,17 @@ void main() {
       final saved = await settings.loadSettings();
       expect(saved['sound_enabled'], false);
     });
+
+    test('a manual click plays; a silent (auto) click does not', () async {
+      final sound = FakeSoundService();
+      final game = _game(FakeSettingsRepository(), sound);
+      await game.loadGame();
+
+      game.clickMine(playSound: false); // AI auto-clicker path
+      expect(sound.mineCount, 0, reason: 'auto-click must be silent');
+
+      game.clickMine(); // real tap
+      expect(sound.mineCount, 1);
+    });
   });
 }

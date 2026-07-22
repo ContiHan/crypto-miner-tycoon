@@ -501,7 +501,7 @@ class GameLogic with ChangeNotifier {
     if (_researchManager.isResearched(ResearchIds.aiManager)) {
       _autoClickCounter++;
       if (_autoClickCounter >= 5) {
-        clickMine();
+        clickMine(playSound: false);
         _autoClickCounter = 0;
       }
     }
@@ -549,7 +549,7 @@ class GameLogic with ChangeNotifier {
   int get pendingGovTokens =>
       _economy.calculatePendingGovTokens(lifetimeEarnings);
 
-  void clickMine() {
+  void clickMine({bool playSound = true}) {
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
     clickPower *= _stash.getClickPowerMultiplier();
 
@@ -565,7 +565,9 @@ class GameLogic with ChangeNotifier {
 
     lifetimeEarnings += clickSats;
     wallet += clickSats;
-    _soundService.playMine();
+    // Only a real tap makes the click sound; the AI auto-clicker stays silent
+    // so it doesn't emit a click every 5 seconds on its own.
+    if (playSound) _soundService.playMine();
 
     notifyListeners();
   }
