@@ -25,5 +25,14 @@ void main() {
       // 0.78125 BTC after the 6th halving == 78,125,000 sats.
       expect(Formatter.formatBitcoin(0.78125 * sat), '78.1M Ş');
     });
+
+    test('non-finite values never crash the formatter (endgame overflow)', () {
+      // Difficulty / exchange-rate overflow can produce Infinity/NaN; toInt()
+      // and log() throw on those, which used to crash the mining/LAB screens.
+      expect(Formatter.formatNumber(double.infinity), '∞');
+      expect(Formatter.formatNumber(double.nan), '0');
+      expect(Formatter.formatBitcoin(double.infinity), '∞ ₿');
+      expect(Formatter.formatBitcoin(double.nan), '0 Ş');
+    });
   });
 }

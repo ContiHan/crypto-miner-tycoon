@@ -17,6 +17,10 @@ class Formatter {
   ];
 
   static String formatNumber(double number) {
+    // Guard against non-finite values (e.g. difficulty/exchange-rate overflow
+    // at the extreme endgame): toInt()/log() throw on Infinity/NaN.
+    if (number.isNaN) return '0';
+    if (number.isInfinite) return number.isNegative ? '-∞' : '∞';
     if (number < 1000) {
       if (number >= 10) {
         return number.toInt().toString();
@@ -42,6 +46,8 @@ class Formatter {
   }
 
   static String formatBitcoin(double sats) {
+    if (sats.isNaN) return '0 Ş';
+    if (sats.isInfinite) return sats.isNegative ? '-∞ ₿' : '∞ ₿';
     if (sats == 0) return '0 Ş';
     // 1 BTC = 100,000,000 Sats
     if (sats >= 100000000) {
