@@ -1,5 +1,6 @@
 import 'dart:math';
 import '../core/constants.dart';
+import '../logic/channels.dart';
 import '../models/rig.dart';
 import '../core/ids.dart';
 
@@ -51,29 +52,28 @@ class EconomyService {
     bool isChipFabResearched,
     double researchHashMultiplier,
   ) {
-    double total = 0;
+    double base = 0;
 
-    // Calculate per-rig hashrate with research bonuses
+    // Per-rig base hash rate. Chip Fab is a per-rig-TYPE bonus (CPU/GPU only),
+    // so it is applied here before summing rather than in the global channel.
     for (var rig in rigs) {
       double rigRate = rig.totalHashRate;
-
-      // Chip Fab bonus for CPU/GPU
       if (isChipFabResearched &&
           (rig.id == RigIds.cpuRig || rig.id == RigIds.gpuRig)) {
-        rigRate *= 1.20;
+        rigRate *= (1.0 + GameConstants.chipFabBonus);
       }
-
-      total += rigRate;
+      base += rigRate;
     }
 
-    // Global research multiplier
-    total *= researchHashMultiplier;
-
-    // Apply 'hash_bonus' perk (10% per level)
-    double perkMultiplier =
-        1.0 +
-        ((perks[PerkIds.hashBonus] ?? 0) * GameConstants.perkHashBonusGrowth);
-    return total * perkMultiplier;
+    // HASH channel: global research overclock and the hash-bonus perk stack
+    // ADDITIVELY (channel model), not multiplicatively.
+    final channels = Channels();
+    channels.add(Channel.hash, researchHashMultiplier - 1.0);
+    channels.add(
+      Channel.hash,
+      (perks[PerkIds.hashBonus] ?? 0) * GameConstants.perkHashBonusGrowth,
+    );
+    return base * channels.multiplier(Channel.hash);
   }
 
   double calculateClickPower(Map<String, int> perks) {
