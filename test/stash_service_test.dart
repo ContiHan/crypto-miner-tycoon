@@ -95,5 +95,32 @@ void main() {
       final map = stash.saveStash();
       expect(map['artifacts']['satoshi_whitepaper'], 1);
     });
+
+    test('all six rarities have at least one artifact', () {
+      for (final r in ArtifactRarity.values) {
+        expect(
+          StashService.allArtifacts.any((a) => a.rarity == r),
+          true,
+          reason: 'no artifact defined for rarity $r',
+        );
+      }
+    });
+
+    test('premium crates never drop common rarity', () {
+      for (var i = 0; i < 300; i++) {
+        final a = StashService().openCrate(isPremium: true);
+        expect(a.rarity, isNot(ArtifactRarity.common));
+      }
+    });
+
+    test('standard crates can drop across the ladder', () {
+      final seen = <ArtifactRarity>{};
+      for (var i = 0; i < 2000; i++) {
+        seen.add(StashService().openCrate(isPremium: false).rarity);
+      }
+      // Commons dominate but higher rarities should also appear over many rolls.
+      expect(seen.contains(ArtifactRarity.common), true);
+      expect(seen.length, greaterThan(2));
+    });
   });
 }

@@ -362,13 +362,25 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  Widget _buildArtifactCard(Artifact artifact, int count) {
-    Color borderColor = Colors.grey;
-    if (artifact.rarity == ArtifactRarity.rare) borderColor = Colors.blueAccent;
-    if (artifact.rarity == ArtifactRarity.legendary) borderColor = Colors.amber;
-    if (artifact.rarity == ArtifactRarity.unique) {
-      borderColor = Colors.purpleAccent;
+  Color _rarityColor(ArtifactRarity rarity) {
+    switch (rarity) {
+      case ArtifactRarity.common:
+        return Colors.grey;
+      case ArtifactRarity.uncommon:
+        return Colors.greenAccent;
+      case ArtifactRarity.rare:
+        return Colors.blueAccent;
+      case ArtifactRarity.epic:
+        return Colors.purpleAccent;
+      case ArtifactRarity.legendary:
+        return Colors.amber;
+      case ArtifactRarity.mythic:
+        return Colors.redAccent;
     }
+  }
+
+  Widget _buildArtifactCard(Artifact artifact, int count) {
+    final Color borderColor = _rarityColor(artifact.rarity);
 
     return Container(
       decoration: BoxDecoration(

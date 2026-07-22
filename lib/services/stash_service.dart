@@ -1,10 +1,12 @@
 import 'dart:math';
 
-enum ArtifactRarity { common, rare, legendary, unique }
+/// Six rarities (content plan). Order is ascending power; `.index` doubles as a
+/// rank for sorting/coloring.
+enum ArtifactRarity { common, uncommon, rare, epic, legendary, mythic }
 
 enum BonusType {
-  hashRate,   // Global Hash Rate Multiplier
-  rigCost,    // Discount on Rigs
+  hashRate, // Global Hash Rate Multiplier
+  rigCost, // Discount on Rigs
   clickPower, // Click Power Multiplier
   vcInterval, // Faster VC Funding (if implemented)
   criticalChance, // Crit Mining Chance
@@ -30,25 +32,65 @@ class Artifact {
 
 class StashService {
   // === DATABASE OF ARTIFACTS ===
+  // Data-driven: add rows here to grow content. baseBonus follows per-rarity
+  // additive bands (common 1-3% ... mythic 200%+) so stacking never explodes.
   static const List<Artifact> allArtifacts = [
-    // COMMON (10 items)
+    // --- COMMON (+1-3%) ---
     Artifact(id: 'old_hdd', name: 'Old HDD', description: '+2% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.02),
     Artifact(id: 'usb_fan', name: 'USB Fan', description: '-1% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.01),
-    Artifact(id: 'energy_drink', name: 'Energy Drink', description: '+5% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.05),
+    Artifact(id: 'energy_drink', name: 'Energy Drink', description: '+3% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.03),
     Artifact(id: 'lucky_coin', name: 'Lucky Coin', description: '+1% Crit Chance', rarity: ArtifactRarity.common, bonusType: BonusType.criticalChance, baseBonus: 0.01),
     Artifact(id: 'cable_tie', name: 'Cable Tie', description: '-1% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.01),
-    
-    // RARE (5 items)
+    Artifact(id: 'dust_filter', name: 'Dust Filter', description: '+3% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.03),
+
+    // --- UNCOMMON (+4-8%) ---
+    Artifact(id: 'overclock_bios', name: 'Overclock BIOS', description: '+6% Hash Rate', rarity: ArtifactRarity.uncommon, bonusType: BonusType.hashRate, baseBonus: 0.06),
+    Artifact(id: 'copper_heatsink', name: 'Copper Heatsink', description: '-4% Rig Cost', rarity: ArtifactRarity.uncommon, bonusType: BonusType.rigCost, baseBonus: 0.04),
+    Artifact(id: 'gaming_mouse', name: 'Gaming Mouse', description: '+8% Click Power', rarity: ArtifactRarity.uncommon, bonusType: BonusType.clickPower, baseBonus: 0.08),
+    Artifact(id: 'refurb_psu', name: 'Refurb PSU', description: '+5% Hash Rate', rarity: ArtifactRarity.uncommon, bonusType: BonusType.hashRate, baseBonus: 0.05),
+
+    // --- RARE (+10-20%) ---
     Artifact(id: 'liquid_cooling', name: 'Liquid Cooling Loop', description: '+10% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.10),
     Artifact(id: 'gold_thermal_paste', name: 'Gold Thermal Paste', description: '-5% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.05),
     Artifact(id: 'mechanical_switch', name: 'Mech Switch', description: '+20% Click Power', rarity: ArtifactRarity.rare, bonusType: BonusType.clickPower, baseBonus: 0.20),
-    Artifact(id: 'server_rack', name: 'Pro Server Rack', description: '-5% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.05),
+    Artifact(id: 'server_rack', name: 'Pro Server Rack', description: '-8% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.08),
+    Artifact(id: 'gpu_riser', name: 'GPU Riser Array', description: '+15% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.15),
 
-    // LEGENDARY (3 items)
-    Artifact(id: 'quantum_chip', name: 'Quantum Chip Prototype', description: '+50% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 0.50),
-    Artifact(id: 'ai_optimiser', name: 'AI Cost Optimiser', description: '-15% Rig Cost', rarity: ArtifactRarity.legendary, bonusType: BonusType.rigCost, baseBonus: 0.15),
+    // --- EPIC (+25-50%) ---
+    Artifact(id: 'immersion_tank', name: 'Immersion Tank', description: '+30% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.30),
+    Artifact(id: 'fpga_board', name: 'FPGA Board', description: '+40% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.40),
+    Artifact(id: 'procurement_ai', name: 'Procurement AI', description: '-12% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.12),
+    Artifact(id: 'haptic_deck', name: 'Haptic Deck', description: '+50% Click Power', rarity: ArtifactRarity.epic, bonusType: BonusType.clickPower, baseBonus: 0.50),
+
+    // --- LEGENDARY (+75-150%) ---
+    Artifact(id: 'quantum_chip', name: 'Quantum Chip Prototype', description: '+75% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 0.75),
+    Artifact(id: 'ai_optimiser', name: 'AI Cost Optimiser', description: '-20% Rig Cost', rarity: ArtifactRarity.legendary, bonusType: BonusType.rigCost, baseBonus: 0.20),
     Artifact(id: 'satoshi_whitepaper', name: 'The Whitepaper', description: '+100% Click Power', rarity: ArtifactRarity.legendary, bonusType: BonusType.clickPower, baseBonus: 1.0),
+    Artifact(id: 'superconductor', name: 'Superconductor Coil', description: '+150% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 1.5),
+
+    // --- MYTHIC (+200%+) ---
+    Artifact(id: 'genesis_shard', name: 'Genesis Shard', description: '+200% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 2.0),
+    Artifact(id: 'cold_wallet_vault', name: 'Cold Wallet Vault', description: '-30% Rig Cost', rarity: ArtifactRarity.mythic, bonusType: BonusType.rigCost, baseBonus: 0.30),
+    Artifact(id: 'diamond_hands', name: 'Diamond Hands', description: '+300% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 3.0),
   ];
+
+  // Drop-weight tables (geometric ladder). Standard crates favour low rarities;
+  // premium crates drop commons and shift the whole table up.
+  static const Map<ArtifactRarity, double> _standardWeights = {
+    ArtifactRarity.common: 55,
+    ArtifactRarity.uncommon: 27,
+    ArtifactRarity.rare: 12,
+    ArtifactRarity.epic: 4.5,
+    ArtifactRarity.legendary: 1.2,
+    ArtifactRarity.mythic: 0.3,
+  };
+  static const Map<ArtifactRarity, double> _premiumWeights = {
+    ArtifactRarity.uncommon: 30,
+    ArtifactRarity.rare: 35,
+    ArtifactRarity.epic: 22,
+    ArtifactRarity.legendary: 10,
+    ArtifactRarity.mythic: 3,
+  };
 
   // === STATE ===
   // Map<ArtifactId, Count/Level>
@@ -115,51 +157,35 @@ class StashService {
     }
   }
 
-  // Returns the allocated Artifact
+  /// Rolls a rarity from the weighted table (premium shifts it up).
+  ArtifactRarity _rollRarity(Random random, bool isPremium) {
+    final weights = isPremium ? _premiumWeights : _standardWeights;
+    final total = weights.values.fold(0.0, (a, b) => a + b);
+    double roll = random.nextDouble() * total;
+    for (final entry in weights.entries) {
+      if (roll < entry.value) return entry.key;
+      roll -= entry.value;
+    }
+    return weights.keys.last;
+  }
+
+  // Returns the allocated Artifact.
   Artifact openCrate({required bool isPremium}) {
     final random = Random();
-    double roll = random.nextDouble(); // 0.0 to 1.0
-    
-    ArtifactRarity electedRarity;
-    
-    if (isPremium) {
-       // PREMIUM: Rare guaranteed, better leg chance
-       // 0.0 - 0.80 = Rare (80%)
-       // 0.80 - 0.98 = Legendary (18%)
-       // 0.98 - 1.00 = Unique (2%) - Placeholder if added
-       if (roll < 0.80) {
-         electedRarity = ArtifactRarity.rare;
-       } else {
-         electedRarity = ArtifactRarity.legendary;
-       }
-    } else {
-       // STANDARD: 
-       // 0.0 - 0.70 = Common
-       // 0.70 - 0.95 = Rare
-       // 0.95 - 1.00 = Legendary
-       if (roll < 0.70) {
-         electedRarity = ArtifactRarity.common;
-       } else if (roll < 0.95) {
-         electedRarity = ArtifactRarity.rare;
-       } else {
-         electedRarity = ArtifactRarity.legendary;
-       }
+    final electedRarity = _rollRarity(random, isPremium);
+
+    // Draw from that rarity's pool only; fall back down the ladder if a rarity
+    // has no items defined yet.
+    List<Artifact> candidates =
+        allArtifacts.where((a) => a.rarity == electedRarity).toList();
+    for (int r = electedRarity.index - 1; candidates.isEmpty && r >= 0; r--) {
+      candidates =
+          allArtifacts.where((a) => a.rarity.index == r).toList();
     }
-    
-    // Filter list by rarity
-    List<Artifact> candidates = allArtifacts.where((a) => a.rarity == electedRarity).toList();
-    
-    // Fallback logic
-    if (candidates.isEmpty) {
-      candidates = allArtifacts.where((a) => a.rarity == ArtifactRarity.common).toList();
-    }
-    
-    // Pick random item from candidates
-    Artifact picked = candidates[random.nextInt(candidates.length)];
-    
-    // Add to stash
+    if (candidates.isEmpty) candidates = allArtifacts.toList();
+
+    final picked = candidates[random.nextInt(candidates.length)];
     addArtifact(picked.id);
-    
     return picked;
   }
   
