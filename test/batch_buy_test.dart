@@ -50,4 +50,39 @@ void main() {
       expect(game.rigs.firstWhere((r) => r.id == RigIds.cpuRig).amount, 1);
     });
   });
+
+  group('data-driven rigs unlock progressively', () {
+    test('higher rig tiers reveal as lifetime earnings grow', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+
+      game.lifetimeEarnings = 0;
+      var ids = game.visibleRigs.map((r) => r.id).toList();
+      expect(ids.contains(RigIds.cpuRig), true);
+      expect(ids.contains(RigIds.fusionRig), false, reason: 'fusion gated at 1e6');
+      expect(ids.contains(RigIds.datacenterRig), false);
+
+      game.lifetimeEarnings = 2e6;
+      ids = game.visibleRigs.map((r) => r.id).toList();
+      expect(ids.contains(RigIds.fusionRig), true);
+      expect(ids.contains(RigIds.datacenterRig), false, reason: 'datacenter 1e9');
+
+      game.lifetimeEarnings = 2e9;
+      ids = game.visibleRigs.map((r) => r.id).toList();
+      expect(ids.contains(RigIds.datacenterRig), true);
+    });
+
+    test('an owned rig stays visible even below its unlock threshold', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.lifetimeEarnings = 2e6;
+      game.wallet = 1e12;
+      game.buyRig(RigIds.fusionRig); // now owned
+      game.lifetimeEarnings = 0; // drop below the gate (e.g. after a reset)
+      expect(
+        game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig),
+        true,
+      );
+    });
+  });
 }

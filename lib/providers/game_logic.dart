@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../core/ids.dart';
+import '../content/rig_defs.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
 import '../models/news_event.dart';
@@ -65,32 +66,15 @@ class GameLogic with ChangeNotifier {
   /// used by the $/₿ toggle. Purely visual — no gameplay effect.
   double toFiat(double sats) => sats * GameConstants.cosmeticUsdPerSat;
 
-  List<Rig> rigs = [
-    Rig(
-      id: RigIds.cpuRig,
-      name: 'Starter CPU Rig',
-      baseCost: 100,
-      baseHashRate: 1.0,
-    ),
-    Rig(
-      id: RigIds.gpuRig,
-      name: 'GPU Rack',
-      baseCost: 1500,
-      baseHashRate: 20.0,
-    ),
-    Rig(
-      id: RigIds.asicRig,
-      name: 'ASIC Miner',
-      baseCost: 12000,
-      baseHashRate: 250.0,
-    ),
-    Rig(
-      id: RigIds.quantumRig,
-      name: 'Quantum Computer',
-      baseCost: 150000,
-      baseHashRate: 5000.0,
-    ),
-  ];
+  // Runtime rigs are built from the data-driven catalog (lib/content/rig_defs).
+  List<Rig> rigs = createRigs();
+
+  /// Rigs the player should currently SEE: any already owned, plus any whose
+  /// lifetime-earnings unlock threshold has been reached. Higher rigs reveal
+  /// progressively as the player grows (content isn't all shown at once).
+  List<Rig> get visibleRigs => rigs
+      .where((r) => r.amount > 0 || lifetimeEarnings >= rigUnlockThreshold(r.id))
+      .toList();
 
   int govTokens = 0;
   int chips = 0;

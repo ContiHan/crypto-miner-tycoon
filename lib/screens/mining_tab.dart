@@ -285,11 +285,13 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                 ),
                 const SizedBox(height: 10),
                 Expanded(
-                  child: ListView.builder(
+                  child: Builder(builder: (context) {
+                    final visible = game.visibleRigs;
+                    return ListView.builder(
                     padding: const EdgeInsets.all(8),
-                    itemCount: game.rigs.length,
+                    itemCount: visible.length,
                     itemBuilder: (context, index) {
-                      final rig = game.rigs[index];
+                      final rig = visible[index];
                       return RigListItem(
                         rig: rig, 
                         game: game,
@@ -298,7 +300,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                            }, 
                       );
                     },
-                  ),
+                    );
+                  }),
                 ),
                 // Wide Action Button (Bottom Sticky)
                 Padding(

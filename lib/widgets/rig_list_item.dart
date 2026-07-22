@@ -303,6 +303,8 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
       case 'gpu_rig': return Icons.developer_board;
       case 'asic_rig': return Icons.dns;
       case 'quantum': return Icons.hub;
+      case 'fusion_rig': return Icons.local_fire_department;
+      case 'datacenter_rig': return Icons.cloud;
       default: return Icons.cyclone;
     }
   }
@@ -313,6 +315,8 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
       case 'gpu_rig': return Colors.purpleAccent;
       case 'asic_rig': return Colors.lightGreenAccent;
       case 'quantum': return Colors.blueAccent;
+      case 'fusion_rig': return Colors.orangeAccent;
+      case 'datacenter_rig': return Colors.tealAccent;
       default: return AppTheme.accent;
     }
   }

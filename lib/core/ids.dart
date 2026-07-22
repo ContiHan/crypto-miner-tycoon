@@ -3,6 +3,8 @@ class RigIds {
   static const String gpuRig = 'gpu_rig';
   static const String asicRig = 'asic_rig';
   static const String quantumRig = 'quantum';
+  static const String fusionRig = 'fusion_rig';
+  static const String datacenterRig = 'datacenter_rig';
 }
 
 class ResearchIds {
