@@ -1,8 +1,31 @@
+import 'dart:math';
 import 'package:crypto_miner_tycoon/repositories/game_repository.dart';
 import 'package:crypto_miner_tycoon/repositories/settings_repository.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/models/research_node.dart';
 import 'package:crypto_miner_tycoon/services/sound_service.dart';
+
+/// Deterministic Random that never rolls a mining crit (nextDouble stays above
+/// clickCritChance), so click-earnings assertions are stable. This is the
+/// default injected by createTestGameLogic.
+class NoCritRandom implements Random {
+  @override
+  double nextDouble() => 0.999;
+  @override
+  int nextInt(int max) => 0;
+  @override
+  bool nextBool() => false;
+}
+
+/// Deterministic Random that always rolls a crit (nextDouble below the chance).
+class AlwaysCritRandom implements Random {
+  @override
+  double nextDouble() => 0.0;
+  @override
+  int nextInt(int max) => 0;
+  @override
+  bool nextBool() => false;
+}
 
 class FakeSoundService implements SoundService {
   bool _muted = false;
@@ -48,6 +71,7 @@ class FakeSoundService implements SoundService {
 class FakeSettingsRepository implements SettingsRepository {
   Map<String, dynamic> data = {
     'sound_enabled': true,
+    'haptics_enabled': true,
     'show_fiat_prices': false,
   };
 
@@ -60,8 +84,10 @@ class FakeSettingsRepository implements SettingsRepository {
   Future<void> saveSettings({
     required bool soundEnabled,
     required bool showFiatPrices,
+    bool hapticsEnabled = true,
   }) async {
     data['sound_enabled'] = soundEnabled;
+    data['haptics_enabled'] = hapticsEnabled;
     data['show_fiat_prices'] = showFiatPrices;
   }
 }

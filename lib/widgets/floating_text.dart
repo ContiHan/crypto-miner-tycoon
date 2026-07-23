@@ -4,7 +4,17 @@ class FloatingText extends StatefulWidget {
   final String text;
   final VoidCallback onComplete;
 
-  const FloatingText({super.key, required this.text, required this.onComplete});
+  /// Overrides the sign-based colour (green +, red -) when set — e.g. gold crits.
+  final Color? color;
+  final double fontSize;
+
+  const FloatingText({
+    super.key,
+    required this.text,
+    required this.onComplete,
+    this.color,
+    this.fontSize = 24,
+  });
 
   @override
   State<FloatingText> createState() => _FloatingTextState();
@@ -43,6 +53,10 @@ class _FloatingTextState extends State<FloatingText> with SingleTickerProviderSt
   @override
   Widget build(BuildContext context) {
     final isNegative = widget.text.startsWith('-');
+    final resolvedColor = widget.color ??
+        (isNegative
+            ? Colors.redAccent
+            : (widget.text.startsWith('+') ? Colors.greenAccent : Colors.white));
     return SlideTransition(
       position: _offset,
       child: FadeTransition(
@@ -50,8 +64,8 @@ class _FloatingTextState extends State<FloatingText> with SingleTickerProviderSt
         child: Text(
           widget.text,
           style: TextStyle(
-            color: isNegative ? Colors.redAccent : (widget.text.startsWith('+') ? Colors.greenAccent : Colors.white),
-            fontSize: 24,
+            color: resolvedColor,
+            fontSize: widget.fontSize,
             fontWeight: FontWeight.bold,
             shadows: const [Shadow(color: Colors.black, blurRadius: 4)],
           ),

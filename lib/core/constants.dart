@@ -55,6 +55,12 @@ class GameConstants {
   // this to show a big USD-style number. Purely visual, no mechanics.
   static const double cosmeticUsdPerSat = 1000.0;
 
+  // Mining tap "critical hit" (pure game feel): a small chance for a tap to pay
+  // out a multiple, with a gold float + heavy haptic + screen shake. Cosmetic
+  // thrill only — the estimated-click readout stays the non-crit value.
+  static const double clickCritChance = 0.06; // ~6% of taps crit
+  static const double clickCritMultiplier = 5.0; // crit taps pay 5x
+
   // Perks
   static const double perkBaseClickPower = 5.0;
   static const double perkClickPowerGrowth = 2.0; // +2 per level

@@ -30,6 +30,17 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(color: Colors.white24),
 
+              // Haptics Settings
+              ListTile(
+                title: const Text('Haptics (Vibration)', style: TextStyle(color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: Text(game.hapticsEnabled ? 'On' : 'Off', style: const TextStyle(color: Colors.white70)),
+                trailing: Switch(
+                  value: game.hapticsEnabled,
+                  activeThumbColor: AppTheme.accent,
+                  activeTrackColor: AppTheme.accent.withValues(alpha: 0.3),
+                  onChanged: (val) => game.toggleHaptics(),
+                ),
+              ),
               const Divider(color: Colors.white24),
               
               // Danger Zone
