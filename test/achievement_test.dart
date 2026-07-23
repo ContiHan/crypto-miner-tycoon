@@ -10,7 +10,7 @@ import 'test_helper.dart';
 
 void main() {
   group('Achievements', () {
-    test('reaching a milestone unlocks it, queues a toast, and adds Notoriety',
+    test('unlocking queues a toast but grants NO Notoriety until claimed',
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
@@ -20,65 +20,90 @@ void main() {
       game.clickMine(playSound: false); // triggers evaluation
 
       expect(game.isAchievementUnlocked('earn_1m'), true);
+      expect(game.isAchievementClaimable('earn_1m'), true);
       expect(game.pendingAchievementToasts.any((a) => a.id == 'earn_1m'), true);
+      expect(game.notorietyBonus, 0.0, reason: 'reward gated on claim');
+      expect(game.unclaimedAchievements, greaterThan(0));
+
+      // Claiming activates the Notoriety bonus.
+      expect(game.claimAchievement('earn_1m'), true);
+      expect(game.isAchievementClaimed('earn_1m'), true);
+      expect(game.isAchievementClaimable('earn_1m'), false);
       expect(game.notorietyBonus, greaterThan(0));
+      // Claiming again is a no-op.
+      expect(game.claimAchievement('earn_1m'), false);
     });
 
-    test('Notoriety is applied to income EXACTLY once (+1% per achievement)',
-        () async {
+    test('claimed Notoriety is applied to income EXACTLY once (+1%)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.wallet = 1e6;
       final base = game.estimatedClickValue; // notoriety 1.0
       expect(game.notorietyMultiplier, 1.0);
 
-      // rigs_10 grants +1% and does NOT touch click income (click is not
-      // hash-rate based), isolating the notoriety effect.
+      // rigs_10 unlocks; still no bonus until claimed.
       game.buyRigMax('cpu_rig', 10);
-      expect(game.isAchievementUnlocked('rigs_10'), true);
-      expect(game.notorietyMultiplier, closeTo(1.01, 1e-9));
+      expect(game.isAchievementClaimable('rigs_10'), true);
+      expect(game.notorietyMultiplier, 1.0, reason: 'unclaimed = no bonus');
 
+      game.claimAchievement('rigs_10');
+      expect(game.notorietyMultiplier, closeTo(1.01, 1e-9));
       // A double-applied multiplier would read base*1.0201 and fail here.
       expect(game.estimatedClickValue, closeTo(base * 1.01, base * 1e-6),
           reason: 'income multiplier must be applied once, not compounded');
     });
 
-    test('secret achievements grant NO Notoriety', () async {
+    test('claiming a secret achievement grants NO Notoriety', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
-      game.lifetimeEarnings = 2e4; // crosses secret_pizza (1e4), not earn_1m (1e6)
+      game.lifetimeEarnings = 2e4; // crosses secret_pizza (1e4), not earn_1m
       game.clickMine(playSound: false);
 
       expect(game.isAchievementUnlocked('secret_pizza'), true);
+      game.claimAchievement('secret_pizza');
+      expect(game.isAchievementClaimed('secret_pizza'), true);
       expect(game.notorietyBonus, 0.0, reason: 'secret grants no bonus');
     });
 
-    test('unlocked achievements persist across a reload', () async {
+    test('CLAIM ALL claims everything unlocked', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.lifetimeEarnings = 2e6; // earn_1m + secret_pizza
+      game.clickMine(playSound: false);
+      expect(game.unclaimedAchievements, greaterThanOrEqualTo(2));
+
+      final n = game.claimAllAchievements();
+      expect(n, greaterThanOrEqualTo(2));
+      expect(game.unclaimedAchievements, 0);
+      expect(game.notorietyBonus, greaterThan(0)); // earn_1m (normal) claimed
+    });
+
+    test('unlocked + claimed state persists across a reload', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.lifetimeEarnings = 2e6;
       game.clickMine(playSound: false);
-      expect(game.isAchievementUnlocked('earn_1m'), true);
+      game.claimAchievement('earn_1m');
+      expect(game.isAchievementClaimed('earn_1m'), true);
 
-      await game.loadGame(); // same fake repo the save was written to
+      await game.loadGame(); // same fake repo
       expect(game.isAchievementUnlocked('earn_1m'), true);
+      expect(game.isAchievementClaimed('earn_1m'), true, reason: 'claim persists');
+      expect(game.notorietyBonus, greaterThan(0));
     });
 
     test('action counters round-trip across a reload', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
-      game.lifetimeEarnings = 2e9; // enough for GovTokens
-      game.hardFork(); // hardForkCount -> 1
-      game.lifetimeEarnings = 1.6e10; // cbrt(8)=2 Consensus available
-      game.softFork(); // softForkCount -> 1
+      game.lifetimeEarnings = 2e9;
+      game.hardFork();
+      game.lifetimeEarnings = 1.6e10;
+      game.softFork();
       expect(game.hardForkCount, 1);
       expect(game.softForkCount, 1);
-
       await game.loadGame();
-      expect(game.hardForkCount, 1, reason: 'hardForkCount persisted');
-      expect(game.softForkCount, 1, reason: 'softForkCount persisted');
+      expect(game.hardForkCount, 1);
+      expect(game.softForkCount, 1);
     });
 
     test('achievements survive prestige but a full wipe clears them', () async {
@@ -86,31 +111,46 @@ void main() {
       await game.loadGame();
       game.lifetimeEarnings = 2e6;
       game.clickMine(playSound: false);
-      expect(game.isAchievementUnlocked('earn_1m'), true);
+      game.claimAchievement('earn_1m');
 
       game.lifetimeEarnings = 2e9;
       game.hardFork();
-      expect(game.hardForkCount, 1);
-      expect(game.isAchievementUnlocked('earn_1m'), true,
-          reason: 'achievements persist across prestige');
+      expect(game.isAchievementClaimed('earn_1m'), true,
+          reason: 'claimed achievements persist across prestige');
 
       await game.resetGame();
       expect(game.isAchievementUnlocked('earn_1m'), false);
+      expect(game.isAchievementClaimed('earn_1m'), false);
       expect(game.hardForkCount, 0);
       expect(game.notorietyBonus, 0.0);
     });
 
-    test('first Hard Fork unlocks its achievement', () async {
-      final game = createTestGameLogic(loadOnStart: false);
+    test('a pre-claim save grandfathers unlocked -> claimed (no income lost)',
+        () async {
+      // Save with unlocked achievements but no claimedAchievements key.
+      final repo = FakeGameRepository();
+      repo.data
+        ..['achievements'] = ['earn_1m', 'secret_pizza']
+        ..remove('claimedAchievements');
+      final game = GameLogic(
+        gameRepository: repo,
+        settingsRepository: FakeSettingsRepository(),
+        economyService: EconomyService(),
+        stashService: StashService(),
+        soundService: FakeSoundService(),
+        startTimers: false,
+        loadOnStart: false,
+      );
       await game.loadGame();
-      game.lifetimeEarnings = 2e9;
-      game.hardFork();
-      expect(game.isAchievementUnlocked('hard_first'), true);
+
+      expect(game.isAchievementClaimed('earn_1m'), true,
+          reason: 'migrated to claimed so Notoriety is preserved');
+      expect(game.notorietyBonus, greaterThan(0));
+      expect(game.unclaimedAchievements, 0);
     });
 
-    test('loading a satisfied state grandfathers achievements SILENTLY', () async {
-      // A save already past a milestone, with no achievements recorded (e.g. a
-      // pre-Phase-6 save). Load must unlock it without a toast/sound flood.
+    test('loading a satisfied state grandfathers achievements SILENTLY (unclaimed)',
+        () async {
       final repo = FakeGameRepository();
       repo.data['lifetimeEarnings'] = 2e6;
       final sound = FakeSoundService();
@@ -123,24 +163,24 @@ void main() {
         startTimers: false,
         loadOnStart: false,
       );
-
       await game.loadGame();
 
       expect(game.isAchievementUnlocked('earn_1m'), true);
-      expect(game.pendingAchievementToasts, isEmpty,
-          reason: 'no toast flood on load');
-      expect(sound.unlockCount, 0, reason: 'no unlock-sound spam on load');
+      expect(game.pendingAchievementToasts, isEmpty);
+      expect(sound.unlockCount, 0);
+      // Newly discovered on load are claimable (a fresh save had no achievements).
+      expect(game.isAchievementClaimable('earn_1m'), true);
     });
   });
 
   group('AchievementManager', () {
-    test('Notoriety is bounded by the non-secret count; secrets are excluded',
-        () {
+    test('Notoriety counts CLAIMED non-secret only; bounded by catalogue', () {
       final m = AchievementManager();
       m.load(kAchievements.map((a) => a.id)); // unlock everything
+      expect(m.notorietyBonus, 0.0, reason: 'unlocked but unclaimed = no bonus');
 
+      m.claimAll();
       final nonSecret = kAchievements.where((a) => !a.secret).length;
-      expect(m.unlockedCount, kAchievements.length);
       expect(m.notorietyBonus,
           closeTo(nonSecret * GameConstants.perAchievementNotoriety, 1e-9));
     });

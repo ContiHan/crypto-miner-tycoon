@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
 import '../../models/news_event.dart';
+import '../../content/news_flavor.dart';
 
 /// Random market "chaos" events and the news-ticker banner.
 ///
@@ -58,38 +59,37 @@ class ChaosEventSystem {
 
     switch (type) {
       case EventType.info:
-        message = "Bitcoin adoption hits 90% globally!";
         color = Colors.blueAccent;
         duration = 60;
         break;
       case EventType.marketCrash:
-        message = "MARKET CRASH: Panic sellers flooding the market.";
         income = 0.5;
         value = -50;
         color = Colors.redAccent;
         duration = 90 + _random.nextInt(60);
         break;
       case EventType.bullRun:
-        message = "BULL RUN: Institutional investors entering!";
         income = 2.0;
         value = 100;
         color = Colors.greenAccent;
         duration = 90 + _random.nextInt(60);
         break;
       case EventType.hack:
-        message = "SECURITY BREACH: Hot wallet compromised!";
         value = -onHackLoss();
         color = Colors.red;
         duration = 45;
         break;
       case EventType.cheapEnergy:
-        message = "Surplus Energy: Electricity costs drop significantly.";
         cost = 0.7;
         value = -30;
         color = Colors.cyanAccent;
         duration = 120;
         break;
     }
+
+    // Pick a random flavour line for this event type.
+    final pool = NewsFlavor.byType[type]!;
+    message = pool[_random.nextInt(pool.length)];
 
     _applyChaos(income, cost, duration);
     showNews(

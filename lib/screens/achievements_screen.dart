@@ -4,6 +4,7 @@ import '../content/achievement_defs.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/stylized_card.dart';
+import '../widgets/pulse_button.dart';
 
 class AchievementsScreen extends StatelessWidget {
   const AchievementsScreen({super.key});
@@ -25,6 +26,23 @@ class AchievementsScreen extends StatelessWidget {
         final total = game.achievementsTotal;
         final unlocked = game.achievementsUnlocked;
         final pct = total == 0 ? 0.0 : unlocked / total;
+        final unclaimed = game.unclaimedAchievements;
+
+        // Order: claimable first (call to action), then claimed, then locked —
+        // each group preserves catalogue order (stable).
+        final claimable = <Achievement>[];
+        final claimed = <Achievement>[];
+        final locked = <Achievement>[];
+        for (final a in game.achievements) {
+          if (game.isAchievementClaimable(a.id)) {
+            claimable.add(a);
+          } else if (game.isAchievementClaimed(a.id)) {
+            claimed.add(a);
+          } else {
+            locked.add(a);
+          }
+        }
+        final ordered = [...claimable, ...claimed, ...locked];
 
         return Column(
           children: [
@@ -74,19 +92,32 @@ class AchievementsScreen extends StatelessWidget {
                       fontSize: 13,
                     ),
                   ),
+                  if (unclaimed > 0) ...[
+                    const SizedBox(height: 12),
+                    SizedBox(
+                      width: double.infinity,
+                      child: PulseButton(
+                        animate: true,
+                        onPressed: () => game.claimAllAchievements(),
+                        child: Text('CLAIM ALL  ($unclaimed)'),
+                      ),
+                    ),
+                  ],
                 ],
               ),
             ),
             Expanded(
               child: ListView.builder(
                 padding: const EdgeInsets.all(12),
-                itemCount: game.achievements.length,
+                itemCount: ordered.length,
                 itemBuilder: (context, i) {
-                  final a = game.achievements[i];
+                  final a = ordered[i];
                   return _AchievementCard(
                     achievement: a,
-                    unlocked: game.isAchievementUnlocked(a.id),
+                    claimable: game.isAchievementClaimable(a.id),
+                    claimed: game.isAchievementClaimed(a.id),
                     color: _categoryColor[a.category] ?? AppTheme.accent,
+                    onClaim: () => game.claimAchievement(a.id),
                   );
                 },
               ),
@@ -100,19 +131,23 @@ class AchievementsScreen extends StatelessWidget {
 
 class _AchievementCard extends StatelessWidget {
   final Achievement achievement;
-  final bool unlocked;
+  final bool claimable;
+  final bool claimed;
   final Color color;
+  final VoidCallback onClaim;
 
   const _AchievementCard({
     required this.achievement,
-    required this.unlocked,
+    required this.claimable,
+    required this.claimed,
     required this.color,
+    required this.onClaim,
   });
 
   @override
   Widget build(BuildContext context) {
-    // A locked secret achievement is fully hidden ("???"); a locked normal one
-    // shows its goal so the player has something to chase.
+    final unlocked = claimable || claimed;
+    // Locked secret is fully hidden ("???"); locked normal shows its goal.
     final bool hideDetails = !unlocked && achievement.secret;
     final String title = hideDetails ? '???' : achievement.title;
     final String desc = hideDetails
@@ -120,10 +155,17 @@ class _AchievementCard extends StatelessWidget {
         : achievement.description;
 
     return StylizedCard(
-      color: unlocked
-          ? color.withValues(alpha: 0.12)
-          : Colors.black26,
-      child: Padding(
+      color: claimable
+          ? color.withValues(alpha: 0.20)
+          : (claimed ? color.withValues(alpha: 0.10) : Colors.black26),
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 250),
+        decoration: BoxDecoration(
+          borderRadius: BorderRadius.circular(8),
+          border: claimable
+              ? Border.all(color: color, width: 2)
+              : Border.all(color: Colors.transparent, width: 2),
+        ),
         padding: const EdgeInsets.all(10.0),
         child: Row(
           children: [
@@ -132,15 +174,15 @@ class _AchievementCard extends StatelessWidget {
               height: 46,
               decoration: BoxDecoration(
                 color: unlocked ? color.withValues(alpha: 0.20) : Colors.white10,
-                border: Border.all(
-                  color: unlocked ? color : Colors.white24,
-                ),
+                border: Border.all(color: unlocked ? color : Colors.white24),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
                 unlocked
                     ? Icons.emoji_events
-                    : (achievement.secret ? Icons.help_outline : Icons.lock_outline),
+                    : (achievement.secret
+                        ? Icons.help_outline
+                        : Icons.lock_outline),
                 color: unlocked ? color : Colors.white38,
                 size: 26,
               ),
@@ -167,13 +209,42 @@ class _AchievementCard extends StatelessWidget {
                 ],
               ),
             ),
-            if (unlocked)
-              Icon(Icons.check_circle, color: color, size: 22)
-            else if (!achievement.secret)
-              const Icon(Icons.circle_outlined, color: Colors.white24, size: 22),
+            const SizedBox(width: 8),
+            // Trailing swaps between CLAIM -> checkmark with a scale pop.
+            AnimatedSwitcher(
+              duration: const Duration(milliseconds: 300),
+              transitionBuilder: (c, anim) =>
+                  ScaleTransition(scale: anim, child: c),
+              child: _trailing(),
+            ),
           ],
         ),
       ),
     );
+  }
+
+  Widget _trailing() {
+    if (claimable) {
+      return ElevatedButton(
+        key: const ValueKey('claim'),
+        onPressed: onClaim,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.black,
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+        ),
+        child: Text(achievement.secret ? 'CLAIM' : 'CLAIM\n+1%',
+            textAlign: TextAlign.center),
+      );
+    }
+    if (claimed) {
+      return Icon(Icons.check_circle, key: const ValueKey('done'), color: color, size: 24);
+    }
+    if (!achievement.secret) {
+      return const Icon(Icons.circle_outlined,
+          key: ValueKey('lock'), color: Colors.white24, size: 22);
+    }
+    return const SizedBox(key: ValueKey('empty'), width: 22);
   }
 }

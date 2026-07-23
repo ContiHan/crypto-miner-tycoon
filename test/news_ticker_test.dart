@@ -27,7 +27,7 @@ void main() {
     await tester.pumpWidget(createWidgetUnderTest());
     await tester.pump();
 
-    expect(find.textContaining('MARKET STABLE'), findsOneWidget);
+    expect(find.textContaining('NETWORK DIFFICULTY'), findsOneWidget);
   });
 
   testWidgets('NewsTicker: Updates content on NewsEvent (Long Pump)', (
