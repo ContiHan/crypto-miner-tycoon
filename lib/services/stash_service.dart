@@ -48,6 +48,10 @@ class StashService {
     Artifact(id: 'zip_tie', name: 'Zip Tie', description: '-1% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.01),
     Artifact(id: 'thermal_pad', name: 'Thermal Pad', description: '-2% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.02),
     Artifact(id: 'sticker_pack', name: 'Hacker Sticker Pack', description: '+2% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.02),
+    Artifact(id: 'ethernet_cable', name: 'Ethernet Cable', description: '+2% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.02),
+    Artifact(id: 'old_gpu', name: 'Ancient GPU', description: '+3% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.03),
+    Artifact(id: 'desk_fan', name: 'Desk Fan', description: '-2% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.02),
+    Artifact(id: 'coffee_mug', name: 'Coffee Mug', description: '+3% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.03),
 
     // --- UNCOMMON (+4-8%) ---
     Artifact(id: 'overclock_bios', name: 'Overclock BIOS', description: '+6% Hash Rate', rarity: ArtifactRarity.uncommon, bonusType: BonusType.hashRate, baseBonus: 0.06),
@@ -59,6 +63,10 @@ class StashService {
     Artifact(id: 'laptop_cooler', name: 'Laptop Cooler', description: '-5% Rig Cost', rarity: ArtifactRarity.uncommon, bonusType: BonusType.rigCost, baseBonus: 0.05),
     Artifact(id: 'power_strip', name: 'Surge Power Strip', description: '-6% Rig Cost', rarity: ArtifactRarity.uncommon, bonusType: BonusType.rigCost, baseBonus: 0.06),
     Artifact(id: 'mech_keyboard', name: 'Mech Keyboard', description: '+6% Click Power', rarity: ArtifactRarity.uncommon, bonusType: BonusType.clickPower, baseBonus: 0.06),
+    Artifact(id: 'noctua_fan', name: 'Noctua Fan', description: '-5% Rig Cost', rarity: ArtifactRarity.uncommon, bonusType: BonusType.rigCost, baseBonus: 0.05),
+    Artifact(id: 'ram_upgrade', name: 'RAM Upgrade', description: '+6% Hash Rate', rarity: ArtifactRarity.uncommon, bonusType: BonusType.hashRate, baseBonus: 0.06),
+    Artifact(id: 'psu_gold', name: 'Gold-Rated PSU', description: '+8% Hash Rate', rarity: ArtifactRarity.uncommon, bonusType: BonusType.hashRate, baseBonus: 0.08),
+    Artifact(id: 'gaming_chair', name: 'Gaming Chair', description: '+7% Click Power', rarity: ArtifactRarity.uncommon, bonusType: BonusType.clickPower, baseBonus: 0.07),
 
     // --- RARE (+10-20%) ---
     Artifact(id: 'liquid_cooling', name: 'Liquid Cooling Loop', description: '+10% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.10),
@@ -71,6 +79,10 @@ class StashService {
     Artifact(id: 'dual_psu', name: 'Dual PSU Rig', description: '-10% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.10),
     Artifact(id: 'bulk_contract', name: 'Bulk Contract', description: '-12% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.12),
     Artifact(id: 'macro_pad', name: 'Macro Pad', description: '+15% Click Power', rarity: ArtifactRarity.rare, bonusType: BonusType.clickPower, baseBonus: 0.15),
+    Artifact(id: 'nvme_array', name: 'NVMe Array', description: '+14% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.14),
+    Artifact(id: 'custom_loop', name: 'Custom Water Loop', description: '+16% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.16),
+    Artifact(id: 'wholesale_deal', name: 'Wholesale Deal', description: '-12% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.12),
+    Artifact(id: 'streamdeck', name: 'Stream Deck', description: '+18% Click Power', rarity: ArtifactRarity.rare, bonusType: BonusType.clickPower, baseBonus: 0.18),
 
     // --- EPIC (+25-50%) ---
     Artifact(id: 'immersion_tank', name: 'Immersion Tank', description: '+30% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.30),
@@ -81,6 +93,10 @@ class StashService {
     Artifact(id: 'power_grid_tap', name: 'Power Grid Tap', description: '+45% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.45),
     Artifact(id: 'factory_deal', name: 'Factory-Direct Deal', description: '-18% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.18),
     Artifact(id: 'turbo_clicker', name: 'Turbo Clicker', description: '+40% Click Power', rarity: ArtifactRarity.epic, bonusType: BonusType.clickPower, baseBonus: 0.40),
+    Artifact(id: 'ln2_cooling', name: 'LN2 Cooling', description: '+38% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.38),
+    Artifact(id: 'mining_pool', name: 'Private Mining Pool', description: '+42% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.42),
+    Artifact(id: 'tax_writeoff', name: 'Tax Write-Off', description: '-16% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.16),
+    Artifact(id: 'neural_glove', name: 'Neural Glove', description: '+45% Click Power', rarity: ArtifactRarity.epic, bonusType: BonusType.clickPower, baseBonus: 0.45),
 
     // --- LEGENDARY (+75-150%) ---
     Artifact(id: 'quantum_chip', name: 'Quantum Chip Prototype', description: '+75% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 0.75),
@@ -91,6 +107,10 @@ class StashService {
     Artifact(id: 'photon_array', name: 'Photon Array', description: '+125% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 1.25),
     Artifact(id: 'vc_backing', name: 'VC Backing', description: '-25% Rig Cost', rarity: ArtifactRarity.legendary, bonusType: BonusType.rigCost, baseBonus: 0.25),
     Artifact(id: 'golden_keyboard', name: 'Golden Keyboard', description: '+125% Click Power', rarity: ArtifactRarity.legendary, bonusType: BonusType.clickPower, baseBonus: 1.25),
+    Artifact(id: 'graphene_chip', name: 'Graphene Chip', description: '+100% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 1.0),
+    Artifact(id: 'perpetual_motion', name: 'Perpetual Motion Rig', description: '+140% Hash Rate', rarity: ArtifactRarity.legendary, bonusType: BonusType.hashRate, baseBonus: 1.4),
+    Artifact(id: 'offshore_account', name: 'Offshore Account', description: '-22% Rig Cost', rarity: ArtifactRarity.legendary, bonusType: BonusType.rigCost, baseBonus: 0.22),
+    Artifact(id: 'exoskeleton', name: 'Clicking Exoskeleton', description: '+140% Click Power', rarity: ArtifactRarity.legendary, bonusType: BonusType.clickPower, baseBonus: 1.4),
 
     // --- MYTHIC (+200%+) ---
     Artifact(id: 'genesis_shard', name: 'Genesis Shard', description: '+200% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 2.0),
@@ -102,6 +122,9 @@ class StashService {
     Artifact(id: 'black_hole_psu', name: 'Black Hole PSU', description: '-35% Rig Cost', rarity: ArtifactRarity.mythic, bonusType: BonusType.rigCost, baseBonus: 0.35),
     Artifact(id: 'midas_touch', name: 'Midas Touch', description: '+400% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 4.0),
     Artifact(id: 'halving_relic', name: 'Halving Relic', description: '+500% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 5.0),
+    Artifact(id: 'antimatter_reactor', name: 'Antimatter Reactor', description: '+275% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 2.75),
+    Artifact(id: 'time_machine', name: 'Time Machine', description: '+350% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 3.5),
+    Artifact(id: 'philosophers_stone', name: "Philosopher's Stone", description: '+450% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 4.5),
   ];
 
   // Drop-weight tables (geometric ladder). Standard crates favour low rarities;

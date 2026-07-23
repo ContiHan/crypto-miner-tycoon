@@ -31,6 +31,17 @@ class ResearchIds {
   static const String coldStorage = 'cold_storage';
   static const String ergonomicRig = 'ergonomic_rig';
   static const String macroScripts = 'macro_scripts';
+  // --- Volume expansion 2 (deeper tech tree) ---
+  static const String plasmaOverclock = 'plasma_overclock';
+  static const String antimatterCores = 'antimatter_cores';
+  static const String zeroPointHash = 'zero_point_hash';
+  static const String orbitalLogistics = 'orbital_logistics';
+  static const String selfReplicatingRigs = 'self_replicating_rigs';
+  static const String algorithmicTrading = 'algorithmic_trading';
+  static const String hedgeFund = 'hedge_fund';
+  static const String centralBank = 'central_bank';
+  static const String neuralInterface = 'neural_interface';
+  static const String quantumReflexes = 'quantum_reflexes';
 }
 
 class PerkIds {
@@ -47,4 +58,13 @@ class PerkIds {
   static const String megaHash = 'mega_hash';
   static const String deepDiscount = 'deep_discount';
   static const String megaIncome = 'mega_income';
+  // --- Volume expansion 2 ---
+  static const String hyperClick = 'hyper_click';
+  static const String yieldEngine = 'yield_engine';
+  static const String quantumCores = 'quantum_cores';
+  static const String autoTrader = 'auto_trader';
+  static const String overclockArray = 'overclock_array';
+  static const String bulkDiscount = 'bulk_discount';
+  static const String clickSingularity = 'click_singularity';
+  static const String incomeSingularity = 'income_singularity';
 }

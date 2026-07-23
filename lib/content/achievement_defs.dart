@@ -271,6 +271,78 @@ final List<Achievement> kAchievements = [
     condition: (s) => s.achievementsUnlocked >= 20,
   ),
 
+  // --- Volume expansion 2: deeper ladders ---
+  Achievement(
+    id: 'earn_1q',
+    title: 'Quadrillionaire',
+    description: 'Mine 10Q sats in total.',
+    category: AchCategory.earnings,
+    condition: (s) => s.lifetimeEarnings >= 1e16,
+  ),
+  Achievement(
+    id: 'rigs_1000',
+    title: 'Hash Empire',
+    description: 'Own 1000 mining rigs.',
+    category: AchCategory.rigs,
+    condition: (s) => s.totalRigs >= 1000,
+  ),
+  Achievement(
+    id: 'perks_50',
+    title: 'Fully Upgraded',
+    description: 'Buy 50 perk levels.',
+    category: AchCategory.tech,
+    condition: (s) => s.perkLevels >= 50,
+  ),
+  Achievement(
+    id: 'consensus_500',
+    title: 'Supermajority',
+    description: 'Accumulate 500 Consensus.',
+    category: AchCategory.prestige,
+    condition: (s) => s.consensus >= 500,
+  ),
+  Achievement(
+    id: 'hard_50',
+    title: 'Fork Lord',
+    description: 'Perform 50 Hard Forks.',
+    category: AchCategory.prestige,
+    condition: (s) => s.hardForkCount >= 50,
+  ),
+  Achievement(
+    id: 'gov_1000',
+    title: 'Central Banker',
+    description: 'Mint 1000 GovTokens in total.',
+    category: AchCategory.prestige,
+    condition: (s) => s.totalGovTokensEver >= 1000,
+  ),
+  Achievement(
+    id: 'chain_5',
+    title: 'Serial Rebooter',
+    description: 'Start 5 New Blockchains.',
+    category: AchCategory.prestige,
+    condition: (s) => s.newChainCount >= 5,
+  ),
+  Achievement(
+    id: 'crates_100',
+    title: 'Whale Watcher',
+    description: 'Open 100 supply crates.',
+    category: AchCategory.collection,
+    condition: (s) => s.cratesOpened >= 100,
+  ),
+  Achievement(
+    id: 'casino_250',
+    title: 'High Roller',
+    description: 'Play the casino 250 times.',
+    category: AchCategory.collection,
+    condition: (s) => s.casinoSpins >= 250,
+  ),
+  Achievement(
+    id: 'meta_40',
+    title: 'Living Legend',
+    description: 'Unlock 40 achievements.',
+    category: AchCategory.meta,
+    condition: (s) => s.achievementsUnlocked >= 40,
+  ),
+
   // --- Secret / shadow (no Notoriety, hidden until earned) ---
   Achievement(
     id: 'secret_pizza',
@@ -335,6 +407,22 @@ final List<Achievement> kAchievements = [
     category: AchCategory.secret,
     secret: true,
     condition: (s) => s.casinoJackpots >= 1,
+  ),
+  Achievement(
+    id: 'secret_ascended',
+    title: 'Ascended',
+    description: 'Command 25 Genesis Blocks.',
+    category: AchCategory.secret,
+    secret: true,
+    condition: (s) => s.genesisBlocks >= 25,
+  ),
+  Achievement(
+    id: 'secret_gigachad',
+    title: 'Gigachad',
+    description: 'Reach a x1000 prestige multiplier.',
+    category: AchCategory.secret,
+    secret: true,
+    condition: (s) => s.prestigeMultiplier >= 1000,
   ),
   Achievement(
     id: 'secret_fullnode',

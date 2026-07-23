@@ -9,9 +9,9 @@ import 'test_helper.dart';
 void main() {
   group('Content volume', () {
     test('expected catalogue sizes', () {
-      expect(PerkManager.defs.length, 12, reason: 'perks');
-      expect(ResearchManager().researchNodes.length, 22, reason: 'lab nodes');
-      expect(StashService.allArtifacts.length, 55, reason: 'stash artifacts');
+      expect(PerkManager.defs.length, 20, reason: 'perks');
+      expect(ResearchManager().researchNodes.length, 32, reason: 'lab nodes');
+      expect(StashService.allArtifacts.length, 78, reason: 'stash artifacts');
     });
 
     test('every stash artifact id is unique', () {
@@ -68,11 +68,13 @@ void main() {
 
       // ...and stay in a sane additive range (a stray +2000% typo would blow
       // one of these past the bound). The economy applies these as 1+sum, and
-      // rig cost is additionally hard-clamped to 95% in EconomyService.
-      expect(ch.sum(Channel.hash), lessThan(30));
-      expect(ch.sum(Channel.income), lessThan(5));
-      expect(ch.sum(Channel.click), lessThan(3));
-      expect(ch.sum(Channel.rigCost), lessThan(5));
+      // rig cost is additionally hard-clamped to 95% in EconomyService. Bounds
+      // scale with the (fixed) catalogue size — they catch collisions/typos, not
+      // enforce a game cap.
+      expect(ch.sum(Channel.hash), lessThan(40));
+      expect(ch.sum(Channel.income), lessThan(6));
+      expect(ch.sum(Channel.click), lessThan(4));
+      expect(ch.sum(Channel.rigCost), lessThan(6));
     });
   });
 
