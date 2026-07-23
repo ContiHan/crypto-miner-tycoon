@@ -212,18 +212,28 @@ class GameLogic with ChangeNotifier {
   int get consensus => _prestige.consensus;
   int get pendingConsensus => _prestige.pendingConsensus(lifetimeEarnings);
 
+  /// The Consensus income bonus actually folded into [prestigeMultiplier]
+  /// (concave: 0.10*sqrt(consensus)). Exposed so the UI shows the true bonus.
+  double get consensusBonus => _prestige.consensusBonus;
+
   // Tier-3 prestige (New Blockchain / Genesis Blocks). Genesis Blocks multiply
   // the GAIN of the two lower prestige currencies rather than adding raw income.
   int get genesisBlocks => _prestige.genesisBlocks;
   int get pendingGenesis => _prestige.pendingGenesis();
   double get genesisGainMultiplier => _prestige.genesisGainMultiplier;
 
+  /// Gain multiplier the player would have right after a New Blockchain — the
+  /// concave projection for the confirmation dialog (mirrors the applied value
+  /// so the dialog never overstates the reward).
+  double get genesisGainMultiplierAfterNewChain =>
+      _prestige.genesisGainMultiplierWith(pendingGenesis);
+
   /// Cumulative GovTokens ever minted — the progression metric perks unlock
   /// against, so the perk list reveals gradually as the player prestiges.
   double get totalGovTokensEver => _prestige.totalGovTokensEver;
 
-  // All prestige tiers feed the PRESTIGE channel additively: GovTokens (+10%
-  // each) + Consensus (+5% each).
+  // Income multiplier from prestige, both CONCAVE so the endgame can't run away:
+  // GovTokens contribute 0.50*sqrt(govTokens+spent), Consensus 0.10*sqrt(CX).
   double get prestigeMultiplier =>
       _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens) +
       _prestige.consensusBonus;
@@ -275,6 +285,10 @@ class GameLogic with ChangeNotifier {
   set isAnomalyActive(bool v) => _anomaly.active = v;
   Offset get anomalyPosition => _anomaly.position;
   set anomalyPosition(Offset v) => _anomaly.position = v;
+
+  /// Feed the anomaly spawner the real viewport so anomalies stay on-screen.
+  void setAnomalyViewport(double width, double height) =>
+      _anomaly.setViewport(width, height);
 
   Timer? _gameTimer;
   Timer? _autoSaveTimer;
@@ -485,6 +499,17 @@ class GameLogic with ChangeNotifier {
       _soundService.playHalving();
     }
     notifyListeners();
+  }
+
+  /// Test-only: advance [seconds] of real passive mining (full channel model +
+  /// income multiplier + halving) without the 1-second timer. Lets the economy
+  /// simulation drive the REAL accrual path — including research/perk/stash
+  /// bonuses — in fast chunks. Returns income earned.
+  @visibleForTesting
+  double advanceForTest(double seconds) {
+    final earned = _accrueMining(seconds, chaosMultiplier: 1.0);
+    if (_advanceBlocks(seconds)) _triggerHalving();
+    return earned;
   }
 
   void _triggerHalving() {

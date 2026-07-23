@@ -164,8 +164,18 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
       builder: (context, game, child) {
-        return Stack(
-          children: [
+        return LayoutBuilder(
+          builder: (context, constraints) {
+            // Feed the anomaly spawner the real tab size so anomalies never
+            // spawn off-screen (landscape/small screens) or cluster in a corner.
+            if (constraints.maxWidth.isFinite && constraints.maxHeight.isFinite) {
+              game.setAnomalyViewport(
+                constraints.maxWidth,
+                constraints.maxHeight,
+              );
+            }
+            return Stack(
+              children: [
             Column(
               children: [
                 Expanded(
@@ -323,7 +333,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               const SizedBox(height: 10),
                               if (game.consensus > 0)
                                 Text(
-                                  'CONSENSUS: ${Formatter.formatNumber(game.consensus.toDouble())} (+${game.consensus * 5}% income)',
+                                  'CONSENSUS: ${Formatter.formatNumber(game.consensus.toDouble())} (+${(game.consensusBonus * 100).toStringAsFixed(0)}% income)',
                                   style: const TextStyle(
                                     color: Colors.cyanAccent,
                                     fontWeight: FontWeight.bold,
@@ -417,9 +427,17 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                           rig: rig,
                           game: game,
                           onBuy: (pos) {
+                            // [pos] is a GLOBAL coordinate; convert to this
+                            // Stack's local space (mirrors the HACK handler) so
+                            // the deduction glyph appears on the button, not
+                            // ~100px below it.
+                            final box = context.findRenderObject();
+                            final local = box is RenderBox
+                                ? box.globalToLocal(pos)
+                                : pos;
                             addFloatingText(
                               game.showFiatPrices ? '-\$' : '-Ş',
-                              pos,
+                              local,
                             );
                           },
                         ),
@@ -558,7 +576,9 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                   ),
                 ),
               ),
-          ],
+              ],
+            );
+          },
         );
       },
     );

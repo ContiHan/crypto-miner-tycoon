@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import '../core/constants.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/news_ticker.dart';
@@ -21,6 +20,10 @@ class HomeScreen extends StatefulWidget {
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   int _currentIndex = 3; // Start at Mine (Index 3)
   late GameLogic _gameLogic;
+  // Guards the "WELCOME BACK" dialog so a background/resume cycle (which sets a
+  // fresh offlineEarningsAmount + notifies) can't stack a second dialog over an
+  // un-dismissed first one.
+  bool _offlineDialogOpen = false;
 
   @override
   void initState() {
@@ -190,10 +193,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _showNewBlockchainDialog(BuildContext context, GameLogic game) {
-    final nextMultiplier =
-        1.0 +
-        (game.genesisBlocks + game.pendingGenesis) *
-            GameConstants.perGenesisGainBonus;
+    // Concave projection (matches PrestigeSystem), so the dialog never
+    // overstates the reward of this irreversible reset.
+    final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -234,6 +236,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     GameLogic game,
     double amount,
   ) {
+    if (_offlineDialogOpen) return; // never stack a second WELCOME BACK dialog
+    _offlineDialogOpen = true;
     game.clearOfflineEarnings();
 
     showDialog(
@@ -269,6 +273,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-    );
+    ).whenComplete(() => _offlineDialogOpen = false);
   }
 }

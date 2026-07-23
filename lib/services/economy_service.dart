@@ -2,6 +2,7 @@ import 'dart:math';
 import '../core/constants.dart';
 import '../models/rig.dart';
 import '../core/ids.dart';
+import '../logic/managers/perk_manager.dart';
 
 class EconomyService {
   // Cross-era income multiplier from GovTokens (held + spent). CONCAVE in the
@@ -71,12 +72,12 @@ class EconomyService {
     int total = 0;
     perks.forEach((key, level) {
       if (level > 0) {
-        int base = 10;
-        if (key == PerkIds.clickPower) base = 5;
-        if (key == PerkIds.hashBonus) base = 15;
+        // Base cost comes from the perk definition (was hardcoded, which
+        // under-counted the 9 progressive perks whose baseCost is 20-500).
+        final int base = PerkManager.defs[key]?.baseCost ?? 10;
 
-        // Sum of arithmetic progression: n/2 * (2a + (n-1)d)
-        // d = 5
+        // Sum of arithmetic progression: n/2 * (2a + (n-1)d), d = 5 (matches
+        // the +5-per-level cost growth in PerkManager.tryBuy).
         double spent = (level / 2) * (2 * base + (level - 1) * 5);
         total += spent.toInt();
       }

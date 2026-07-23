@@ -1,6 +1,7 @@
 import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import '../core/constants.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
 
@@ -62,10 +63,16 @@ class GameRepository {
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
+    // jsonEncode throws on Infinity/NaN. networkDifficulty legitimately becomes
+    // Infinity at the supply cap (and it's a display-only value recomputed on
+    // load), so coerce every double defensively — a non-finite value must never
+    // brick the save.
+    double fin(double v, [double fallback = 0]) => v.isFinite ? v : fallback;
+
     final Map<String, dynamic> state = {
       'version': _schemaVersion,
-      'wallet': wallet,
-      'lifetimeEarnings': lifetimeEarnings,
+      'wallet': fin(wallet),
+      'lifetimeEarnings': fin(lifetimeEarnings),
       'govTokens': govTokens,
       'spentGovTokens': spentGovTokens,
       'chips': chips,
@@ -74,16 +81,16 @@ class GameRepository {
       'rigs': rigs.map((r) => r.toJson()).toList(),
       'research': researchNodes.map((r) => r.toJson()).toList(),
       'stash': stash,
-      'networkDifficulty': networkDifficulty,
-      'blockReward': blockReward,
+      'networkDifficulty': fin(networkDifficulty),
+      'blockReward': fin(blockReward),
       'blocksMined': blocksMined,
       'nextHalvingThreshold': nextHalvingThreshold,
-      'bitcoinExchangeRate': bitcoinExchangeRate,
+      'bitcoinExchangeRate': fin(bitcoinExchangeRate, 1.0),
       'consensus': consensus,
-      'lifetimeAtLastSoftFork': lifetimeAtLastSoftFork,
+      'lifetimeAtLastSoftFork': fin(lifetimeAtLastSoftFork),
       'genesisBlocks': genesisBlocks,
-      'totalGovTokensEver': totalGovTokensEver,
-      'govTokensEverAtLastNewChain': govTokensEverAtLastNewChain,
+      'totalGovTokensEver': fin(totalGovTokensEver),
+      'govTokensEverAtLastNewChain': fin(govTokensEverAtLastNewChain),
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -148,7 +155,8 @@ class GameRepository {
       'networkDifficulty': asDouble(m['networkDifficulty'], 100.0),
       'blockReward': asDouble(m['blockReward'], 50.0 * 100000000),
       'blocksMined': asInt(m['blocksMined'], 0),
-      'nextHalvingThreshold': asInt(m['nextHalvingThreshold'], 5000),
+      'nextHalvingThreshold':
+          asInt(m['nextHalvingThreshold'], GameConstants.halvingFirstThreshold),
       'bitcoinExchangeRate': asDouble(m['bitcoinExchangeRate'], 1.0),
       'consensus': asInt(m['consensus'], 0),
       'lifetimeAtLastSoftFork': asDouble(m['lifetimeAtLastSoftFork'], 0),
@@ -187,7 +195,8 @@ class GameRepository {
     data['networkDifficulty'] = prefs.getDouble('networkDifficulty') ?? 100.0;
     data['blockReward'] = prefs.getDouble('blockReward') ?? 50.0 * 100000000;
     data['blocksMined'] = prefs.getInt('blocksMined') ?? 0;
-    data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ?? 5000;
+    data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ??
+        GameConstants.halvingFirstThreshold;
     data['bitcoinExchangeRate'] = prefs.getDouble('bitcoinExchangeRate') ?? 1.0;
     data['last_save_time'] = prefs.getInt('last_save_time');
 

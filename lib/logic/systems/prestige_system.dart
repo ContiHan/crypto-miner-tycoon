@@ -36,6 +36,13 @@ class PrestigeSystem {
   double get genesisGainMultiplier =>
       1.0 + GameConstants.perGenesisGainBonus * sqrt(genesisBlocks);
 
+  /// The gain multiplier the player would have after banking [extraGenesis] more
+  /// Genesis Blocks — same concave curve as [genesisGainMultiplier], so UI
+  /// projections never diverge from the value actually applied.
+  double genesisGainMultiplierWith(int extraGenesis) =>
+      1.0 +
+      GameConstants.perGenesisGainBonus * sqrt(genesisBlocks + extraGenesis);
+
   /// GovTokens minted this "chain" (since the last New Blockchain).
   double chainGovTokens() => totalGovTokensEver - govTokensEverAtLastNewChain;
 

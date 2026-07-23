@@ -1,10 +1,19 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/services/economy_service.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
+import 'package:crypto_miner_tycoon/core/ids.dart';
 
 void main() {
   group('EconomyService', () {
     final economy = EconomyService();
+
+    test('recalculateSpentTokens uses each perk\'s real base cost', () {
+      // clickPower base 5, level 3 -> (3/2)*(2*5 + 2*5) = 30
+      expect(economy.recalculateSpentTokens({PerkIds.clickPower: 3}), 30);
+      // megaIncome base 500, level 2 -> (2/2)*(2*500 + 1*5) = 1005
+      // (was under-counted to 25 by the old hardcoded base of 10)
+      expect(economy.recalculateSpentTokens({PerkIds.megaIncome: 2}), 1005);
+    });
 
     test('calculatePrestigeMultiplier returns 1.0 for 0 tokens', () {
       expect(economy.calculatePrestigeMultiplier(0, 0), 1.0);

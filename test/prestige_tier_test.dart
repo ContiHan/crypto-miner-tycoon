@@ -155,6 +155,20 @@ void main() {
       expect(game.pendingConsensus, 6);
     });
 
+    test('genesisGainMultiplierAfterNewChain matches the concave applied value',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      await mintTokens(game, 1040000); // chain 1.04M -> pendingGenesis 4
+      expect(game.pendingGenesis, 4);
+      // Projection must be concave (1 + 0.5*sqrt(0+4) = 2.0), NOT the old linear
+      // 1 + 4*0.5 = 3.0 the dialog used to show.
+      expect(game.genesisGainMultiplierAfterNewChain, closeTo(2.0, 1e-9));
+      game.newBlockchain();
+      // ...and it equals what actually got applied.
+      expect(game.genesisGainMultiplier, closeTo(2.0, 1e-9));
+    });
+
     test('New Blockchain below the threshold does nothing', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();

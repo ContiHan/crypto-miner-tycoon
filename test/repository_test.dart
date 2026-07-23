@@ -6,6 +6,7 @@ import 'package:crypto_miner_tycoon/repositories/game_repository.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/core/constants.dart';
 
 Future<void> _save(GameRepository repo, {double wallet = 0}) {
   return repo.saveGameState(
@@ -144,7 +145,7 @@ void main() {
       // No FormatException escapes; the game boots on safe defaults instead.
       expect(data['wallet'], 0.0);
       expect(data['blockReward'], 50.0 * 100000000);
-      expect(data['nextHalvingThreshold'], 5000);
+      expect(data['nextHalvingThreshold'], GameConstants.halvingFirstThreshold);
     });
 
     test('numeric fields load as doubles even when stored whole', () async {
@@ -209,6 +210,42 @@ void main() {
         false,
         reason: 'the unreadable key is skipped rather than crashing the load',
       );
+    });
+
+    test('fresh install defaults to the intended first-halving threshold',
+        () async {
+      SharedPreferences.setMockInitialValues({});
+      final data = await GameRepository().loadGameState();
+      // Was a stale 5000 (first halving ~1.4h); must be the design value 15000.
+      expect(data['nextHalvingThreshold'], GameConstants.halvingFirstThreshold);
+    });
+
+    test('a non-finite numeric field never bricks the save (Infinity/NaN)',
+        () async {
+      final repo = GameRepository();
+      // networkDifficulty becomes Infinity at the supply cap; jsonEncode would
+      // throw on it. The save must survive and round-trip a finite value.
+      await repo.saveGameState(
+        wallet: double.nan,
+        lifetimeEarnings: 5000,
+        govTokens: 0,
+        spentGovTokens: 0,
+        perks: {},
+        perkCosts: {},
+        rigs: [],
+        researchNodes: [],
+        networkDifficulty: double.infinity,
+        blockReward: double.infinity,
+        blocksMined: 0,
+        nextHalvingThreshold: 5000,
+        bitcoinExchangeRate: 1.0,
+      );
+
+      final data = await repo.loadGameState();
+      expect((data['networkDifficulty'] as num).isFinite, true);
+      expect((data['wallet'] as num).isFinite, true);
+      expect((data['blockReward'] as num).isFinite, true);
+      expect(data['lifetimeEarnings'], 5000);
     });
 
     test('seeds totalGovTokensEver from tokens for saves predating the field',

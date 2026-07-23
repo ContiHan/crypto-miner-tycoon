@@ -41,9 +41,12 @@ class ChaosEventSystem {
     _scheduleTimer?.cancel();
     _chaosResetTimer?.cancel();
     _newsTimer?.cancel();
-    // A cancelled reset timer must not strand an active chaos multiplier.
+    // A cancelled reset timer must not strand an active chaos multiplier — and
+    // the banner must not outlive it (else a stale "BULL RUN +100%" lingers on
+    // resume while the multiplier is already back to 1.0).
     incomeMultiplier = 1.0;
     costMultiplier = 1.0;
+    currentNews = null;
   }
 
   void triggerRandom() {

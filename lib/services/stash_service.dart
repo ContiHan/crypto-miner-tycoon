@@ -62,7 +62,7 @@ class StashService {
 
     // --- RARE (+10-20%) ---
     Artifact(id: 'liquid_cooling', name: 'Liquid Cooling Loop', description: '+10% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.10),
-    Artifact(id: 'gold_thermal_paste', name: 'Gold Thermal Paste', description: '-5% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.05),
+    Artifact(id: 'gold_thermal_paste', name: 'Gold Thermal Paste', description: '-10% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.10),
     Artifact(id: 'mechanical_switch', name: 'Mech Switch', description: '+20% Click Power', rarity: ArtifactRarity.rare, bonusType: BonusType.clickPower, baseBonus: 0.20),
     Artifact(id: 'server_rack', name: 'Pro Server Rack', description: '-8% Rig Cost', rarity: ArtifactRarity.rare, bonusType: BonusType.rigCost, baseBonus: 0.08),
     Artifact(id: 'gpu_riser', name: 'GPU Riser Array', description: '+15% Hash Rate', rarity: ArtifactRarity.rare, bonusType: BonusType.hashRate, baseBonus: 0.15),
@@ -75,11 +75,11 @@ class StashService {
     // --- EPIC (+25-50%) ---
     Artifact(id: 'immersion_tank', name: 'Immersion Tank', description: '+30% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.30),
     Artifact(id: 'fpga_board', name: 'FPGA Board', description: '+40% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.40),
-    Artifact(id: 'procurement_ai', name: 'Procurement AI', description: '-12% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.12),
+    Artifact(id: 'procurement_ai', name: 'Procurement AI', description: '-15% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.15),
     Artifact(id: 'haptic_deck', name: 'Haptic Deck', description: '+50% Click Power', rarity: ArtifactRarity.epic, bonusType: BonusType.clickPower, baseBonus: 0.50),
     Artifact(id: 'vapor_chamber', name: 'Vapor Chamber', description: '+35% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.35),
     Artifact(id: 'power_grid_tap', name: 'Power Grid Tap', description: '+45% Hash Rate', rarity: ArtifactRarity.epic, bonusType: BonusType.hashRate, baseBonus: 0.45),
-    Artifact(id: 'factory_deal', name: 'Factory-Direct Deal', description: '-15% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.15),
+    Artifact(id: 'factory_deal', name: 'Factory-Direct Deal', description: '-18% Rig Cost', rarity: ArtifactRarity.epic, bonusType: BonusType.rigCost, baseBonus: 0.18),
     Artifact(id: 'turbo_clicker', name: 'Turbo Clicker', description: '+40% Click Power', rarity: ArtifactRarity.epic, bonusType: BonusType.clickPower, baseBonus: 0.40),
 
     // --- LEGENDARY (+75-150%) ---
