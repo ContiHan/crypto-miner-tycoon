@@ -572,7 +572,8 @@ class _StashScreenState extends State<StashScreen>
             _casinoMessage = 'Push — broke even';
             _casinoMessageColor = Colors.white70;
           } else {
-            _casinoMessage = 'Bust.  -$_bet chips';
+            // Use the staked amount from the resolved spin, not the live _bet.
+            _casinoMessage = 'Bust.  -${spin.bet} chips';
             _casinoMessageColor = Colors.redAccent;
           }
         });
@@ -642,7 +643,8 @@ class _StashScreenState extends State<StashScreen>
             return ChoiceChip(
               label: Text('$b'),
               selected: selected,
-              onSelected: (_) => setState(() => _bet = b),
+              // Locked mid-spin so the stake can't change while reels settle.
+              onSelected: _slotSpinning ? null : (_) => setState(() => _bet = b),
               selectedColor: AppTheme.accent,
               labelStyle: TextStyle(
                 color: selected ? Colors.black : Colors.white,
@@ -728,7 +730,9 @@ class _StashScreenState extends State<StashScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: canBet ? () => _playFlip(game) : null,
+                    onPressed: (canBet && !_slotSpinning)
+                        ? () => _playFlip(game)
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purpleAccent,
                       foregroundColor: Colors.black,

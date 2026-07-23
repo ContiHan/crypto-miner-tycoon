@@ -6,9 +6,14 @@ import '../theme/app_theme.dart';
 import '../widgets/stylized_card.dart';
 import '../widgets/pulse_button.dart';
 
-class AchievementsScreen extends StatelessWidget {
+class AchievementsScreen extends StatefulWidget {
   const AchievementsScreen({super.key});
 
+  @override
+  State<AchievementsScreen> createState() => _AchievementsScreenState();
+}
+
+class _AchievementsScreenState extends State<AchievementsScreen> {
   static const Map<AchCategory, Color> _categoryColor = {
     AchCategory.earnings: AppTheme.accent,
     AchCategory.rigs: Colors.cyanAccent,
@@ -19,6 +24,30 @@ class AchievementsScreen extends StatelessWidget {
     AchCategory.secret: Colors.pinkAccent,
   };
 
+  // Display order is captured once per screen mount (claimable first as a call
+  // to action, then claimed, then locked). It is intentionally NOT recomputed
+  // when an item is claimed while the screen stays open: keeping each card in
+  // place lets the CLAIM -> checkmark pop animation play where the user tapped,
+  // instead of the card teleporting to a new position. Re-sorting happens the
+  // next time the screen is entered (it remounts on bottom-nav switch).
+  List<Achievement>? _ordered;
+
+  List<Achievement> _orderFor(GameLogic game) {
+    final claimable = <Achievement>[];
+    final claimed = <Achievement>[];
+    final locked = <Achievement>[];
+    for (final a in game.achievements) {
+      if (game.isAchievementClaimable(a.id)) {
+        claimable.add(a);
+      } else if (game.isAchievementClaimed(a.id)) {
+        claimed.add(a);
+      } else {
+        locked.add(a);
+      }
+    }
+    return [...claimable, ...claimed, ...locked];
+  }
+
   @override
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
@@ -28,21 +57,7 @@ class AchievementsScreen extends StatelessWidget {
         final pct = total == 0 ? 0.0 : unlocked / total;
         final unclaimed = game.unclaimedAchievements;
 
-        // Order: claimable first (call to action), then claimed, then locked —
-        // each group preserves catalogue order (stable).
-        final claimable = <Achievement>[];
-        final claimed = <Achievement>[];
-        final locked = <Achievement>[];
-        for (final a in game.achievements) {
-          if (game.isAchievementClaimable(a.id)) {
-            claimable.add(a);
-          } else if (game.isAchievementClaimed(a.id)) {
-            claimed.add(a);
-          } else {
-            locked.add(a);
-          }
-        }
-        final ordered = [...claimable, ...claimed, ...locked];
+        final ordered = _ordered ??= _orderFor(game);
 
         return Column(
           children: [
@@ -113,6 +128,7 @@ class AchievementsScreen extends StatelessWidget {
                 itemBuilder: (context, i) {
                   final a = ordered[i];
                   return _AchievementCard(
+                    key: ValueKey(a.id),
                     achievement: a,
                     claimable: game.isAchievementClaimable(a.id),
                     claimed: game.isAchievementClaimed(a.id),
@@ -137,6 +153,7 @@ class _AchievementCard extends StatelessWidget {
   final VoidCallback onClaim;
 
   const _AchievementCard({
+    super.key,
     required this.achievement,
     required this.claimable,
     required this.claimed,
