@@ -26,7 +26,7 @@ void main() {
     // Use pump instead of pumpAndSettle due to infinite timers
     await tester.pump(const Duration(seconds: 1));
 
-    expect(find.textContaining('MARKET STABLE'), findsOneWidget);
+    expect(find.textContaining('NETWORK DIFFICULTY'), findsOneWidget);
   });
 
   testWidgets('MiningTab shows Economy stats', (WidgetTester tester) async {

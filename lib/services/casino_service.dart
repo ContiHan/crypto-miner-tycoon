@@ -7,7 +7,7 @@ import '../core/constants.dart';
 /// sink, and the odds are disclosed in the UI for compliance.
 class SlotOutcome {
   final String name;
-  final List<String> symbols; // three reel symbols to display
+  final List<String> symbols; // three reel symbol KEYS (mapped to icons in UI)
   final double multiplier; // amount returned per chip staked (0 = loss)
   final int weight; // relative probability weight
   const SlotOutcome(this.name, this.symbols, this.multiplier, this.weight);
@@ -29,13 +29,24 @@ class CasinoService {
   // Weighted paytable. EV = sum(weight*multiplier)/sum(weight)
   //   = (1*25 + 3*10 + 8*5 + 20*3 + 120*1.5 + 220*0) / 372 = 335/372 ≈ 0.90.
   // So the house keeps ~10% over time — it's a chip sink with a jackpot thrill.
+  // Symbol keys ('moon'/'rocket'/'diamond'/'coin'/'bolt') are mapped to real
+  // outline icons in the UI (no emoji).
   static const List<SlotOutcome> slotTable = [
-    SlotOutcome('JACKPOT', ['🌙', '🌙', '🌙'], 25.0, 1),
-    SlotOutcome('Rockets', ['🚀', '🚀', '🚀'], 10.0, 3),
-    SlotOutcome('Diamonds', ['💎', '💎', '💎'], 5.0, 8),
-    SlotOutcome('Coins', ['🪙', '🪙', '🪙'], 3.0, 20),
-    SlotOutcome('Pair', ['⚡', '⚡', '🪙'], 1.5, 120),
-    SlotOutcome('Bust', ['⚡', '🪙', '💎'], 0.0, 220),
+    SlotOutcome('JACKPOT', ['moon', 'moon', 'moon'], 25.0, 1),
+    SlotOutcome('Rockets', ['rocket', 'rocket', 'rocket'], 10.0, 3),
+    SlotOutcome('Diamonds', ['diamond', 'diamond', 'diamond'], 5.0, 8),
+    SlotOutcome('Coins', ['coin', 'coin', 'coin'], 3.0, 20),
+    SlotOutcome('Pair', ['bolt', 'bolt', 'coin'], 1.5, 120),
+    SlotOutcome('Bust', ['bolt', 'coin', 'diamond'], 0.0, 220),
+  ];
+
+  /// All distinct reel symbol keys (for the spin animation).
+  static const List<String> symbolKeys = [
+    'moon',
+    'rocket',
+    'diamond',
+    'coin',
+    'bolt',
   ];
 
   static final int totalWeight =

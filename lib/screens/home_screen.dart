@@ -88,17 +88,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _showAchievementToasts(GameLogic game) {
     final toasts = List.of(game.pendingAchievementToasts);
     game.clearAchievementToasts();
-    final messenger = ScaffoldMessenger.of(context);
-    for (final a in toasts) {
-      messenger.showSnackBar(
-        SnackBar(
-          content: Text('🏆  Achievement unlocked: ${a.title}'),
-          duration: const Duration(milliseconds: 2200),
-          backgroundColor: AppTheme.accent,
-          behavior: SnackBarBehavior.floating,
+    if (toasts.isEmpty) return;
+
+    // Aggregate simultaneous unlocks into one non-spammy, actionable toast.
+    final label = toasts.length == 1
+        ? 'Achievement unlocked: ${toasts.first.title}'
+        : '${toasts.length} achievements unlocked!';
+    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
+    messenger.showSnackBar(
+      SnackBar(
+        content: Text('🏆  $label  ·  tap to claim'),
+        duration: const Duration(seconds: 4),
+        backgroundColor: AppTheme.accent,
+        behavior: SnackBarBehavior.floating,
+        action: SnackBarAction(
+          label: 'VIEW',
+          textColor: Colors.black,
+          onPressed: () {
+            if (mounted) setState(() => _currentIndex = 4); // GOALS tab
+          },
         ),
-      );
-    }
+      ),
+    );
   }
 
   @override
@@ -162,19 +173,30 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           unselectedItemColor: AppTheme.textSecondary,
           showUnselectedLabels: true,
           type: BottomNavigationBarType.fixed,
-          items: const [
-            BottomNavigationBarItem(
+          items: [
+            const BottomNavigationBarItem(
               icon: Icon(Icons.auto_graph),
               label: 'PERKS',
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.science), label: 'LAB'),
-            BottomNavigationBarItem(
+            const BottomNavigationBarItem(icon: Icon(Icons.science), label: 'LAB'),
+            const BottomNavigationBarItem(
               icon: Icon(Icons.inventory_2),
               label: 'STASH',
             ),
-            BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'MINE'),
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.dashboard), label: 'MINE'),
             BottomNavigationBarItem(
-              icon: Icon(Icons.emoji_events),
+              // Unread badge so newly-unlocked achievements aren't missed.
+              icon: Selector<GameLogic, int>(
+                selector: (_, g) => g.unclaimedAchievements,
+                builder: (_, count, _) => count > 0
+                    ? Badge.count(
+                        count: count,
+                        backgroundColor: Colors.redAccent,
+                        child: const Icon(Icons.emoji_events),
+                      )
+                    : const Icon(Icons.emoji_events),
+              ),
               label: 'GOALS',
             ),
           ],

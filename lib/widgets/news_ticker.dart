@@ -4,6 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_logic.dart';
 import '../models/news_event.dart';
+import '../content/news_flavor.dart';
 import '../utils/formatter.dart';
 
 class NewsTicker extends StatelessWidget {
@@ -51,12 +52,19 @@ class NewsTicker extends StatelessWidget {
           bgColor = news.color.withValues(alpha: 0.2);
           key = ValueKey('news_${news.hashCode}');
         } else {
-          // Idle State
+          // Idle State: a rotating window of funny crypto headlines interleaved
+          // with live stats. The window advances every ~45s (fades via the key).
+          final flavors = NewsFlavor.idle;
+          final bucket = DateTime.now().millisecondsSinceEpoch ~/ 45000;
+          final start = bucket % flavors.length;
+          final window = [
+            for (int i = 0; i < 6; i++) flavors[(start + i) % flavors.length],
+          ].join('   ///   ');
           text =
-              "MARKET STABLE   ///   BTC PRICE: STABLE   ///   NETWORK DIFFICULTY: ${Formatter.formatNumber(game.networkDifficulty)}   ///   BLOCK REWARD: ${Formatter.formatBitcoin(game.blockReward)}   ///   NO THREATS DETECTED   ///   ";
+              "$window   ///   NETWORK DIFFICULTY: ${Formatter.formatNumber(game.networkDifficulty)}   ///   BLOCK REWARD: ${Formatter.formatBitcoin(game.blockReward)}   ///   ";
           color = Colors.white54;
           bgColor = Colors.black45;
-          key = const ValueKey('idle');
+          key = ValueKey('idle_$bucket');
         }
 
         // Define Style with Glow

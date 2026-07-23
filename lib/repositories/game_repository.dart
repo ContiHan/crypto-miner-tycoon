@@ -61,6 +61,7 @@ class GameRepository {
     double totalGovTokensEver = 0,
     double govTokensEverAtLastNewChain = 0,
     List<String> achievements = const [],
+    List<String> claimedAchievements = const [],
     int hardForkCount = 0,
     int softForkCount = 0,
     int newChainCount = 0,
@@ -99,6 +100,7 @@ class GameRepository {
       'totalGovTokensEver': fin(totalGovTokensEver),
       'govTokensEverAtLastNewChain': fin(govTokensEverAtLastNewChain),
       'achievements': achievements,
+      'claimedAchievements': claimedAchievements,
       'hardForkCount': hardForkCount,
       'softForkCount': softForkCount,
       'newChainCount': newChainCount,
@@ -217,6 +219,9 @@ class GameRepository {
     if (m['research'] != null) normalized['research'] = m['research'];
     if (m['stash'] != null) normalized['stash'] = m['stash'];
     if (m['achievements'] != null) normalized['achievements'] = m['achievements'];
+    if (m['claimedAchievements'] != null) {
+      normalized['claimedAchievements'] = m['claimedAchievements'];
+    }
 
     return normalized;
   }

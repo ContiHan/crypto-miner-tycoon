@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 
 import '../core/constants.dart';
 import '../core/ids.dart';
@@ -154,10 +155,38 @@ class GameLogic with ChangeNotifier {
   final AchievementManager _achievements = AchievementManager();
   List<Achievement> get achievements => kAchievements;
   bool isAchievementUnlocked(String id) => _achievements.isUnlocked(id);
+  bool isAchievementClaimed(String id) => _achievements.isClaimed(id);
+  bool isAchievementClaimable(String id) => _achievements.isClaimable(id);
   int get achievementsUnlocked => _achievements.unlockedCount;
   int get achievementsTotal => _achievements.total;
+  int get unclaimedAchievements => _achievements.unclaimedCount;
   double get notorietyBonus => _achievements.notorietyBonus;
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
+
+  // Fire-and-forget haptic that never throws (no platform channel in tests).
+  void _haptic(Future<void> Function() f) => f().catchError((_) {});
+
+  /// Claim an unlocked achievement — activates its Notoriety income bonus.
+  bool claimAchievement(String id) {
+    if (!_achievements.claim(id)) return false;
+    _soundService.playUnlock();
+    _haptic(HapticFeedback.mediumImpact);
+    notifyListeners();
+    _saveGame();
+    return true;
+  }
+
+  /// Claim every claimable achievement at once. Returns how many were claimed.
+  int claimAllAchievements() {
+    final n = _achievements.claimAll();
+    if (n > 0) {
+      _soundService.playUnlock();
+      _haptic(HapticFeedback.mediumImpact);
+      notifyListeners();
+      _saveGame();
+    }
+    return n;
+  }
 
   /// Newly-unlocked achievements awaiting a non-blocking toast (drained by the UI).
   final List<Achievement> pendingAchievementToasts = [];
@@ -862,17 +891,19 @@ class GameLogic with ChangeNotifier {
     }
   }
 
-  void buyCrate(bool isPremium) {
+  /// Opens a crate and returns the artifact won (null if unaffordable), so the
+  /// UI can show a reveal of exactly what dropped.
+  Artifact? buyCrate(bool isPremium) {
     int cost = isPremium ? 50 : 10;
-    if (chips >= cost) {
-      chips -= cost;
-      _stash.openCrate(isPremium: isPremium);
-      cratesOpened++;
-      _soundService.playUnlock();
-      _evaluateAchievements();
-      notifyListeners();
-      _saveGame();
-    }
+    if (chips < cost) return null;
+    chips -= cost;
+    final won = _stash.openCrate(isPremium: isPremium);
+    cratesOpened++;
+    _soundService.playUnlock();
+    _evaluateAchievements();
+    notifyListeners();
+    _saveGame();
+    return won;
   }
 
   // PERSISTENCE
@@ -903,6 +934,7 @@ class GameLogic with ChangeNotifier {
       totalGovTokensEver: _prestige.totalGovTokensEver,
       govTokensEverAtLastNewChain: _prestige.govTokensEverAtLastNewChain,
       achievements: _achievements.save(),
+      claimedAchievements: _achievements.saveClaimed(),
       hardForkCount: hardForkCount,
       softForkCount: softForkCount,
       newChainCount: newChainCount,
@@ -967,6 +999,15 @@ class GameLogic with ChangeNotifier {
         _achievements.load(
           (data['achievements'] as List).map((e) => e.toString()),
         );
+      }
+      if (data['claimedAchievements'] is List) {
+        _achievements.loadClaimed(
+          (data['claimedAchievements'] as List).map((e) => e.toString()),
+        );
+      } else if (data['achievements'] is List) {
+        // Pre-claim save: everything already unlocked was auto-granted under the
+        // old system, so treat it as claimed — no Notoriety income is lost.
+        _achievements.claimAllUnlockedForMigration();
       }
 
       // Load Perk Manager Data

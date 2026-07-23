@@ -1,3 +1,5 @@
+import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
@@ -24,9 +26,32 @@ class _StashScreenState extends State<StashScreen>
 
   // Casino local UI state.
   int _bet = 5;
-  SlotSpin? _lastSpin;
   String? _casinoMessage;
   Color _casinoMessageColor = Colors.white70;
+
+  // Slot reel animation state.
+  final Random _rng = Random();
+  bool _slotSpinning = false;
+  final List<String> _reels = ['coin', 'rocket', 'diamond'];
+  List<bool> _reelSettled = [true, true, true];
+  Timer? _spinTimer;
+  int? _chipOverride; // shown while spinning so the header can't spoil the win
+
+  // Real outline icons (no emoji) for the slot symbol keys.
+  static const Map<String, IconData> _slotIcons = {
+    'moon': Icons.dark_mode_outlined,
+    'rocket': Icons.rocket_launch_outlined,
+    'diamond': Icons.diamond_outlined,
+    'coin': Icons.paid_outlined,
+    'bolt': Icons.electric_bolt_outlined,
+  };
+  static const Map<String, Color> _slotColors = {
+    'moon': Colors.amberAccent,
+    'rocket': Colors.redAccent,
+    'diamond': Colors.cyanAccent,
+    'coin': AppTheme.accent,
+    'bolt': Colors.yellowAccent,
+  };
 
   @override
   void initState() {
@@ -40,6 +65,7 @@ class _StashScreenState extends State<StashScreen>
     // leaked a TabController (and its ticker) per visit and could assert in
     // debug when leaving mid tab-animation.
     _tabController.dispose();
+    _spinTimer?.cancel();
     super.dispose();
   }
 
@@ -60,37 +86,93 @@ class _StashScreenState extends State<StashScreen>
       return;
     }
 
-    // Trigger Purchase
-    game.buyCrate(isPremium);
+    // Open the crate and reveal exactly what dropped.
+    final won = game.buyCrate(isPremium);
+    if (won == null) return;
+    final count = game.stashService.ownedArtifacts[won.id] ?? 1;
+    final color = _rarityColor(won.rarity);
 
-    // Simple Feedback Dialog
-    // Ideally we would animate this, but for now a dialog works
     showDialog(
       context: context,
       barrierDismissible: true,
-      builder: (ctx) {
-        // Get the item that was just added (hacky: we assume it's the last updated or we could return it from buyCrate if we refactored)
-        // Since buyCrate is void in provider, we can't get the specific item easily without changing signature.
-        // Let's just show a "Crate Opened!" generic message or check likely items.
-        // Better: Let's assume the user checks the grid. Or just show a cool animation.
-        return AlertDialog(
-          backgroundColor: AppTheme.surface,
-          title: Text(
-            "CRATE UNLOCKED",
-            style: GoogleFonts.orbitron(color: AppTheme.accent),
-          ),
-          content: const Text(
-            "You found a new Artifact! Check your Collection.",
-            style: TextStyle(color: Colors.white),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text("OK", style: TextStyle(color: AppTheme.accent)),
+      builder: (ctx) => Dialog(
+        backgroundColor: Colors.transparent,
+        elevation: 0,
+        child: TweenAnimationBuilder<double>(
+          tween: Tween(begin: 0.0, end: 1.0),
+          duration: const Duration(milliseconds: 500),
+          curve: Curves.easeOutBack, // pop-in overshoot
+          builder: (context, t, child) =>
+              Transform.scale(scale: t.clamp(0.0, 1.2), child: child),
+          child: _crateRevealCard(ctx, won, count, color),
+        ),
+      ),
+    );
+  }
+
+  Widget _crateRevealCard(
+      BuildContext ctx, Artifact won, int count, Color color) {
+    return Container(
+      padding: const EdgeInsets.all(24),
+      decoration: BoxDecoration(
+        color: AppTheme.surface,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: color, width: 2),
+        boxShadow: [
+          BoxShadow(
+              color: color.withValues(alpha: 0.45),
+              blurRadius: 28,
+              spreadRadius: 2),
+        ],
+      ),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            won.rarity.name.toUpperCase(),
+            style: GoogleFonts.orbitron(
+              color: color,
+              fontWeight: FontWeight.bold,
+              letterSpacing: 4,
+              fontSize: 13,
             ),
-          ],
-        );
-      },
+          ),
+          const SizedBox(height: 16),
+          Icon(Icons.extension, color: color, size: 64),
+          const SizedBox(height: 16),
+          Text(
+            won.name,
+            textAlign: TextAlign.center,
+            style: const TextStyle(
+                color: Colors.white, fontWeight: FontWeight.bold, fontSize: 20),
+          ),
+          const SizedBox(height: 6),
+          Text(won.description,
+              textAlign: TextAlign.center,
+              style: const TextStyle(color: Colors.white70, fontSize: 13)),
+          const SizedBox(height: 12),
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.18),
+              borderRadius: BorderRadius.circular(6),
+            ),
+            child: Text(
+              count <= 1 ? 'NEW!' : 'DUPLICATE — now Lvl $count',
+              style: TextStyle(
+                  color: color, fontWeight: FontWeight.bold, fontSize: 12),
+            ),
+          ),
+          const SizedBox(height: 18),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx),
+            style: ElevatedButton.styleFrom(
+                backgroundColor: color, foregroundColor: Colors.black),
+            child: const Text('NICE',
+                style: TextStyle(fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 
@@ -440,22 +522,61 @@ class _StashScreenState extends State<StashScreen>
   // ---- Casino (SIMULATED — in-game Micro-Chips only) ----------------------
 
   void _playSlots(GameLogic game) {
-    final spin = game.playSlots(_bet);
+    if (_slotSpinning) return;
+    final spin = game.playSlots(_bet); // resolves the outcome up front
     if (spin == null) return;
+
     setState(() {
-      _lastSpin = spin;
-      if (spin.isJackpot) {
-        _casinoMessage = '🎉 JACKPOT! +${spin.net} chips';
-        _casinoMessageColor = Colors.amber;
-      } else if (spin.net > 0) {
-        _casinoMessage = 'WIN +${spin.net} chips';
-        _casinoMessageColor = Colors.greenAccent;
-      } else if (spin.net == 0) {
-        _casinoMessage = 'Push — broke even';
-        _casinoMessageColor = Colors.white70;
-      } else {
-        _casinoMessage = 'Bust. -$_bet chips';
-        _casinoMessageColor = Colors.redAccent;
+      _slotSpinning = true;
+      _casinoMessage = null;
+      _reelSettled = [false, false, false];
+      // Show the bet as already deducted, but hide the payout until reels settle
+      // (otherwise the balance header spoils the win/loss).
+      _chipOverride = game.chips - spin.payout;
+    });
+
+    // Spin the reels: each cycles random symbols, then settles left-to-right.
+    const settleTick = [9, 15, 21]; // 60ms ticks -> ~0.54s / 0.9s / 1.26s
+    int tick = 0;
+    _spinTimer?.cancel();
+    _spinTimer = Timer.periodic(const Duration(milliseconds: 60), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      tick++;
+      setState(() {
+        for (int i = 0; i < 3; i++) {
+          if (_reelSettled[i]) continue;
+          if (tick >= settleTick[i]) {
+            _reels[i] = spin.symbols[i];
+            _reelSettled[i] = true;
+          } else {
+            _reels[i] = CasinoService
+                .symbolKeys[_rng.nextInt(CasinoService.symbolKeys.length)];
+          }
+        }
+      });
+      if (_reelSettled.every((s) => s)) {
+        t.cancel();
+        setState(() {
+          _slotSpinning = false;
+          _chipOverride = null; // reveal the real balance now
+          if (spin.isJackpot) {
+            _casinoMessage = 'JACKPOT!  +${spin.net} chips';
+            _casinoMessageColor = Colors.amberAccent;
+          } else if (spin.net > 0) {
+            _casinoMessage = 'WIN  +${spin.net} chips';
+            _casinoMessageColor = Colors.greenAccent;
+          } else if (spin.net == 0) {
+            _casinoMessage = 'Push — broke even';
+            _casinoMessageColor = Colors.white70;
+          } else {
+            // Use the staked amount from the resolved spin, not the live _bet.
+            _casinoMessage = 'Bust.  -${spin.bet} chips';
+            _casinoMessageColor = Colors.redAccent;
+          }
+        });
       }
     });
   }
@@ -501,7 +622,7 @@ class _StashScreenState extends State<StashScreen>
             const Icon(Icons.memory, color: Colors.cyanAccent, size: 26),
             const SizedBox(width: 8),
             Text(
-              '${game.chips} CHIPS',
+              '${_chipOverride ?? game.chips} CHIPS',
               style: GoogleFonts.orbitron(
                 fontSize: 24,
                 color: Colors.cyanAccent,
@@ -522,7 +643,8 @@ class _StashScreenState extends State<StashScreen>
             return ChoiceChip(
               label: Text('$b'),
               selected: selected,
-              onSelected: (_) => setState(() => _bet = b),
+              // Locked mid-spin so the stake can't change while reels settle.
+              onSelected: _slotSpinning ? null : (_) => setState(() => _bet = b),
               selectedColor: AppTheme.accent,
               labelStyle: TextStyle(
                 color: selected ? Colors.black : Colors.white,
@@ -563,32 +685,23 @@ class _StashScreenState extends State<StashScreen>
                 const SizedBox(height: 12),
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
-                  children: (_lastSpin?.symbols ?? ['❔', '❔', '❔'])
-                      .map((s) => Container(
-                            margin: const EdgeInsets.symmetric(horizontal: 6),
-                            width: 64,
-                            height: 64,
-                            alignment: Alignment.center,
-                            decoration: BoxDecoration(
-                              color: Colors.black45,
-                              borderRadius: BorderRadius.circular(8),
-                              border: Border.all(color: Colors.white24),
-                            ),
-                            child: Text(s, style: const TextStyle(fontSize: 34)),
-                          ))
-                      .toList(),
+                  children: [
+                    for (int i = 0; i < 3; i++) _buildReel(_reels[i], _reelSettled[i]),
+                  ],
                 ),
                 const SizedBox(height: 12),
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: canBet ? () => _playSlots(game) : null,
+                    onPressed: (canBet && !_slotSpinning)
+                        ? () => _playSlots(game)
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: AppTheme.accent,
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text('SPIN ($_bet chips)',
+                    child: Text(_slotSpinning ? 'SPINNING…' : 'SPIN ($_bet chips)',
                         style: const TextStyle(fontWeight: FontWeight.bold)),
                   ),
                 ),
@@ -617,7 +730,9 @@ class _StashScreenState extends State<StashScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: canBet ? () => _playFlip(game) : null,
+                    onPressed: (canBet && !_slotSpinning)
+                        ? () => _playFlip(game)
+                        : null,
                     style: ElevatedButton.styleFrom(
                       backgroundColor: Colors.purpleAccent,
                       foregroundColor: Colors.black,
@@ -644,6 +759,27 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
+  Widget _buildReel(String symbol, bool settled) {
+    final color = _slotColors[symbol] ?? Colors.white;
+    return AnimatedContainer(
+      duration: const Duration(milliseconds: 80),
+      margin: const EdgeInsets.symmetric(horizontal: 6),
+      width: 64,
+      height: 64,
+      alignment: Alignment.center,
+      decoration: BoxDecoration(
+        color: Colors.black45,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: settled ? color : Colors.white24,
+          width: settled ? 2 : 1,
+        ),
+      ),
+      child: Icon(_slotIcons[symbol] ?? Icons.help_outline,
+          color: settled ? color : Colors.white54, size: 34),
+    );
+  }
+
   Widget _buildPaytable(String rtp) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -654,12 +790,23 @@ class _StashScreenState extends State<StashScreen>
         ...CasinoService.slotTable
             .where((o) => o.multiplier > 0)
             .map((o) => Padding(
-                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  padding: const EdgeInsets.symmetric(vertical: 2),
                   child: Row(
                     children: [
                       Expanded(
-                        child: Text(o.symbols.join(' '),
-                            style: const TextStyle(fontSize: 13)),
+                        child: Row(
+                          children: [
+                            for (final s in o.symbols)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 3),
+                                child: Icon(
+                                  _slotIcons[s] ?? Icons.help_outline,
+                                  size: 16,
+                                  color: _slotColors[s] ?? Colors.white70,
+                                ),
+                              ),
+                          ],
+                        ),
                       ),
                       // Per-outcome probability — makes "odds disclosed" literal.
                       Text(

@@ -123,6 +123,7 @@ class FakeGameRepository implements GameRepository {
     double totalGovTokensEver = 0,
     double govTokensEverAtLastNewChain = 0,
     List<String> achievements = const [],
+    List<String> claimedAchievements = const [],
     int hardForkCount = 0,
     int softForkCount = 0,
     int newChainCount = 0,
@@ -141,6 +142,7 @@ class FakeGameRepository implements GameRepository {
     data['totalGovTokensEver'] = totalGovTokensEver;
     data['govTokensEverAtLastNewChain'] = govTokensEverAtLastNewChain;
     data['achievements'] = achievements;
+    data['claimedAchievements'] = claimedAchievements;
     data['hardForkCount'] = hardForkCount;
     data['softForkCount'] = softForkCount;
     data['newChainCount'] = newChainCount;
