@@ -20,6 +20,8 @@ class AchStats {
   final int softForkCount;
   final int newChainCount;
   final int cratesOpened;
+  final int casinoSpins;
+  final int casinoJackpots;
   final int eraHalvings; // halvings survived this era (derived from block reward)
   final double globalHashRate;
   final double prestigeMultiplier;
@@ -45,6 +47,8 @@ class AchStats {
     required this.softForkCount,
     required this.newChainCount,
     required this.cratesOpened,
+    required this.casinoSpins,
+    required this.casinoJackpots,
     required this.eraHalvings,
     required this.globalHashRate,
     required this.prestigeMultiplier,
@@ -250,6 +254,13 @@ final List<Achievement> kAchievements = [
     category: AchCategory.collection,
     condition: (s) => s.chips >= 5,
   ),
+  Achievement(
+    id: 'casino_25',
+    title: 'Feeling Lucky',
+    description: 'Play the casino 25 times.',
+    category: AchCategory.collection,
+    condition: (s) => s.casinoSpins >= 25,
+  ),
 
   // --- Meta ---
   Achievement(
@@ -316,6 +327,14 @@ final List<Achievement> kAchievements = [
     category: AchCategory.secret,
     secret: true,
     condition: (s) => s.genesisBlocks >= 10,
+  ),
+  Achievement(
+    id: 'secret_jackpot',
+    title: 'Jackpot!',
+    description: 'Hit the slots jackpot. Against all odds.',
+    category: AchCategory.secret,
+    secret: true,
+    condition: (s) => s.casinoJackpots >= 1,
   ),
   Achievement(
     id: 'secret_fullnode',

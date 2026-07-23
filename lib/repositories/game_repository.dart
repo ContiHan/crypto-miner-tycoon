@@ -65,6 +65,8 @@ class GameRepository {
     int softForkCount = 0,
     int newChainCount = 0,
     int cratesOpened = 0,
+    int casinoSpins = 0,
+    int casinoJackpots = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -101,6 +103,8 @@ class GameRepository {
       'softForkCount': softForkCount,
       'newChainCount': newChainCount,
       'cratesOpened': cratesOpened,
+      'casinoSpins': casinoSpins,
+      'casinoJackpots': casinoJackpots,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -199,6 +203,8 @@ class GameRepository {
           ? asInt(m['newChainCount'], 0)
           : (asInt(m['genesisBlocks'], 0) > 0 ? 1 : 0),
       'cratesOpened': asInt(m['cratesOpened'], 0),
+      'casinoSpins': asInt(m['casinoSpins'], 0),
+      'casinoJackpots': asInt(m['casinoJackpots'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

@@ -127,6 +127,8 @@ class FakeGameRepository implements GameRepository {
     int softForkCount = 0,
     int newChainCount = 0,
     int cratesOpened = 0,
+    int casinoSpins = 0,
+    int casinoJackpots = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -143,6 +145,8 @@ class FakeGameRepository implements GameRepository {
     data['softForkCount'] = softForkCount;
     data['newChainCount'] = newChainCount;
     data['cratesOpened'] = cratesOpened;
+    data['casinoSpins'] = casinoSpins;
+    data['casinoJackpots'] = casinoJackpots;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

@@ -12,6 +12,7 @@ import '../models/research_node.dart';
 import '../models/news_event.dart';
 import '../services/economy_service.dart';
 import '../services/stash_service.dart';
+import '../services/casino_service.dart';
 
 // Repositories
 import '../repositories/game_repository.dart';
@@ -112,6 +113,41 @@ class GameLogic with ChangeNotifier {
   int softForkCount = 0;
   int newChainCount = 0;
   int cratesOpened = 0;
+  int casinoSpins = 0;
+  int casinoJackpots = 0;
+
+  // SIMULATED casino (in-game Micro-Chips only; house edge EV<1).
+  final CasinoService _casino = CasinoService();
+  final Random _casinoRng = Random();
+
+  /// Bet [bet] chips on the slots. Returns the spin (null if unaffordable).
+  SlotSpin? playSlots(int bet) {
+    if (bet <= 0 || chips < bet) return null;
+    chips -= bet;
+    final spin = _casino.spinSlots(bet, _casinoRng);
+    chips += spin.payout;
+    casinoSpins++;
+    if (spin.isJackpot) casinoJackpots++;
+    _soundService.playBuy();
+    _evaluateAchievements();
+    notifyListeners();
+    _saveGame();
+    return spin;
+  }
+
+  /// Double-or-Nothing on [bet] chips. Returns true=win, false=loss, null=unaffordable.
+  bool? playDoubleOrNothing(int bet) {
+    if (bet <= 0 || chips < bet) return null;
+    chips -= bet;
+    final win = _casino.flipWin(_casinoRng);
+    if (win) chips += bet * 2;
+    casinoSpins++;
+    _soundService.playBuy();
+    _evaluateAchievements();
+    notifyListeners();
+    _saveGame();
+    return win;
+  }
 
   // Achievements + Notoriety (permanent income bonus). Persists across all
   // prestige tiers like the Stash — only a full wipe clears it.
@@ -191,6 +227,8 @@ class GameLogic with ChangeNotifier {
     softForkCount = 0;
     newChainCount = 0;
     cratesOpened = 0;
+    casinoSpins = 0;
+    casinoJackpots = 0;
     pendingAchievementToasts.clear();
 
     for (var rig in rigs) {
@@ -584,6 +622,8 @@ class GameLogic with ChangeNotifier {
       softForkCount: softForkCount,
       newChainCount: newChainCount,
       cratesOpened: cratesOpened,
+      casinoSpins: casinoSpins,
+      casinoJackpots: casinoJackpots,
       eraHalvings: eraHalvings,
       globalHashRate: globalHashRate,
       prestigeMultiplier: prestigeMultiplier,
@@ -865,6 +905,8 @@ class GameLogic with ChangeNotifier {
       softForkCount: softForkCount,
       newChainCount: newChainCount,
       cratesOpened: cratesOpened,
+      casinoSpins: casinoSpins,
+      casinoJackpots: casinoJackpots,
     );
   }
 
@@ -917,6 +959,8 @@ class GameLogic with ChangeNotifier {
       softForkCount = _toInt(data['softForkCount']);
       newChainCount = _toInt(data['newChainCount']);
       cratesOpened = _toInt(data['cratesOpened']);
+      casinoSpins = _toInt(data['casinoSpins']);
+      casinoJackpots = _toInt(data['casinoJackpots']);
       if (data['achievements'] is List) {
         _achievements.load(
           (data['achievements'] as List).map((e) => e.toString()),

@@ -45,6 +45,12 @@ class GameConstants {
   // by the fixed achievement count, so it can't run away.
   static const double perAchievementNotoriety = 0.01; // +1% income each
 
+  // Casino (SIMULATED gambling — in-game Micro-Chips only, no real value).
+  // Double-or-Nothing win chance < 50% gives the house edge (EV = 0.48*2 = 0.96).
+  // Slots have their own weighted paytable in CasinoService (EV ~0.90). Both
+  // odds are disclosed in-app for compliance.
+  static const double casinoFlipWinChance = 0.48;
+
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
   static const double cosmeticUsdPerSat = 1000.0;

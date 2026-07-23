@@ -1,8 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
+import '../core/constants.dart';
 import '../providers/game_logic.dart';
 import '../services/stash_service.dart';
+import '../services/casino_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
@@ -20,10 +22,16 @@ class _StashScreenState extends State<StashScreen>
   late TabController _tabController;
   bool _isErrorShowing = false;
 
+  // Casino local UI state.
+  int _bet = 5;
+  SlotSpin? _lastSpin;
+  String? _casinoMessage;
+  Color _casinoMessageColor = Colors.white70;
+
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 2, vsync: this);
+    _tabController = TabController(length: 3, vsync: this);
   }
 
   @override
@@ -101,9 +109,11 @@ class _StashScreenState extends State<StashScreen>
           indicatorColor: AppTheme.accent,
           labelColor: AppTheme.accent,
           unselectedLabelColor: Colors.white54,
+          isScrollable: true,
           tabs: const [
-            Tab(icon: Icon(Icons.inventory_2), text: "CRATES & TRADING"),
+            Tab(icon: Icon(Icons.inventory_2), text: "CRATES"),
             Tab(icon: Icon(Icons.grid_view), text: "COLLECTION"),
+            Tab(icon: Icon(Icons.casino), text: "CASINO"),
           ],
         ),
       ),
@@ -114,6 +124,7 @@ class _StashScreenState extends State<StashScreen>
             children: [
               _buildMarketTab(context, game),
               _buildCollectionTab(context, game),
+              _buildCasinoTab(context, game),
             ],
           );
         },
@@ -423,6 +434,241 @@ class _StashScreenState extends State<StashScreen>
           ),
         ],
       ),
+    );
+  }
+
+  // ---- Casino (SIMULATED — in-game Micro-Chips only) ----------------------
+
+  void _playSlots(GameLogic game) {
+    final spin = game.playSlots(_bet);
+    if (spin == null) return;
+    setState(() {
+      _lastSpin = spin;
+      if (spin.isJackpot) {
+        _casinoMessage = '🎉 JACKPOT! +${spin.net} chips';
+        _casinoMessageColor = Colors.amber;
+      } else if (spin.isWin) {
+        _casinoMessage = 'WIN +${spin.net} chips';
+        _casinoMessageColor = Colors.greenAccent;
+      } else {
+        _casinoMessage = 'Bust. -$_bet chips';
+        _casinoMessageColor = Colors.redAccent;
+      }
+    });
+  }
+
+  void _playFlip(GameLogic game) {
+    final win = game.playDoubleOrNothing(_bet);
+    if (win == null) return;
+    setState(() {
+      _casinoMessage = win ? 'DOUBLED! +$_bet chips' : 'Nothing. -$_bet chips';
+      _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
+    });
+  }
+
+  Widget _buildCasinoTab(BuildContext context, GameLogic game) {
+    final canBet = game.chips >= _bet && _bet > 0;
+    final rtp = (CasinoService.slotsReturnToPlayer * 100).toStringAsFixed(0);
+    final flipPct =
+        (GameConstants.casinoFlipWinChance * 100).toStringAsFixed(0);
+
+    return ListView(
+      padding: const EdgeInsets.all(16),
+      children: [
+        // Compliance disclosure — required for simulated gambling content.
+        Container(
+          padding: const EdgeInsets.all(12),
+          decoration: BoxDecoration(
+            color: Colors.redAccent.withValues(alpha: 0.10),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
+          ),
+          child: const Text(
+            '🎰 SIMULATED — For entertainment only. Micro-Chips are in-game '
+            'tokens with NO real-world value. No real money, deposits, or prizes.',
+            style: TextStyle(color: Colors.white70, fontSize: 11),
+          ),
+        ),
+        const SizedBox(height: 16),
+
+        // Chip balance
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(Icons.memory, color: Colors.cyanAccent, size: 26),
+            const SizedBox(width: 8),
+            Text(
+              '${game.chips} CHIPS',
+              style: GoogleFonts.orbitron(
+                fontSize: 24,
+                color: Colors.cyanAccent,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Bet selector
+        const Text('BET', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 1)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: [1, 5, 10, 25, 100].map((b) {
+            final selected = _bet == b;
+            return ChoiceChip(
+              label: Text('$b'),
+              selected: selected,
+              onSelected: (_) => setState(() => _bet = b),
+              selectedColor: AppTheme.accent,
+              labelStyle: TextStyle(
+                color: selected ? Colors.black : Colors.white,
+                fontWeight: FontWeight.bold,
+              ),
+              backgroundColor: Colors.black45,
+            );
+          }).toList(),
+        ),
+        const SizedBox(height: 16),
+
+        // Result message
+        if (_casinoMessage != null)
+          Container(
+            width: double.infinity,
+            padding: const EdgeInsets.symmetric(vertical: 10),
+            alignment: Alignment.center,
+            child: Text(
+              _casinoMessage!,
+              style: GoogleFonts.orbitron(
+                color: _casinoMessageColor,
+                fontSize: 18,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+        // Slots
+        StylizedCard(
+          color: const Color(0xFF1E1E24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text('CRYPTO SLOTS',
+                    style: GoogleFonts.orbitron(
+                        color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 12),
+                Row(
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: (_lastSpin?.symbols ?? ['❔', '❔', '❔'])
+                      .map((s) => Container(
+                            margin: const EdgeInsets.symmetric(horizontal: 6),
+                            width: 64,
+                            height: 64,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: Colors.black45,
+                              borderRadius: BorderRadius.circular(8),
+                              border: Border.all(color: Colors.white24),
+                            ),
+                            child: Text(s, style: const TextStyle(fontSize: 34)),
+                          ))
+                      .toList(),
+                ),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: canBet ? () => _playSlots(game) : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppTheme.accent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text('SPIN ($_bet chips)',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+                const SizedBox(height: 10),
+                _buildPaytable(rtp),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 12),
+
+        // Double or Nothing
+        StylizedCard(
+          color: const Color(0xFF1E1E24),
+          child: Padding(
+            padding: const EdgeInsets.all(16),
+            child: Column(
+              children: [
+                Text('DOUBLE OR NOTHING',
+                    style: GoogleFonts.orbitron(
+                        color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                const SizedBox(height: 4),
+                Text('$flipPct% chance to win 2×  •  odds disclosed',
+                    style: const TextStyle(color: Colors.white54, fontSize: 11)),
+                const SizedBox(height: 12),
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton(
+                    onPressed: canBet ? () => _playFlip(game) : null,
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: Colors.purpleAccent,
+                      foregroundColor: Colors.black,
+                      padding: const EdgeInsets.symmetric(vertical: 14),
+                    ),
+                    child: Text('FLIP ($_bet chips)',
+                        style: const TextStyle(fontWeight: FontWeight.bold)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+        if (!canBet)
+          const Padding(
+            padding: EdgeInsets.only(top: 12),
+            child: Text(
+              'Not enough chips for this bet. Earn chips from anomalies or the Black Market.',
+              style: TextStyle(color: Colors.redAccent, fontSize: 12),
+              textAlign: TextAlign.center,
+            ),
+          ),
+      ],
+    );
+  }
+
+  Widget _buildPaytable(String rtp) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        const Text('PAYTABLE (odds disclosed)',
+            style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+        const SizedBox(height: 4),
+        ...CasinoService.slotTable
+            .where((o) => o.multiplier > 0)
+            .map((o) => Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 1),
+                  child: Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Text(o.symbols.join(' '),
+                          style: const TextStyle(fontSize: 13)),
+                      Text('${o.multiplier.toStringAsFixed(o.multiplier % 1 == 0 ? 0 : 1)}×',
+                          style: const TextStyle(
+                              color: Colors.white70,
+                              fontSize: 12,
+                              fontWeight: FontWeight.bold)),
+                    ],
+                  ),
+                )),
+        const SizedBox(height: 4),
+        Text('Average return ~$rtp% (house edge — a chip sink for fun).',
+            style: const TextStyle(color: Colors.white38, fontSize: 10)),
+      ],
     );
   }
 
