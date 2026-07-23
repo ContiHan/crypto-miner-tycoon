@@ -122,6 +122,11 @@ class FakeGameRepository implements GameRepository {
     int genesisBlocks = 0,
     double totalGovTokensEver = 0,
     double govTokensEverAtLastNewChain = 0,
+    List<String> achievements = const [],
+    int hardForkCount = 0,
+    int softForkCount = 0,
+    int newChainCount = 0,
+    int cratesOpened = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -133,6 +138,11 @@ class FakeGameRepository implements GameRepository {
     data['genesisBlocks'] = genesisBlocks;
     data['totalGovTokensEver'] = totalGovTokensEver;
     data['govTokensEverAtLastNewChain'] = govTokensEverAtLastNewChain;
+    data['achievements'] = achievements;
+    data['hardForkCount'] = hardForkCount;
+    data['softForkCount'] = softForkCount;
+    data['newChainCount'] = newChainCount;
+    data['cratesOpened'] = cratesOpened;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

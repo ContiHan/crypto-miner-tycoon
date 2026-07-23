@@ -60,6 +60,11 @@ class GameRepository {
     int genesisBlocks = 0,
     double totalGovTokensEver = 0,
     double govTokensEverAtLastNewChain = 0,
+    List<String> achievements = const [],
+    int hardForkCount = 0,
+    int softForkCount = 0,
+    int newChainCount = 0,
+    int cratesOpened = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -91,6 +96,11 @@ class GameRepository {
       'genesisBlocks': genesisBlocks,
       'totalGovTokensEver': fin(totalGovTokensEver),
       'govTokensEverAtLastNewChain': fin(govTokensEverAtLastNewChain),
+      'achievements': achievements,
+      'hardForkCount': hardForkCount,
+      'softForkCount': softForkCount,
+      'newChainCount': newChainCount,
+      'cratesOpened': cratesOpened,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -168,6 +178,10 @@ class GameRepository {
           : (asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0)).toDouble(),
       'govTokensEverAtLastNewChain':
           asDouble(m['govTokensEverAtLastNewChain'], 0),
+      'hardForkCount': asInt(m['hardForkCount'], 0),
+      'softForkCount': asInt(m['softForkCount'], 0),
+      'newChainCount': asInt(m['newChainCount'], 0),
+      'cratesOpened': asInt(m['cratesOpened'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,
@@ -179,6 +193,7 @@ class GameRepository {
     if (m['rigs'] != null) normalized['rigs'] = m['rigs'];
     if (m['research'] != null) normalized['research'] = m['research'];
     if (m['stash'] != null) normalized['stash'] = m['stash'];
+    if (m['achievements'] != null) normalized['achievements'] = m['achievements'];
 
     return normalized;
   }

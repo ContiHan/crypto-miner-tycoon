@@ -8,6 +8,7 @@ import 'research_tab.dart';
 import 'mining_tab.dart';
 import 'settings_screen.dart';
 import 'stash_screen.dart';
+import 'achievements_screen.dart';
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -79,6 +80,25 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (game.offlineEarningsAmount != null) {
       _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
     }
+    if (game.pendingAchievementToasts.isNotEmpty) {
+      _showAchievementToasts(game);
+    }
+  }
+
+  void _showAchievementToasts(GameLogic game) {
+    final toasts = List.of(game.pendingAchievementToasts);
+    game.clearAchievementToasts();
+    final messenger = ScaffoldMessenger.of(context);
+    for (final a in toasts) {
+      messenger.showSnackBar(
+        SnackBar(
+          content: Text('🏆  Achievement unlocked: ${a.title}'),
+          duration: const Duration(milliseconds: 2200),
+          backgroundColor: AppTheme.accent,
+          behavior: SnackBarBehavior.floating,
+        ),
+      );
+    }
   }
 
   @override
@@ -100,6 +120,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         onBuyRig: (cost) {},
       ),
+      const AchievementsScreen(), // Index 4: GOALS
     ];
 
     return Scaffold(
@@ -152,6 +173,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               label: 'STASH',
             ),
             BottomNavigationBarItem(icon: Icon(Icons.dashboard), label: 'MINE'),
+            BottomNavigationBarItem(
+              icon: Icon(Icons.emoji_events),
+              label: 'GOALS',
+            ),
           ],
         ),
       ),

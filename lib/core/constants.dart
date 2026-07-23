@@ -40,6 +40,11 @@ class GameConstants {
   static const double genesisDivisor = 65000.0; // 65k chain-GovTokens -> 1 GB
   static const double perGenesisGainBonus = 0.5; // gain x = 1 + 0.5*sqrt(GB)
 
+  // Achievements: each NORMAL (non-secret) achievement grants this much permanent
+  // "Notoriety" income bonus. Its own lane (off the perk/lab budget) and bounded
+  // by the fixed achievement count, so it can't run away.
+  static const double perAchievementNotoriety = 0.01; // +1% income each
+
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
   static const double cosmeticUsdPerSat = 1000.0;

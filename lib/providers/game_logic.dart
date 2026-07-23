@@ -1,9 +1,11 @@
 import 'dart:async';
+import 'dart:math';
 import 'package:flutter/material.dart';
 
 import '../core/constants.dart';
 import '../core/ids.dart';
 import '../content/rig_defs.dart';
+import '../content/achievement_defs.dart';
 import '../logic/channels.dart';
 import '../models/rig.dart';
 import '../models/research_node.dart';
@@ -22,6 +24,7 @@ import '../services/sound_service.dart';
 import '../logic/managers/mining_manager.dart';
 import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
+import '../logic/managers/achievement_manager.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -104,6 +107,26 @@ class GameLogic with ChangeNotifier {
   int chips = 0;
   int spentGovTokens = 0; // Track spent tokens
 
+  // Lifetime action counters (for achievements; persisted, never reset by prestige).
+  int hardForkCount = 0;
+  int softForkCount = 0;
+  int newChainCount = 0;
+  int cratesOpened = 0;
+
+  // Achievements + Notoriety (permanent income bonus). Persists across all
+  // prestige tiers like the Stash — only a full wipe clears it.
+  final AchievementManager _achievements = AchievementManager();
+  List<Achievement> get achievements => kAchievements;
+  bool isAchievementUnlocked(String id) => _achievements.isUnlocked(id);
+  int get achievementsUnlocked => _achievements.unlockedCount;
+  int get achievementsTotal => _achievements.total;
+  double get notorietyBonus => _achievements.notorietyBonus;
+  double get notorietyMultiplier => _achievements.notorietyMultiplier;
+
+  /// Newly-unlocked achievements awaiting a non-blocking toast (drained by the UI).
+  final List<Achievement> pendingAchievementToasts = [];
+  void clearAchievementToasts() => pendingAchievementToasts.clear();
+
   bool soundEnabled = true;
   bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
 
@@ -162,6 +185,13 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     _miningManager.reset();
     _prestige.reset();
+    _achievements.reset(); // full wipe clears achievements + Notoriety
+
+    hardForkCount = 0;
+    softForkCount = 0;
+    newChainCount = 0;
+    cratesOpened = 0;
+    pendingAchievementToasts.clear();
 
     for (var rig in rigs) {
       rig.amount = 0;
@@ -182,6 +212,7 @@ class GameLogic with ChangeNotifier {
     if (cost > 0) {
       wallet -= cost;
       _soundService.playUnlock();
+      _evaluateAchievements();
       notifyListeners();
       _saveGame();
     }
@@ -244,7 +275,9 @@ class GameLogic with ChangeNotifier {
     if (pendingConsensus <= 0) return;
     _prestige.applySoftFork(lifetimeEarnings);
     _researchManager.reset();
+    softForkCount++;
     _soundService.playUnlock();
+    _evaluateAchievements();
     notifyListeners();
     _saveGame();
   }
@@ -460,7 +493,8 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier: buildChannels().multiplier(Channel.income),
+      incomeMultiplier:
+          buildChannels().multiplier(Channel.income) * notorietyMultiplier,
     );
     double income = perSecond * seconds;
     final room = GameConstants.maxSupplySats - lifetimeEarnings;
@@ -498,6 +532,7 @@ class GameLogic with ChangeNotifier {
       _triggerHalving();
       _soundService.playHalving();
     }
+    _evaluateAchievements();
     notifyListeners();
   }
 
@@ -510,6 +545,61 @@ class GameLogic with ChangeNotifier {
     final earned = _accrueMining(seconds, chaosMultiplier: 1.0);
     if (_advanceBlocks(seconds)) _triggerHalving();
     return earned;
+  }
+
+  // ---- Achievements ------------------------------------------------------
+
+  /// Halvings survived THIS era, derived from the current block reward
+  /// (reward = initial / 2^n), so no extra counter is needed.
+  int get eraHalvings {
+    final r = _miningManager.blockReward;
+    if (r <= 0 || r >= GameConstants.initialBlockReward) return 0;
+    return (log(GameConstants.initialBlockReward / r) / ln2).round().clamp(0, 64);
+  }
+
+  AchStats _buildAchStats() {
+    int totalRigs = 0;
+    int typesOwned = 0;
+    for (final r in rigs) {
+      totalRigs += r.amount;
+      if (r.amount > 0) typesOwned++;
+    }
+    return AchStats(
+      lifetimeEarnings: lifetimeEarnings,
+      totalGovTokensEver: totalGovTokensEver,
+      govTokens: govTokens,
+      consensus: consensus,
+      genesisBlocks: genesisBlocks,
+      totalRigs: totalRigs,
+      rigTypesOwned: typesOwned,
+      rigTypesTotal: rigs.length,
+      researchCompleted: researchNodes.where((n) => n.isCompleted).length,
+      researchTotal: researchNodes.length,
+      perkLevels: perks.values.fold(0, (a, b) => a + b),
+      stashDiscovered: _stash.ownedArtifacts.length,
+      stashTotal: StashService.allArtifacts.length,
+      chips: chips,
+      hardForkCount: hardForkCount,
+      softForkCount: softForkCount,
+      newChainCount: newChainCount,
+      cratesOpened: cratesOpened,
+      eraHalvings: eraHalvings,
+      globalHashRate: globalHashRate,
+      prestigeMultiplier: prestigeMultiplier,
+      achievementsUnlocked: _achievements.unlockedCount,
+      ownsArtifact: (id) => _stash.ownedArtifacts.containsKey(id),
+    );
+  }
+
+  /// Evaluate achievements; queue toasts + save on any new unlock. Cheap enough
+  /// to run every tick and after each discrete action.
+  void _evaluateAchievements() {
+    final newly = _achievements.evaluate(_buildAchStats());
+    if (newly.isNotEmpty) {
+      pendingAchievementToasts.addAll(newly);
+      _soundService.playUnlock();
+      _saveGame();
+    }
   }
 
   void _triggerHalving() {
@@ -549,7 +639,7 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier: ch.multiplier(Channel.income),
+      incomeMultiplier: ch.multiplier(Channel.income) * notorietyMultiplier,
     );
 
     lifetimeEarnings += clickSats;
@@ -558,6 +648,7 @@ class GameLogic with ChangeNotifier {
     // so it doesn't emit a click every 5 seconds on its own.
     if (playSound) _soundService.playMine();
 
+    _evaluateAchievements();
     notifyListeners();
   }
 
@@ -580,7 +671,7 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier: ch.multiplier(Channel.income),
+      incomeMultiplier: ch.multiplier(Channel.income) * notorietyMultiplier,
     );
   }
 
@@ -616,6 +707,8 @@ class GameLogic with ChangeNotifier {
     // Consensus is an era currency wiped by a Hard Fork.
     _prestige.onHardFork();
 
+    hardForkCount++;
+    _evaluateAchievements();
     _saveGame();
     notifyListeners();
   }
@@ -648,6 +741,8 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     _perkManager.reset();
 
+    newChainCount++;
+    _evaluateAchievements();
     _saveGame();
     notifyListeners();
   }
@@ -675,6 +770,7 @@ class GameLogic with ChangeNotifier {
 
     if (bought > 0) {
       _soundService.playBuy();
+      _evaluateAchievements();
       notifyListeners();
       _saveGame();
     }
@@ -704,6 +800,7 @@ class GameLogic with ChangeNotifier {
 
       spentGovTokens += cost;
       _soundService.playUnlock();
+      _evaluateAchievements();
       _saveGame();
       notifyListeners();
     }
@@ -726,7 +823,9 @@ class GameLogic with ChangeNotifier {
     if (chips >= cost) {
       chips -= cost;
       _stash.openCrate(isPremium: isPremium);
+      cratesOpened++;
       _soundService.playUnlock();
+      _evaluateAchievements();
       notifyListeners();
       _saveGame();
     }
@@ -759,6 +858,11 @@ class GameLogic with ChangeNotifier {
       genesisBlocks: _prestige.genesisBlocks,
       totalGovTokensEver: _prestige.totalGovTokensEver,
       govTokensEverAtLastNewChain: _prestige.govTokensEverAtLastNewChain,
+      achievements: _achievements.save(),
+      hardForkCount: hardForkCount,
+      softForkCount: softForkCount,
+      newChainCount: newChainCount,
+      cratesOpened: cratesOpened,
     );
   }
 
@@ -805,6 +909,17 @@ class GameLogic with ChangeNotifier {
       _prestige.govTokensEverAtLastNewChain = _toDouble(
         data['govTokensEverAtLastNewChain'],
       );
+
+      // Achievements + action counters (persist across all prestige tiers).
+      hardForkCount = _toInt(data['hardForkCount']);
+      softForkCount = _toInt(data['softForkCount']);
+      newChainCount = _toInt(data['newChainCount']);
+      cratesOpened = _toInt(data['cratesOpened']);
+      if (data['achievements'] is List) {
+        _achievements.load(
+          (data['achievements'] as List).map((e) => e.toString()),
+        );
+      }
 
       // Load Perk Manager Data
       if (data.containsKey('perks')) {
@@ -882,6 +997,12 @@ class GameLogic with ChangeNotifier {
         }
         _saveGame();
       }
+
+      // Grandfather achievements already satisfied by the loaded state: unlock
+      // them SILENTLY (no toast flood) so returning players and newly-added
+      // achievements don't spam notifications on launch.
+      final grandfathered = _achievements.evaluate(_buildAchStats());
+      if (grandfathered.isNotEmpty) _saveGame();
     } catch (e, st) {
       // A failed load must not brick the game: log, keep the in-code defaults,
       // and still mark the game loaded so timers start and play can continue.
