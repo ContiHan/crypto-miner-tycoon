@@ -2,6 +2,10 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/services/casino_service.dart';
+import 'package:crypto_miner_tycoon/services/economy_service.dart';
+import 'package:crypto_miner_tycoon/services/stash_service.dart';
+import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+import 'fakes.dart';
 import 'test_helper.dart';
 
 void main() {
@@ -76,7 +80,28 @@ void main() {
       expect(game.casinoSpins, 1);
     });
 
-    test('casino counters persist across a reload', () async {
+    test('rejects zero or negative bets (no chip printing exploit)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100;
+      expect(game.playSlots(0), isNull);
+      expect(game.playSlots(-5), isNull);
+      expect(game.playDoubleOrNothing(0), isNull);
+      expect(game.playDoubleOrNothing(-5), isNull);
+      expect(game.chips, 100, reason: 'no chips created or destroyed');
+      expect(game.casinoSpins, 0);
+    });
+
+    test('double-or-nothing rejects a bet larger than the balance', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 3;
+      expect(game.playDoubleOrNothing(10), isNull);
+      expect(game.chips, 3);
+      expect(game.casinoSpins, 0);
+    });
+
+    test('casinoSpins persists across a reload', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.chips = 1000;
@@ -86,6 +111,39 @@ void main() {
       expect(game.casinoSpins, 5);
       await game.loadGame();
       expect(game.casinoSpins, 5, reason: 'casinoSpins round-trips');
+    });
+
+    test('a jackpot counts, unlocks the secret achievement, and persists',
+        () async {
+      final repo = FakeGameRepository();
+      GameLogic build() => GameLogic(
+            gameRepository: repo,
+            settingsRepository: FakeSettingsRepository(),
+            economyService: EconomyService(),
+            stashService: StashService(),
+            soundService: FakeSoundService(),
+            startTimers: false,
+            loadOnStart: false,
+            casinoRandom: Random(999), // deterministic spins
+          );
+
+      final game = build();
+      await game.loadGame();
+      game.chips = 100000;
+      var guard = 0;
+      while (game.casinoJackpots == 0 && guard++ < 30000) {
+        game.playSlots(1);
+      }
+      expect(game.casinoJackpots, greaterThan(0),
+          reason: 'seeded spins hit the jackpot within the cap');
+      expect(game.isAchievementUnlocked('secret_jackpot'), true);
+      final jackpots = game.casinoJackpots;
+
+      // Reload from the same repo (each spin saved).
+      final game2 = build();
+      await game2.loadGame();
+      expect(game2.casinoJackpots, jackpots, reason: 'casinoJackpots persists');
+      expect(game2.isAchievementUnlocked('secret_jackpot'), true);
     });
 
     test("'Feeling Lucky' achievement unlocks after 25 plays", () async {

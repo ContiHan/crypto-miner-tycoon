@@ -118,7 +118,7 @@ class GameLogic with ChangeNotifier {
 
   // SIMULATED casino (in-game Micro-Chips only; house edge EV<1).
   final CasinoService _casino = CasinoService();
-  final Random _casinoRng = Random();
+  final Random _casinoRng; // injectable so tests can force deterministic spins
 
   /// Bet [bet] chips on the slots. Returns the spin (null if unaffordable).
   SlotSpin? playSlots(int bet) {
@@ -395,11 +395,13 @@ class GameLogic with ChangeNotifier {
     required SoundService soundService,
     bool startTimers = true,
     bool loadOnStart = true,
+    Random? casinoRandom,
   }) : _gameRepo = gameRepository,
        _settingsRepo = settingsRepository,
        _economy = economyService,
        _stash = stashService,
-       _soundService = soundService {
+       _soundService = soundService,
+       _casinoRng = casinoRandom ?? Random() {
     // Initialize Managers
     _miningManager = MiningManager();
     _researchManager = ResearchManager();

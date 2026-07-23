@@ -447,9 +447,12 @@ class _StashScreenState extends State<StashScreen>
       if (spin.isJackpot) {
         _casinoMessage = '🎉 JACKPOT! +${spin.net} chips';
         _casinoMessageColor = Colors.amber;
-      } else if (spin.isWin) {
+      } else if (spin.net > 0) {
         _casinoMessage = 'WIN +${spin.net} chips';
         _casinoMessageColor = Colors.greenAccent;
+      } else if (spin.net == 0) {
+        _casinoMessage = 'Push — broke even';
+        _casinoMessageColor = Colors.white70;
       } else {
         _casinoMessage = 'Bust. -$_bet chips';
         _casinoMessageColor = Colors.redAccent;
@@ -653,20 +656,34 @@ class _StashScreenState extends State<StashScreen>
             .map((o) => Padding(
                   padding: const EdgeInsets.symmetric(vertical: 1),
                   child: Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
                     children: [
-                      Text(o.symbols.join(' '),
-                          style: const TextStyle(fontSize: 13)),
-                      Text('${o.multiplier.toStringAsFixed(o.multiplier % 1 == 0 ? 0 : 1)}×',
+                      Expanded(
+                        child: Text(o.symbols.join(' '),
+                            style: const TextStyle(fontSize: 13)),
+                      ),
+                      // Per-outcome probability — makes "odds disclosed" literal.
+                      Text(
+                        '${(o.weight / CasinoService.totalWeight * 100).toStringAsFixed(1)}%',
+                        style: const TextStyle(
+                            color: Colors.white38, fontSize: 11),
+                      ),
+                      const SizedBox(width: 16),
+                      SizedBox(
+                        width: 44,
+                        child: Text(
+                          '${o.multiplier.toStringAsFixed(o.multiplier % 1 == 0 ? 0 : 1)}×',
+                          textAlign: TextAlign.right,
                           style: const TextStyle(
                               color: Colors.white70,
                               fontSize: 12,
-                              fontWeight: FontWeight.bold)),
+                              fontWeight: FontWeight.bold),
+                        ),
+                      ),
                     ],
                   ),
                 )),
         const SizedBox(height: 4),
-        Text('Average return ~$rtp% (house edge — a chip sink for fun).',
+        Text('Average return ~$rtp% • house edge (a chip sink for fun).',
             style: const TextStyle(color: Colors.white38, fontSize: 10)),
       ],
     );
