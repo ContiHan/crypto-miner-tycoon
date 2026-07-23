@@ -178,9 +178,26 @@ class GameRepository {
           : (asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0)).toDouble(),
       'govTokensEverAtLastNewChain':
           asDouble(m['govTokensEverAtLastNewChain'], 0),
-      'hardForkCount': asInt(m['hardForkCount'], 0),
-      'softForkCount': asInt(m['softForkCount'], 0),
-      'newChainCount': asInt(m['newChainCount'], 0),
+      // For saves predating these counters, proxy the "first-action" state from
+      // persisted progress so the first-fork achievements still grandfather
+      // (GovTokens only come from Hard Forks; Consensus only from Soft Forks;
+      // Genesis Blocks only from New Blockchains). Exact historical counts are
+      // unrecoverable and re-earn naturally.
+      'hardForkCount': m.containsKey('hardForkCount')
+          ? asInt(m['hardForkCount'], 0)
+          : ((asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0) > 0 ||
+                  asDouble(m['totalGovTokensEver'], 0) > 0)
+              ? 1
+              : 0),
+      'softForkCount': m.containsKey('softForkCount')
+          ? asInt(m['softForkCount'], 0)
+          : ((asInt(m['consensus'], 0) > 0 ||
+                  asDouble(m['lifetimeAtLastSoftFork'], 0) > 0)
+              ? 1
+              : 0),
+      'newChainCount': m.containsKey('newChainCount')
+          ? asInt(m['newChainCount'], 0)
+          : (asInt(m['genesisBlocks'], 0) > 0 ? 1 : 0),
       'cratesOpened': asInt(m['cratesOpened'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()

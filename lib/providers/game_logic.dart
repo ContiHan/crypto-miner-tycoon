@@ -372,6 +372,7 @@ class GameLogic with ChangeNotifier {
       onCollect: () {
         chips += 1;
         _soundService.playUnlock();
+        _evaluateAchievements();
         _saveGame();
       },
     );
@@ -813,6 +814,7 @@ class GameLogic with ChangeNotifier {
       spentGovTokens += cost;
       chips += 1;
       _soundService.playBuy();
+      _evaluateAchievements();
       notifyListeners();
       _saveGame();
     }

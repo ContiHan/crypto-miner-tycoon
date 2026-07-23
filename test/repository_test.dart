@@ -271,6 +271,41 @@ void main() {
       expect(data['govTokensEverAtLastNewChain'], 0.0);
     });
 
+    test('seeds first-action counters from progress for pre-Phase-6 saves',
+        () async {
+      // A save predating the achievement counters: has tokens/consensus/genesis
+      // but no *Count keys. The first-action counters must be proxied to 1 so
+      // the first-fork achievements grandfather instead of being lost.
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode({
+          'version': 2,
+          'govTokens': 40,
+          'totalGovTokensEver': 40,
+          'consensus': 3,
+          'genesisBlocks': 1,
+          // no hardForkCount / softForkCount / newChainCount keys
+        }),
+      });
+      final data = await GameRepository().loadGameState();
+      expect(data['hardForkCount'], 1, reason: 'GovTokens imply a Hard Fork');
+      expect(data['softForkCount'], 1, reason: 'Consensus implies a Soft Fork');
+      expect(data['newChainCount'], 1, reason: 'Genesis implies a New Blockchain');
+    });
+
+    test('keeps explicit counters instead of reseeding them', () async {
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode({
+          'version': 2,
+          'govTokens': 40,
+          'hardForkCount': 7,
+          'softForkCount': 0,
+        }),
+      });
+      final data = await GameRepository().loadGameState();
+      expect(data['hardForkCount'], 7);
+      expect(data['softForkCount'], 0, reason: 'explicit 0 is respected');
+    });
+
     test('preserves a persisted totalGovTokensEver instead of reseeding',
         () async {
       SharedPreferences.setMockInitialValues({
