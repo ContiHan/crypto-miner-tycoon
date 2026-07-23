@@ -185,4 +185,48 @@ void main() {
           closeTo(nonSecret * GameConstants.perAchievementNotoriety, 1e-9));
     });
   });
+
+  group('Reachability', () {
+    // lifetimeEarnings is a PER-ERA counter, hard-clamped to maxSupplySats and
+    // reset by every prestige. Any earnings achievement whose threshold exceeds
+    // the cap can never unlock (this caught earn_1q at 1e16 > 2.1e15).
+    AchStats statsAtCap() => AchStats(
+          lifetimeEarnings: GameConstants.maxSupplySats,
+          totalGovTokensEver: 0,
+          govTokens: 0,
+          consensus: 0,
+          genesisBlocks: 0,
+          totalRigs: 0,
+          rigTypesOwned: 0,
+          rigTypesTotal: 0,
+          researchCompleted: 0,
+          researchTotal: 0,
+          perkLevels: 0,
+          stashDiscovered: 0,
+          stashTotal: 0,
+          chips: 0,
+          hardForkCount: 0,
+          softForkCount: 0,
+          newChainCount: 0,
+          cratesOpened: 0,
+          casinoSpins: 0,
+          casinoJackpots: 0,
+          eraHalvings: 0,
+          globalHashRate: 0,
+          prestigeMultiplier: 1.0,
+          achievementsUnlocked: 0,
+          ownsArtifact: (_) => false,
+        );
+
+    test('every earnings achievement is satisfiable at the per-era cap', () {
+      final stats = statsAtCap();
+      final earnings =
+          kAchievements.where((a) => a.category == AchCategory.earnings);
+      for (final a in earnings) {
+        expect(a.condition(stats), true,
+            reason:
+                '${a.id} requires more than maxSupplySats and can never unlock');
+      }
+    });
+  });
 }
