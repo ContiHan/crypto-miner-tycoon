@@ -530,7 +530,13 @@ class GameLogic with ChangeNotifier {
   }
 
   Future<void> onAppResumed() async {
-    if (_isLoaded) {
+    // Only reconcile offline earnings if a real pause actually stopped the
+    // timers. An inactive->resumed cycle (Control Center / notification shade /
+    // incoming-call banner / permission dialog / app-switcher preview) never
+    // fires onAppPaused, so the live 1s timer kept crediting income the whole
+    // time — running the offline sim then would double-count that window.
+    final bool wasPaused = !_timersActive;
+    if (wasPaused && _isLoaded) {
       final lastSaveTime = await _gameRepo.readLastSaveTime();
       if (lastSaveTime != null) {
         final elapsed =
@@ -546,6 +552,11 @@ class GameLogic with ChangeNotifier {
     if (_autoStartTimers) _startAllTimers();
     notifyListeners();
   }
+
+  /// Test seam: simulate whether the game timers are currently running, to
+  /// exercise the inactive->resumed (no real pause) branch of [onAppResumed].
+  @visibleForTesting
+  set debugTimersActive(bool v) => _timersActive = v;
 
   // Spawns anomalies randomly
   void clickAnomaly() => _anomaly.collect();
@@ -1121,21 +1132,13 @@ class GameLogic with ChangeNotifier {
       _researchManager.refreshUnlocks();
 
       // The load has succeeded far enough to be authoritative; saves are now
-      // safe to persist (and offline sim below relies on this).
+      // safe to persist (and the offline sim below relies on this).
       _isLoaded = true;
 
-      // Offline Earnings
-      final lastSaveTime = data['last_save_time'];
-      if (lastSaveTime != null) {
-        final now = DateTime.now().millisecondsSinceEpoch;
-        final diffSeconds = (now - lastSaveTime) ~/ 1000;
-
-        if (diffSeconds > 10) {
-          _simulateOfflineMining(diffSeconds);
-        }
-      }
-
-      // Migration
+      // Migration — MUST run before the offline sim below: it recovers
+      // spentGovTokens from purchased perks for legacy saves, which feeds the
+      // prestige multiplier. Running it after the offline sim would accrue the
+      // one-time offline payout with an understated multiplier (under-credit).
       if (spentGovTokens == 0 && _perkManager.perks.values.any((v) => v > 0)) {
         spentGovTokens = _economy.recalculateSpentTokens(_perkManager.perks);
         // The tier-3 "ever minted" accumulator must be at least what the player
@@ -1147,6 +1150,19 @@ class GameLogic with ChangeNotifier {
           _prestige.totalGovTokensEver = minEver;
         }
         _saveGame();
+      }
+
+      // Offline Earnings — reads the ORIGINAL loaded timestamp (the migration's
+      // _saveGame above writes to disk, not to this local `data` map), and now
+      // accrues with the migrated prestige multiplier.
+      final lastSaveTime = data['last_save_time'];
+      if (lastSaveTime != null) {
+        final now = DateTime.now().millisecondsSinceEpoch;
+        final diffSeconds = (now - lastSaveTime) ~/ 1000;
+
+        if (diffSeconds > 10) {
+          _simulateOfflineMining(diffSeconds);
+        }
       }
 
       // Grandfather achievements already satisfied by the loaded state: unlock

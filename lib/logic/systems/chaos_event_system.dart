@@ -16,7 +16,10 @@ class ChaosEventSystem {
   NewsEvent? currentNews;
 
   Timer? _scheduleTimer;
-  Timer? _chaosResetTimer;
+  // Income and cost buffs expire on INDEPENDENT timers so orthogonal events
+  // (e.g. a Bull Run and Cheap Energy) don't cut each other short.
+  Timer? _incomeResetTimer;
+  Timer? _costResetTimer;
   Timer? _newsTimer;
   final _random = Random();
 
@@ -40,7 +43,8 @@ class ChaosEventSystem {
 
   void stop() {
     _scheduleTimer?.cancel();
-    _chaosResetTimer?.cancel();
+    _incomeResetTimer?.cancel();
+    _costResetTimer?.cancel();
     _newsTimer?.cancel();
     // A cancelled reset timer must not strand an active chaos multiplier — and
     // the banner must not outlive it (else a stale "BULL RUN +100%" lingers on
@@ -119,15 +123,32 @@ class ChaosEventSystem {
   }
 
   void _applyChaos(double income, double cost, int durationSeconds) {
-    incomeMultiplier = income;
-    costMultiplier = cost;
-    _chaosResetTimer?.cancel();
-    if (income != 1.0 || cost != 1.0) {
-      _chaosResetTimer = Timer(Duration(seconds: durationSeconds), () {
+    // Apply and expire each axis independently. A value of 1.0 means "this event
+    // doesn't touch this axis" — so a no-op/flavour event (info) or a wallet-only
+    // event (hack) leaves any active buff/debuff running instead of wiping it,
+    // and an income event never resets an active cost buff (or vice-versa). On
+    // the same axis, the newer event wins (its timer replaces the old one).
+    if (income != 1.0) {
+      incomeMultiplier = income;
+      _incomeResetTimer?.cancel();
+      _incomeResetTimer = Timer(Duration(seconds: durationSeconds), () {
         incomeMultiplier = 1.0;
+        onChanged();
+      });
+    }
+    if (cost != 1.0) {
+      costMultiplier = cost;
+      _costResetTimer?.cancel();
+      _costResetTimer = Timer(Duration(seconds: durationSeconds), () {
         costMultiplier = 1.0;
         onChanged();
       });
     }
   }
+
+  /// Test seam for the per-axis apply/expiry logic (avoids relying on the random
+  /// event roll). Not used in production.
+  @visibleForTesting
+  void applyChaosForTest(double income, double cost, int durationSeconds) =>
+      _applyChaos(income, cost, durationSeconds);
 }

@@ -275,9 +275,12 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'earn_1q',
     title: 'Quadrillionaire',
-    description: 'Mine 10Q sats in total.',
+    // 1 quadrillion (1e15) — below the 2.1e15 per-era cap so it is actually
+    // reachable in a single era (lifetimeEarnings resets each prestige). The
+    // previous 1e16 exceeded the cap and could never unlock.
+    description: 'Mine 1Q sats in total.',
     category: AchCategory.earnings,
-    condition: (s) => s.lifetimeEarnings >= 1e16,
+    condition: (s) => s.lifetimeEarnings >= 1e15,
   ),
   Achievement(
     id: 'rigs_1000',

@@ -50,6 +50,28 @@ void main() {
       );
     });
 
+    test('onAppResumed does NOT credit when timers never stopped (inactive->resumed)',
+        () async {
+      final repo = _repoWithOneRig();
+      final game = _gameWith(repo);
+      await game.loadGame();
+
+      // Simulate an inactive->resumed cycle: the live timers were never stopped
+      // (onAppPaused never ran), so income kept being credited by the 1s tick.
+      game.debugTimersActive = true;
+      final walletBefore = game.wallet;
+      repo.data['last_save_time'] = DateTime.now()
+          .subtract(const Duration(seconds: 300))
+          .millisecondsSinceEpoch;
+
+      await game.onAppResumed();
+
+      expect(game.wallet, walletBefore,
+          reason: 'must not re-credit a window the live timer already earned');
+      expect(game.offlineEarningsAmount, isNull,
+          reason: 'no offline reconciliation without a real pause');
+    });
+
     test('a short background gap is reconciled silently', () async {
       final repo = _repoWithOneRig();
       final game = _gameWith(repo);
