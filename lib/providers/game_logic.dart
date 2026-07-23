@@ -50,6 +50,15 @@ class GameLogic with ChangeNotifier {
   Map<String, int> get perks => _perkManager.perks;
   Map<String, int> get perkCosts => _perkManager.perkCosts;
 
+  // Data-driven PERKS UI: the screen iterates these defs and reveals each perk
+  // once its unlock threshold (totalGovTokensEver) is reached.
+  Map<String, PerkDef> get perkDefs => PerkManager.defs;
+  bool isPerkUnlocked(String id) =>
+      _perkManager.isUnlocked(id, totalGovTokensEver);
+  bool isPerkMaxed(String id) => _perkManager.isMaxed(id);
+  String perkBonusText(String id) =>
+      _perkManager.bonusText(id, _perkManager.getLevel(id));
+
   // Mining Data Proxies
   double get blockReward => _miningManager.blockReward;
   set blockReward(double value) => _miningManager.blockReward = value;
@@ -208,6 +217,10 @@ class GameLogic with ChangeNotifier {
   int get genesisBlocks => _prestige.genesisBlocks;
   int get pendingGenesis => _prestige.pendingGenesis();
   double get genesisGainMultiplier => _prestige.genesisGainMultiplier;
+
+  /// Cumulative GovTokens ever minted — the progression metric perks unlock
+  /// against, so the perk list reveals gradually as the player prestiges.
+  double get totalGovTokensEver => _prestige.totalGovTokensEver;
 
   // All prestige tiers feed the PRESTIGE channel additively: GovTokens (+10%
   // each) + Consensus (+5% each).
@@ -433,6 +446,7 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosMultiplier,
       lifetimeEarnings: lifetimeEarnings,
+      incomeMultiplier: buildChannels().multiplier(Channel.income),
     );
     double income = perSecond * seconds;
     final room = GameConstants.maxSupplySats - lifetimeEarnings;
@@ -497,8 +511,10 @@ class GameLogic with ChangeNotifier {
   );
 
   void clickMine({bool playSound = true}) {
+    final ch = buildChannels();
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
     clickPower *= _stash.getClickPowerMultiplier();
+    clickPower *= ch.multiplier(Channel.click); // CLICK channel (perks/etc.)
 
     double diff = networkDifficulty;
 
@@ -508,6 +524,7 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
+      incomeMultiplier: ch.multiplier(Channel.income),
     );
 
     lifetimeEarnings += clickSats;
@@ -520,9 +537,11 @@ class GameLogic with ChangeNotifier {
   }
 
   double get estimatedClickValue {
+    final ch = buildChannels();
     double clickPower =
         _economy.calculateClickPower(_perkManager.perks) *
-        _stash.getClickPowerMultiplier();
+        _stash.getClickPowerMultiplier() *
+        ch.multiplier(Channel.click);
 
     // We can reuse MiningManager logic passing dummy 'hashRate' = clickPower?
     // Yes, MiningManager.calculateMiningIncome handles the formula.
@@ -536,6 +555,7 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
+      incomeMultiplier: ch.multiplier(Channel.income),
     );
   }
 

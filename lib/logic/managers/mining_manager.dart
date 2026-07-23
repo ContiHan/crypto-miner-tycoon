@@ -62,6 +62,7 @@ class MiningManager {
     required double prestigeMultiplier,
     required double chaosMultiplier,
     required double lifetimeEarnings,
+    double incomeMultiplier = 1.0, // INCOME channel (research/perks/stash)
   }) {
     if (hashRate <= 0) return 0;
 
@@ -71,7 +72,8 @@ class MiningManager {
         GameConstants.satPerHash *
         blockRewardFactor *
         prestigeMultiplier *
-        chaosMultiplier;
+        chaosMultiplier *
+        incomeMultiplier;
 
     // Per-era thematic cap (never realistically hit; kept for safety).
     final double room = GameConstants.maxSupplySats - lifetimeEarnings;

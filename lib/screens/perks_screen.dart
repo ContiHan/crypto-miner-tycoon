@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
+import '../logic/managers/perk_manager.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
@@ -12,146 +13,184 @@ class PerksScreen extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    // If embedded, don't use Scaffold/AppBar, just return the content
     final content = Consumer<GameLogic>(
-        builder: (context, game, child) {
-          return Column(
-            children: [
-              // Header
-              Container(
-                padding: const EdgeInsets.all(20),
-                width: double.infinity,
-                color: Colors.black26,
-                child: Column(
-                  children: [
-                    const Text('GOVERNANCE TOKENS', style: TextStyle(color: AppTheme.textSecondary, letterSpacing: 2)),
-                    const SizedBox(height: 10),
-                    Text(
-                      Formatter.formatNumber(game.govTokens.toDouble()),
-                      style: const TextStyle(
-                        fontSize: 48,
-                        fontWeight: FontWeight.w900,
-                        color: AppTheme.accent,
-                      ),
+      builder: (context, game, child) {
+        final entries = game.perkDefs.entries.toList();
+
+        // Progressive discovery: show unlocked perks, then a single "???" teaser
+        // for the next locked one so the player always sees a goal.
+        final widgets = <Widget>[];
+        bool teaserShown = false;
+        for (final e in entries) {
+          if (game.isPerkUnlocked(e.key)) {
+            widgets.add(_buildPerkItem(context, game, e.key, e.value));
+          } else if (!teaserShown) {
+            widgets.add(_buildLockedPerkTeaser(e.value));
+            teaserShown = true;
+          }
+        }
+
+        return Column(
+          children: [
+            // Header
+            Container(
+              padding: const EdgeInsets.all(20),
+              width: double.infinity,
+              color: Colors.black26,
+              child: Column(
+                children: [
+                  const Text('GOVERNANCE TOKENS',
+                      style: TextStyle(
+                          color: AppTheme.textSecondary, letterSpacing: 2)),
+                  const SizedBox(height: 10),
+                  Text(
+                    Formatter.formatNumber(game.govTokens.toDouble()),
+                    style: const TextStyle(
+                      fontSize: 48,
+                      fontWeight: FontWeight.w900,
+                      color: AppTheme.accent,
                     ),
-                    const Text('Tokens remain after Reset', style: TextStyle(color: Colors.white38, fontSize: 12)),
-                  ],
-                ),
+                  ),
+                  const Text('Tokens remain after a Hard Fork',
+                      style: TextStyle(color: Colors.white38, fontSize: 12)),
+                ],
               ),
-              Expanded(
-                child: ListView(
-                  padding: const EdgeInsets.all(16),
-                  children: [
-                    _buildPerkItem(
-                      context, 
-                      game, 
-                      id: 'click_power', 
-                      name: 'CYBERNETIC FINGERS', 
-                      desc: 'Increases manual click power by +2 per level.',
-                      icon: Icons.touch_app,
-                    ),
-                    _buildPerkItem(
-                      context, 
-                      game, 
-                      id: 'rig_cost', 
-                      name: 'EFFICIENT BIOS', 
-                      desc: 'Reduces Rig costs by 5% per level (Max 90%).',
-                      icon: Icons.price_check,
-                    ),
-                    _buildPerkItem(
-                      context, 
-                      game, 
-                      id: 'hash_bonus', 
-                      name: 'NEURAL OVERCLOCK', 
-                      desc: 'Increases total Hash Rate by 10% per level.',
-                      icon: Icons.psychology,
-                    ),
-                  ],
-                ),
+            ),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.all(16),
+                children: widgets,
               ),
-            ],
-          );
-        },
-      );
+            ),
+          ],
+        );
+      },
+    );
 
     if (isEmbedded) {
       return content;
     }
 
     return Scaffold(
-      appBar: AppBar(
-        title: const Text('PERMANENT PERKS'),
-      ),
+      appBar: AppBar(title: const Text('PERMANENT PERKS')),
       body: content,
     );
   }
 
-  Widget _buildPerkItem(BuildContext context, GameLogic game, {
-    required String id, 
-    required String name, 
-    required String desc,
-    required IconData icon,
-  }) {
+  Widget _buildPerkItem(
+    BuildContext context,
+    GameLogic game,
+    String id,
+    PerkDef def,
+  ) {
     final level = game.perks[id] ?? 0;
     final cost = game.perkCosts[id] ?? 999;
-    
-    bool isMaxed = false;
-    if (id == 'rig_cost' && level >= 18) isMaxed = true;
-    
+    final isMaxed = game.isPerkMaxed(id);
     final canAfford = !isMaxed && game.govTokens >= cost;
-    
-    // Calculate current bonus string
-    String bonusText = '';
-    if (id == 'click_power') {
-      bonusText = '+${level * 2} Click Power';
-    } else if (id == 'rig_cost') {
-      int discount = level * 5;
-      if (discount > 90) discount = 90;
-      bonusText = '-$discount% Rig Cost';
-    } else if (id == 'hash_bonus') {
-      bonusText = '+${level * 10}% Hash Rate';
-    }
 
     return StylizedCard(
       child: Padding(
         padding: const EdgeInsets.all(8.0),
         child: Row(
           children: [
-             Container(
+            Container(
               width: 50,
               height: 50,
               decoration: BoxDecoration(
                 color: Colors.black38,
-                border: Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
+                border:
+                    Border.all(color: AppTheme.accent.withValues(alpha: 0.5)),
                 borderRadius: BorderRadius.circular(4),
               ),
-              child: Icon(icon, color: AppTheme.accent, size: 30),
+              child: Icon(def.icon, color: AppTheme.accent, size: 30),
             ),
             const SizedBox(width: 15),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  Text(name, style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16, color: Colors.white)),
-                  Text(desc, style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                  Text(def.name,
+                      style: const TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white)),
+                  Text(def.description,
+                      style: const TextStyle(
+                          color: Colors.white70, fontSize: 12)),
                   const SizedBox(height: 5),
-                  Text('Level $level', style: const TextStyle(color: AppTheme.accent, fontWeight: FontWeight.bold)),
-                  Text(bonusText, style: const TextStyle(color: Colors.greenAccent, fontSize: 12, fontWeight: FontWeight.bold)),
+                  Text('Level $level',
+                      style: const TextStyle(
+                          color: AppTheme.accent, fontWeight: FontWeight.bold)),
+                  Text(game.perkBonusText(id),
+                      style: const TextStyle(
+                          color: Colors.greenAccent,
+                          fontSize: 12,
+                          fontWeight: FontWeight.bold)),
                 ],
               ),
             ),
             ElevatedButton(
               onPressed: canAfford ? () => game.buyPerk(id) : null,
               style: ElevatedButton.styleFrom(
-                backgroundColor: isMaxed ? Colors.grey : (canAfford ? AppTheme.accent : Colors.grey[800]),
+                backgroundColor: isMaxed
+                    ? Colors.grey
+                    : (canAfford ? AppTheme.accent : Colors.grey[800]),
                 foregroundColor: Colors.black,
               ),
               child: Column(
                 mainAxisSize: MainAxisSize.min,
                 children: [
-                  Text(isMaxed ? 'MAX' : 'BUY', style: const TextStyle(fontSize: 10, fontWeight: FontWeight.bold)),
+                  Text(isMaxed ? 'MAX' : 'BUY',
+                      style: const TextStyle(
+                          fontSize: 10, fontWeight: FontWeight.bold)),
                   if (!isMaxed)
-                    Text(Formatter.formatNumber(cost.toDouble()), style: const TextStyle(fontSize: 14, fontWeight: FontWeight.bold)),
+                    Text(Formatter.formatNumber(cost.toDouble()),
+                        style: const TextStyle(
+                            fontSize: 14, fontWeight: FontWeight.bold)),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  /// Dim "???" silhouette for the next locked perk (progressive discovery).
+  Widget _buildLockedPerkTeaser(PerkDef def) {
+    return StylizedCard(
+      color: Colors.black26,
+      child: Padding(
+        padding: const EdgeInsets.all(8.0),
+        child: Row(
+          children: [
+            Container(
+              width: 50,
+              height: 50,
+              decoration: BoxDecoration(
+                color: Colors.white10,
+                border: Border.all(color: Colors.white24),
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: const Icon(Icons.lock_outline,
+                  color: Colors.white38, size: 28),
+            ),
+            const SizedBox(width: 15),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  const Text('???',
+                      style: TextStyle(
+                          fontWeight: FontWeight.bold,
+                          fontSize: 16,
+                          color: Colors.white54,
+                          letterSpacing: 2)),
+                  const SizedBox(height: 4),
+                  Text(
+                    'Unlocks at ${Formatter.formatNumber(def.unlockAtTokensEver)} GovTokens earned',
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  ),
                 ],
               ),
             ),
