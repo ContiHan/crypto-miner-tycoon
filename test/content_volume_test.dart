@@ -158,6 +158,25 @@ void main() {
     });
   });
 
+  group('Save compatibility — new nodes unlock on load', () {
+    test('refreshUnlocks reveals nodes whose prereqs are already completed', () {
+      final rm = ResearchManager();
+      // Simulate an old save: a prerequisite is completed, but a node added by a
+      // later content update is still locked (its unlock never ran).
+      rm.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.basicOverclock)
+          .isCompleted = true;
+      final added = rm.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.advancedOverclock);
+      expect(added.isUnlocked, false, reason: 'added-later node starts locked');
+
+      rm.refreshUnlocks();
+
+      expect(added.isUnlocked, true,
+          reason: 'prereq is complete -> node must unlock on load, not soft-lock');
+    });
+  });
+
   group('No dead content — every effect uses a consumed channel/type', () {
     test('stash artifacts only use consumed bonus types', () {
       const consumed = {

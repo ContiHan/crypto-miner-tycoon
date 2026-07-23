@@ -824,6 +824,10 @@ class GameLogic with ChangeNotifier {
           }
         }
       }
+      // Unlock any node whose prerequisites are already completed — covers nodes
+      // added by a content update after this save was written (else they stay
+      // stuck as "???" and the LAB soft-locks).
+      _researchManager.refreshUnlocks();
 
       // The load has succeeded far enough to be authoritative; saves are now
       // safe to persist (and offline sim below relies on this).

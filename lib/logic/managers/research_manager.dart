@@ -246,6 +246,12 @@ class ResearchManager {
     }
   }
 
+  /// Re-derives unlock state from completed nodes. Called after loading a save so
+  /// that nodes ADDED after that save was written (whose prerequisites are
+  /// already completed) become purchasable instead of being stuck as locked
+  /// "???" frontier teasers — otherwise a content update soft-locks the LAB.
+  void refreshUnlocks() => _checkUnlocks();
+
   /// Adds every completed node's declared channel effect to [ch].
   void contributeChannels(Channels ch) {
     for (final node in researchNodes) {
