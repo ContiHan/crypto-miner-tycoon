@@ -19,6 +19,7 @@ void main() {
         stashService: StashService(),
         soundService: FakeSoundService(),
       );
+      game.clickRng = NoCritRandom(); // deterministic taps (no random crits)
     });
 
     test('Initial State should be empty', () {

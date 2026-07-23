@@ -31,6 +31,14 @@ import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
 
+/// Outcome of a single mining tap — the sats gained and whether it was a crit.
+/// Returned by [GameLogic.clickMine] so the UI can show the float text + juice.
+class ClickResult {
+  final double sats;
+  final bool isCrit;
+  const ClickResult(this.sats, this.isCrit);
+}
+
 class GameLogic with ChangeNotifier {
   double wallet = 0;
   double lifetimeEarnings = 0;
@@ -130,6 +138,11 @@ class GameLogic with ChangeNotifier {
     casinoSpins++;
     if (spin.isJackpot) casinoJackpots++;
     _soundService.playBuy();
+    if (spin.isJackpot) {
+      _hapticHeavy();
+    } else if (spin.isWin) {
+      _hapticLight();
+    }
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
@@ -163,14 +176,23 @@ class GameLogic with ChangeNotifier {
   double get notorietyBonus => _achievements.notorietyBonus;
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
 
-  // Fire-and-forget haptic that never throws (no platform channel in tests).
-  void _haptic(Future<void> Function() f) => f().catchError((_) {});
+  // Fire-and-forget haptics that never throw (no platform channel in tests) and
+  // honour the user's haptics toggle. Typed by intensity so call sites read
+  // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
+  void _haptic(Future<void> Function() f) {
+    if (!hapticsEnabled) return;
+    f().catchError((_) {});
+  }
+
+  void _hapticLight() => _haptic(HapticFeedback.lightImpact);
+  void _hapticMedium() => _haptic(HapticFeedback.mediumImpact);
+  void _hapticHeavy() => _haptic(HapticFeedback.heavyImpact);
 
   /// Claim an unlocked achievement — activates its Notoriety income bonus.
   bool claimAchievement(String id) {
     if (!_achievements.claim(id)) return false;
     _soundService.playUnlock();
-    _haptic(HapticFeedback.mediumImpact);
+    _hapticMedium();
     notifyListeners();
     _saveGame();
     return true;
@@ -181,7 +203,7 @@ class GameLogic with ChangeNotifier {
     final n = _achievements.claimAll();
     if (n > 0) {
       _soundService.playUnlock();
-      _haptic(HapticFeedback.mediumImpact);
+      _hapticMedium();
       notifyListeners();
       _saveGame();
     }
@@ -193,6 +215,7 @@ class GameLogic with ChangeNotifier {
   void clearAchievementToasts() => pendingAchievementToasts.clear();
 
   bool soundEnabled = true;
+  bool hapticsEnabled = true; // Vibration feedback toggle (see _haptic)
   bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
 
   // Offline Earnings (UI Display)
@@ -208,22 +231,29 @@ class GameLogic with ChangeNotifier {
     // Bridge the setting to the actual audio player; without this the toggle
     // was purely cosmetic (SoundService.setMuted had no call sites).
     _soundService.setMuted(!soundEnabled);
-    await _settingsRepo.saveSettings(
-      soundEnabled: soundEnabled,
-      showFiatPrices: showFiatPrices,
-    );
+    await _persistSettings();
+    notifyListeners();
+  }
+
+  Future<void> toggleHaptics() async {
+    hapticsEnabled = !hapticsEnabled;
+    if (hapticsEnabled) _hapticLight(); // let the user feel it turn on
+    await _persistSettings();
     notifyListeners();
   }
 
   Future<void> toggleFiatDisplay() async {
     showFiatPrices = !showFiatPrices;
     _soundService.playMine(); // light UI click on the currency toggle
-    await _settingsRepo.saveSettings(
-      soundEnabled: soundEnabled,
-      showFiatPrices: showFiatPrices,
-    );
+    await _persistSettings();
     notifyListeners();
   }
+
+  Future<void> _persistSettings() => _settingsRepo.saveSettings(
+        soundEnabled: soundEnabled,
+        hapticsEnabled: hapticsEnabled,
+        showFiatPrices: showFiatPrices,
+      );
 
   /// A light click for generic UI interactions (e.g. bottom-nav tab switches)
   /// that have no dedicated effect of their own.
@@ -344,6 +374,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     softForkCount++;
     _soundService.playUnlock();
+    _hapticHeavy();
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
@@ -601,6 +632,7 @@ class GameLogic with ChangeNotifier {
     if (_advanceBlocks(1)) {
       _triggerHalving();
       _soundService.playHalving();
+      _hapticHeavy();
     }
     _evaluateAchievements();
     notifyListeners();
@@ -697,7 +729,13 @@ class GameLogic with ChangeNotifier {
     gainMultiplier: _prestige.genesisGainMultiplier,
   );
 
-  void clickMine({bool playSound = true}) {
+  // Injectable so tests can force a crit / no-crit deterministically.
+  Random _clickRng = Random();
+  @visibleForTesting
+  set clickRng(Random r) => _clickRng = r;
+
+  /// Result of a single [clickMine] tap, for the UI (float text + juice).
+  ClickResult clickMine({bool playSound = true}) {
     final ch = buildChannels();
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
     clickPower *= _stash.getClickPowerMultiplier();
@@ -714,14 +752,34 @@ class GameLogic with ChangeNotifier {
       incomeMultiplier: ch.multiplier(Channel.income) * notorietyMultiplier,
     );
 
+    // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
+    // crit — the silent auto-clicker never rolls, so it can't secretly pump.
+    final bool isCrit =
+        playSound && _clickRng.nextDouble() < GameConstants.clickCritChance;
+    if (isCrit) clickSats *= GameConstants.clickCritMultiplier;
+
+    // Re-clamp to the per-era supply cap AFTER the crit multiply (mirrors
+    // _accrueMining) so a crit near the cap can't push lifetimeEarnings over
+    // maxSupplySats and flip networkDifficulty to Infinity.
+    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) {
+      clickSats = 0;
+    } else if (clickSats > room) {
+      clickSats = room;
+    }
+
     lifetimeEarnings += clickSats;
     wallet += clickSats;
     // Only a real tap makes the click sound; the AI auto-clicker stays silent
     // so it doesn't emit a click every 5 seconds on its own.
-    if (playSound) _soundService.playMine();
+    if (playSound) {
+      _soundService.playMine();
+      if (isCrit) _hapticHeavy();
+    }
 
     _evaluateAchievements();
     notifyListeners();
+    return ClickResult(clickSats, isCrit);
   }
 
   double get estimatedClickValue {
@@ -752,6 +810,7 @@ class GameLogic with ChangeNotifier {
     if (tokensToClaim <= 0) return;
 
     _soundService.playHalving(); // dramatic cue for the prestige reset
+    _hapticHeavy();
 
     govTokens += tokensToClaim;
     // Feed tier-3 progress: every GovToken ever minted counts toward the next
@@ -795,6 +854,7 @@ class GameLogic with ChangeNotifier {
     if (pendingGenesis <= 0) return;
 
     _soundService.playHalving(); // dramatic cue for the deepest reset
+    _hapticHeavy();
 
     // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
     _prestige.applyNewBlockchain();
@@ -842,6 +902,7 @@ class GameLogic with ChangeNotifier {
 
     if (bought > 0) {
       _soundService.playBuy();
+      _hapticLight();
       _evaluateAchievements();
       notifyListeners();
       _saveGame();
@@ -948,6 +1009,7 @@ class GameLogic with ChangeNotifier {
     try {
       final settings = await _settingsRepo.loadSettings();
       soundEnabled = settings['sound_enabled'] ?? true;
+      hapticsEnabled = settings['haptics_enabled'] ?? true;
       showFiatPrices = settings['show_fiat_prices'] ?? false;
       _soundService.setMuted(!soundEnabled);
 

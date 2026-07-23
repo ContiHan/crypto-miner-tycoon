@@ -7,7 +7,7 @@ GameLogic createTestGameLogic({
   bool startTimers = false,
   bool loadOnStart = true,
 }) {
-  return GameLogic(
+  final game = GameLogic(
     gameRepository: FakeGameRepository(),
 
     settingsRepository: FakeSettingsRepository(),
@@ -18,4 +18,8 @@ GameLogic createTestGameLogic({
 
     loadOnStart: loadOnStart,
   );
+  // Deterministic mining taps by default (no random crits); tests that exercise
+  // crits override this with AlwaysCritRandom.
+  game.clickRng = NoCritRandom();
+  return game;
 }

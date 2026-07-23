@@ -10,6 +10,7 @@ import '../widgets/rig_list_item.dart';
 import '../widgets/pulse_button.dart';
 import '../widgets/floating_text.dart';
 import '../widgets/binary_particle.dart';
+import '../widgets/animated_count_text.dart';
 
 class MiningTab extends StatefulWidget {
   final VoidCallback
@@ -34,6 +35,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
   final List<Widget> _floatingTexts = [];
   late AnimationController _buttonScaleController;
   late Animation<double> _buttonScaleAnimation;
+  // Decaying horizontal shake, kicked on a critical tap for extra impact.
+  late AnimationController _shakeController;
 
   @override
   void initState() {
@@ -45,12 +48,31 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
     _buttonScaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
       CurvedAnimation(parent: _buttonScaleController, curve: Curves.easeInOut),
     );
+    _shakeController = AnimationController(
+      vsync: this,
+      duration: const Duration(milliseconds: 400),
+    );
   }
 
   @override
   void dispose() {
     _buttonScaleController.dispose();
+    _shakeController.dispose();
     super.dispose();
+  }
+
+  /// Wraps [child] in a decaying left/right shake driven by [_shakeController].
+  Widget _withShake(Widget child) {
+    return AnimatedBuilder(
+      animation: _shakeController,
+      builder: (context, c) {
+        final t = _shakeController.value;
+        // No offset at rest; a few fast oscillations that damp to zero.
+        final dx = t == 0.0 ? 0.0 : sin(t * pi * 8) * 10.0 * (1.0 - t);
+        return Transform.translate(offset: Offset(dx, 0), child: c);
+      },
+      child: child,
+    );
   }
 
   void spawnBinaryExplosion(Offset position) {
@@ -100,7 +122,12 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
     }
   }
 
-  void addFloatingText([String? textOverride, Offset? position]) {
+  void addFloatingText([
+    String? textOverride,
+    Offset? position,
+    Color? color,
+    double fontSize = 24,
+  ]) {
     final key = UniqueKey();
     final text = textOverride ?? '+${Formatter.formatBitcoin(1.0)}';
 
@@ -122,6 +149,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
           right: position == null ? right : null,
           child: FloatingText(
             text: text,
+            color: color,
+            fontSize: fontSize,
             onComplete: () {
               if (mounted) {
                 setState(() {
@@ -174,7 +203,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                 constraints.maxHeight,
               );
             }
-            return Stack(
+            return _withShake(Stack(
               children: [
             Column(
               children: [
@@ -216,10 +245,17 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     ),
                                   );
                                 },
-                                child: Text(
-                                  game.showFiatPrices
-                                      ? '\$ ${Formatter.formatNumber(game.toFiat(game.wallet))}'
-                                      : Formatter.formatBitcoin(game.wallet),
+                                child: AnimatedCountText(
+                                  // Keyed on the display mode so a fiat/sats
+                                  // toggle remounts instead of tweening across
+                                  // the two incomparable number scales.
+                                  key: ValueKey(game.showFiatPrices),
+                                  value: game.showFiatPrices
+                                      ? game.toFiat(game.wallet)
+                                      : game.wallet,
+                                  formatter: game.showFiatPrices
+                                      ? (v) => '\$ ${Formatter.formatNumber(v)}'
+                                      : (v) => Formatter.formatBitcoin(v),
                                   style: const TextStyle(
                                     fontSize: 36,
                                     fontWeight: FontWeight.w900,
@@ -465,14 +501,29 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                         context,
                         listen: false,
                       );
-                      game.clickMine();
+                      final result = game.clickMine();
 
                       RenderBox box = context.findRenderObject() as RenderBox;
                       Offset localPos = box.globalToLocal(
                         details.globalPosition,
                       );
 
-                      addFloatingText('+₿', localPos);
+                      // Show the real sats gained (fiat/sats aware), with a gold
+                      // "CRIT!" + screen shake on a critical tap.
+                      final gained = game.showFiatPrices
+                          ? '+\$${Formatter.formatNumber(game.toFiat(result.sats))}'
+                          : '+${Formatter.formatBitcoin(result.sats)}';
+                      if (result.isCrit) {
+                        addFloatingText(
+                          'CRIT! $gained',
+                          localPos,
+                          Colors.amberAccent,
+                          30,
+                        );
+                        _shakeController.forward(from: 0);
+                      } else {
+                        addFloatingText(gained, localPos);
+                      }
                       spawnBinaryExplosion(localPos);
                     },
                     onTapCancel: () => _buttonScaleController.reverse(),
@@ -577,7 +628,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                 ),
               ),
               ],
-            );
+            ));
           },
         );
       },

@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_logic.dart';
 import 'screens/home_screen.dart';
+import 'screens/splash_screen.dart';
 
 import 'theme/app_theme.dart';
 
@@ -43,7 +44,13 @@ class MyApp extends StatelessWidget {
       title: 'Bitcoin Idle Tycoon',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
-      home: const HomeScreen(),
+      // Hold on a branded splash until the save has loaded — no white flash and
+      // no HomeScreen built against a half-initialised state.
+      home: Selector<GameLogic, bool>(
+        selector: (_, game) => game.isLoaded,
+        builder: (_, isLoaded, _) =>
+            isLoaded ? const HomeScreen() : const SplashScreen(),
+      ),
     );
   }
 }

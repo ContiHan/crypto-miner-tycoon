@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Matches AppTheme.background so the native launch screen blends straight
+         into the app instead of flashing white. -->
+    <color name="launch_bg">#FF1A1D21</color>
+</resources>
