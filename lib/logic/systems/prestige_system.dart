@@ -30,10 +30,11 @@ class PrestigeSystem {
   // ---- Tier 3: New Blockchain / Genesis Blocks ---------------------------
 
   /// Always-on multiplier applied to the GAIN of both Consensus and GovTokens.
-  /// 1.0 with no Genesis Blocks, so it has no effect on the base single-run
-  /// economy until the player reaches the deepest prestige tier.
+  /// CONCAVE in genesisBlocks (sqrt) so the Genesis<->GovToken feedback loop
+  /// converges instead of running away; 1.0 with no Genesis Blocks, so it has no
+  /// effect on the base single-run economy until the deepest prestige tier.
   double get genesisGainMultiplier =>
-      1.0 + genesisBlocks * GameConstants.perGenesisGainBonus;
+      1.0 + GameConstants.perGenesisGainBonus * sqrt(genesisBlocks);
 
   /// GovTokens minted this "chain" (since the last New Blockchain).
   double chainGovTokens() => totalGovTokensEver - govTokensEverAtLastNewChain;
@@ -80,8 +81,11 @@ class PrestigeSystem {
     return ((base + 1e-9) * genesisGainMultiplier).floor();
   }
 
-  /// Always-on income bonus from held Consensus (added into the prestige channel).
-  double get consensusBonus => consensus * GameConstants.perConsensusBonus;
+  /// Always-on income bonus from held Consensus (added into the prestige
+  /// channel). CONCAVE in CX (sqrt) so a fast, cheap soft-fork loop can't pump
+  /// the income multiplier without bound.
+  double get consensusBonus =>
+      GameConstants.perConsensusBonus * sqrt(consensus);
 
   /// Apply a Soft Fork: bank the CX and start a new era.
   void applySoftFork(double lifetimeEarnings) {

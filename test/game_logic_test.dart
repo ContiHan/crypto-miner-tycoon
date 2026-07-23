@@ -107,7 +107,8 @@ void main() {
     });
 
     test('Prestige Multiplier calculation', () {
-      game.govTokens = 10;
+      // Concave: 1 + 0.5*sqrt(4) = 2.0x.
+      game.govTokens = 4;
       expect(game.prestigeMultiplier, 2.0);
     });
 

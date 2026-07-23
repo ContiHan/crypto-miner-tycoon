@@ -42,8 +42,9 @@ void main() {
       game.lifetimeEarnings = 4.5e9; // pending = floor(sqrt(4.5e9 / 5e8)) = 3
 
       expect(game.pendingGovTokens, 3);
-      // After fork: 1 + (2 held + 3 claimed + 10 spent) * 0.1 = x2.5
-      expect(game.prestigeMultiplierAfterHardFork, closeTo(2.5, 0.001));
+      // Concave: after fork 1 + 0.5*sqrt(2 held + 3 claimed + 10 spent)
+      //          = 1 + 0.5*sqrt(15) = x2.9365
+      expect(game.prestigeMultiplierAfterHardFork, closeTo(2.9365, 0.001));
       // The old dialog dropped spent tokens and could show a DECREASE.
       expect(
         game.prestigeMultiplierAfterHardFork,

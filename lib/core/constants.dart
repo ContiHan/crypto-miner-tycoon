@@ -19,12 +19,14 @@ class GameConstants {
   // Sub-linear in production and slow enough that token counts stay in the
   // hundreds over weeks (no 4.7M-token explosion).
   static const double govTokenDivisor = 5.0e8;
-  static const double perTokenIncomeBonus = 0.10; // +10% income per GovToken
+  static const double perTokenIncomeBonus = 0.50; // income bonus = 0.50*sqrt(GT)
 
   // Soft Fork (Tier-1 prestige): resets LAB only, grants Consensus (CX) =
   // floor(cbrt(eraSats / consensusDivisor)). Frequent, low-stakes, fast loop.
-  static const double consensusDivisor = 1.0e7;
-  static const double perConsensusBonus = 0.05; // +5% income per Consensus
+  // Income bonus is CONCAVE in CX (perConsensusBonus * sqrt(consensus)) so a
+  // fast/cheap soft-fork loop can't pump the multiplier without bound.
+  static const double consensusDivisor = 2.0e9;
+  static const double perConsensusBonus = 0.10; // income bonus = 0.10*sqrt(CX)
 
   // New Blockchain (Tier-3 prestige): resets almost everything (keeps only the
   // permanent Stash collection + banked Genesis Blocks), grants Genesis Blocks
@@ -32,9 +34,11 @@ class GameConstants {
   // the GovTokens minted since the last New Blockchain. GB do NOT add raw income;
   // they multiply the GAIN of the two lower prestige currencies (Consensus +
   // GovTokens), so each New Blockchain makes every future run farm prestige
-  // faster instead of stacking yet another raw income multiplier.
-  static const double genesisDivisor = 100.0; // 100 chain-GovTokens -> 1 GB
-  static const double perGenesisGainBonus = 1.0; // +100% CX & GT gain per GB
+  // faster instead of stacking yet another raw income multiplier. The multiplier
+  // is CONCAVE in GB (1 + perGenesisGainBonus*sqrt(GB)) so the Genesis<->GovToken
+  // feedback loop converges instead of running away.
+  static const double genesisDivisor = 65000.0; // 65k chain-GovTokens -> 1 GB
+  static const double perGenesisGainBonus = 0.5; // gain x = 1 + 0.5*sqrt(GB)
 
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.

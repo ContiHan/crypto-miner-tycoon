@@ -11,11 +11,14 @@ void main() {
     });
 
     test(
-      'calculatePrestigeMultiplier returns correct bonus (10% per token)',
+      'calculatePrestigeMultiplier is concave in token count (0.5*sqrt)',
       () {
-        // 10 tokens = 100% bonus -> 2.0x multiplier
-        expect(economy.calculatePrestigeMultiplier(10, 0), 2.0);
-        expect(economy.calculatePrestigeMultiplier(5, 5), 2.0); // Held + Spent
+        // Concave (0.5*sqrt) so the endgame can't run away: 4 tokens ->
+        // 1 + 0.5*sqrt(4) = 2.0x.
+        expect(economy.calculatePrestigeMultiplier(4, 0), 2.0);
+        expect(economy.calculatePrestigeMultiplier(2, 2), 2.0); // held + spent
+        // 100 tokens -> 1 + 0.5*sqrt(100) = 6.0x (grows sub-linearly).
+        expect(economy.calculatePrestigeMultiplier(100, 0), 6.0);
       },
     );
 

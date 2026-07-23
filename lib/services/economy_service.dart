@@ -4,13 +4,15 @@ import '../models/rig.dart';
 import '../core/ids.dart';
 
 class EconomyService {
-  // +perTokenIncomeBonus income per GovToken (held + spent). This is the sole
-  // cross-era power lever now (the exchange rate is neutralised); token accrual
-  // is sub-linear and slow (see calculatePendingGovTokens) so the multiplier
-  // grows steadily over weeks instead of exploding.
+  // Cross-era income multiplier from GovTokens (held + spent). CONCAVE in the
+  // token count (perTokenIncomeBonus * sqrt(tokens)) so that even when tokens
+  // accumulate across thousands of hard forks the multiplier grows ~linearly in
+  // time rather than exploding — a linear-per-token bonus turned the endgame
+  // into a runaway once the new prestige tiers pumped income into the per-era
+  // cap. Token accrual itself is also sub-linear (see calculatePendingGovTokens).
   double calculatePrestigeMultiplier(int govTokens, int spentGovTokens) {
     return 1.0 +
-        ((govTokens + spentGovTokens) * GameConstants.perTokenIncomeBonus);
+        GameConstants.perTokenIncomeBonus * sqrt(govTokens + spentGovTokens);
   }
 
   /// Rig cost after a total additive [costDiscount] (0.10 == 10% off), coming
