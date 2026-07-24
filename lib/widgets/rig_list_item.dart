@@ -173,7 +173,9 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                           letterSpacing: 0.5,
                         ),
                         maxLines: 2,
-                        overflow: TextOverflow.visible,
+                        // Ellipsis (not visible) so a long name truncates cleanly
+                        // instead of breaking mid-word next to the fixed button.
+                        overflow: TextOverflow.ellipsis,
                       ),
                       const SizedBox(height: 4),
                       Row(
