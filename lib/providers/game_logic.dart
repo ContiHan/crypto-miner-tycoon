@@ -133,7 +133,7 @@ class GameLogic with ChangeNotifier {
   SlotSpin? playSlots(int bet) {
     if (bet <= 0 || chips < bet) return null;
     chips -= bet;
-    final spin = _casino.spinSlots(bet, _casinoRng);
+    final spin = _casino.spinSlots(bet, _casinoRng, luck: luckMultiplier);
     chips += spin.payout;
     casinoSpins++;
     if (spin.isJackpot) casinoJackpots++;
@@ -154,7 +154,11 @@ class GameLogic with ChangeNotifier {
     if (bet <= 0 || chips < bet) return null;
     chips -= bet;
     final win = _casino.flipWin(_casinoRng);
-    if (win) chips += bet * 2;
+    if (win) {
+      final lf = CasinoService.effectiveLuck(
+          luckMultiplier, CasinoService.flipReturnToPlayer);
+      chips += (bet * 2 * lf).floor();
+    }
     casinoSpins++;
     _soundService.playBuy();
     _evaluateAchievements();
@@ -167,7 +171,7 @@ class GameLogic with ChangeNotifier {
   PlinkoDrop? playPlinko(int bet) {
     if (bet <= 0 || chips < bet) return null;
     chips -= bet;
-    final drop = _casino.dropPlinko(bet, _casinoRng);
+    final drop = _casino.dropPlinko(bet, _casinoRng, luck: luckMultiplier);
     chips += drop.payout;
     casinoSpins++;
     if (drop.isJackpot) casinoJackpots++;
@@ -195,6 +199,11 @@ class GameLogic with ChangeNotifier {
   int get unclaimedAchievements => _achievements.unclaimedCount;
   double get notorietyBonus => _achievements.notorietyBonus;
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
+
+  /// Aggregate Luck factor (>=1, softcapped) from all channel sources. Scales
+  /// crit chance and casino winnings (the latter clamped so casino RTP stays <1).
+  double get luckMultiplier =>
+      buildChannels().multiplier(Channel.luck, softStart: 1.5, power: 0.5);
 
   // Fire-and-forget haptics that never throw (no platform channel in tests) and
   // honour the user's haptics toggle. Typed by intensity so call sites read
@@ -795,8 +804,11 @@ class GameLogic with ChangeNotifier {
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
     // crit — the silent auto-clicker never rolls, so it can't secretly pump.
-    final bool isCrit =
-        playSound && _clickRng.nextDouble() < GameConstants.clickCritChance;
+    // Luck scales the crit chance up to a hard cap.
+    final double critChance = (GameConstants.clickCritChance *
+            ch.multiplier(Channel.luck, softStart: 1.5, power: 0.5))
+        .clamp(0.0, GameConstants.clickCritChanceCap);
+    final bool isCrit = playSound && _clickRng.nextDouble() < critChance;
     if (isCrit) clickSats *= GameConstants.clickCritMultiplier;
 
     // Re-clamp to the per-era supply cap AFTER the crit multiply (mirrors

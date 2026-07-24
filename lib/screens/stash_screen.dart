@@ -607,10 +607,15 @@ class _StashScreenState extends State<StashScreen>
 
   void _playFlip(GameLogic game) {
     if (_casinoBusy) return;
+    final chipsBefore = game.chips;
     final win = game.playDoubleOrNothing(_bet);
     if (win == null) return;
+    // Use the real balance delta so the toast matches the header (a Luck-boosted
+    // win credits a bit more than the raw bet).
+    final delta = game.chips - chipsBefore;
     setState(() {
-      _casinoMessage = win ? 'DOUBLED! +$_bet chips' : 'Nothing. -$_bet chips';
+      _casinoMessage =
+          win ? 'DOUBLED! +$delta chips' : 'Nothing. $delta chips';
       _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
     });
   }
