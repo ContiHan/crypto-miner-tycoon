@@ -30,6 +30,11 @@ void main() {
     // Default is Mine Tab (Index 3)
     expect(find.byType(MiningTab), findsOneWidget);
 
+    // SKILL/TECH/STASH start locked (progressive disclosure); unlock them so
+    // this navigation test can reach every tab.
+    game.debugUnlockAllTabs();
+    await tester.pump();
+
     // Tap Perks (Index 0) - Icon: Icons.auto_graph
     await tester.tap(find.byIcon(Icons.auto_graph));
     await tester.pump(const Duration(milliseconds: 100));
@@ -44,6 +49,23 @@ void main() {
     await tester.tap(find.byIcon(Icons.inventory_2));
     await tester.pump(const Duration(milliseconds: 100));
     expect(find.byType(StashScreen), findsOneWidget);
+  });
+
+  testWidgets('HomeScreen: a re-locked tab falls back to MINE', (
+    WidgetTester tester,
+  ) async {
+    await tester.pumpWidget(createWidgetUnderTest());
+    game.debugUnlockAllTabs();
+    await tester.pump();
+
+    await tester.tap(find.byIcon(Icons.science)); // go to TECH
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.byType(ResearchTab), findsOneWidget);
+
+    await game.resetGame(); // wipes → re-locks tabs + notifies
+    await tester.pump();
+    expect(find.byType(MiningTab), findsOneWidget,
+        reason: 'parked on a now-locked tab → fall back to MINE');
   });
 
   testWidgets('HomeScreen: Hard Fork Dialog appears', (

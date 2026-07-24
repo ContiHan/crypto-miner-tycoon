@@ -90,7 +90,35 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (game.pendingAchievementToasts.isNotEmpty) {
       _showAchievementToasts(game);
     }
+    if (game.pendingTabUnlockToasts.isNotEmpty) {
+      _showTabUnlockToasts(game);
+    }
+    // If a Wipe Save re-locked the tab we're parked on, fall back to MINE so we
+    // never render a locked tab's body under a padlocked nav item.
+    final onLocked = (_currentIndex == 0 && !game.unlockedSkill) ||
+        (_currentIndex == 1 && !game.unlockedTech) ||
+        (_currentIndex == 2 && !game.unlockedStash);
+    if (onLocked && mounted) setState(() => _currentIndex = 3);
     _maybeShowEnding(game);
+  }
+
+  void _showTabUnlockToasts(GameLogic game) {
+    final tabs = List.of(game.pendingTabUnlockToasts);
+    game.clearTabUnlockToasts();
+    if (tabs.isEmpty) return;
+    final label = tabs.length == 1
+        ? '${tabs.first} tab unlocked!'
+        : '${tabs.join(' & ')} tabs unlocked!';
+    // Do NOT clearSnackBars() here — a tab unlock often coincides with an
+    // achievement (first Hard Fork -> SKILL + hard_first; 1M sats -> STASH +
+    // earn_1m); clearing would swallow the achievement's claim nudge. Let this
+    // one queue after it instead.
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+        content: Text('🔓  $label'),
+        duration: const Duration(seconds: 3),
+        backgroundColor: AppTheme.accent,
+        behavior: SnackBarBehavior.floating,
+      ));
   }
 
   /// Fire the GENESIS COMPLETE ending exactly once when the win first crosses.
@@ -181,52 +209,84 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           Expanded(child: pages[_currentIndex]),
         ],
       ),
-      bottomNavigationBar: Theme(
-        data: Theme.of(context).copyWith(
-          canvasColor: AppTheme.surface, // Background for Nav Bar
-        ),
-        child: BottomNavigationBar(
-          currentIndex: _currentIndex,
-          onTap: (index) {
-            _gameLogic.playUiClick();
-            setState(() {
-              _currentIndex = index;
-            });
-          },
-          selectedItemColor: AppTheme.accent,
-          unselectedItemColor: AppTheme.textSecondary,
-          showUnselectedLabels: true,
-          type: BottomNavigationBarType.fixed,
-          items: [
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.auto_graph),
-              label: 'SKILL',
+      // Progressive disclosure: SKILL/TECH/STASH reveal as the player progresses
+      // (sticky). The Selector rebuilds the bar only when an unlock flips.
+      bottomNavigationBar: Selector<GameLogic, String>(
+        selector: (_, g) =>
+            '${g.unlockedSkill}|${g.unlockedTech}|${g.unlockedStash}',
+        builder: (context, _, _) {
+          final g = context.read<GameLogic>();
+          final locked = <int, bool>{
+            0: !g.unlockedSkill,
+            1: !g.unlockedTech,
+            2: !g.unlockedStash,
+          };
+          const hints = <int, String>{
+            0: 'SKILL unlocks after your first Hard Fork',
+            1: 'TECH unlocks after you buy your first rig',
+            2: 'STASH unlocks once your mining gets going',
+          };
+          return Theme(
+            data: Theme.of(context).copyWith(
+              canvasColor: AppTheme.surface, // Background for Nav Bar
             ),
-            const BottomNavigationBarItem(
-                icon: Icon(Icons.science), label: 'TECH'),
-            const BottomNavigationBarItem(
-              icon: Icon(Icons.inventory_2),
-              label: 'STASH',
+            child: BottomNavigationBar(
+              currentIndex: _currentIndex,
+              onTap: (index) {
+                _gameLogic.playUiClick();
+                if (locked[index] == true) {
+                  // Locked tab: explain what unlocks it instead of switching.
+                  ScaffoldMessenger.of(context)
+                    ..clearSnackBars()
+                    ..showSnackBar(SnackBar(
+                      content: Text('🔒  ${hints[index]}'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                      backgroundColor: AppTheme.surface,
+                    ));
+                  return;
+                }
+                setState(() => _currentIndex = index);
+              },
+              selectedItemColor: AppTheme.accent,
+              unselectedItemColor: AppTheme.textSecondary,
+              showUnselectedLabels: true,
+              type: BottomNavigationBarType.fixed,
+              items: [
+                _navItem(0, Icons.auto_graph, 'SKILL', locked),
+                _navItem(1, Icons.science, 'TECH', locked),
+                _navItem(2, Icons.inventory_2, 'STASH', locked),
+                const BottomNavigationBarItem(
+                    icon: Icon(Icons.dashboard), label: 'MINE'),
+                BottomNavigationBarItem(
+                  // Unread badge so newly-unlocked achievements aren't missed.
+                  icon: Selector<GameLogic, int>(
+                    selector: (_, g) => g.unclaimedAchievements,
+                    builder: (_, count, _) => count > 0
+                        ? Badge.count(
+                            count: count,
+                            backgroundColor: Colors.redAccent,
+                            child: const Icon(Icons.emoji_events),
+                          )
+                        : const Icon(Icons.emoji_events),
+                  ),
+                  label: 'GOAL',
+                ),
+              ],
             ),
-            const BottomNavigationBarItem(
-                icon: Icon(Icons.dashboard), label: 'MINE'),
-            BottomNavigationBarItem(
-              // Unread badge so newly-unlocked achievements aren't missed.
-              icon: Selector<GameLogic, int>(
-                selector: (_, g) => g.unclaimedAchievements,
-                builder: (_, count, _) => count > 0
-                    ? Badge.count(
-                        count: count,
-                        backgroundColor: Colors.redAccent,
-                        child: const Icon(Icons.emoji_events),
-                      )
-                    : const Icon(Icons.emoji_events),
-              ),
-              label: 'GOAL',
-            ),
-          ],
-        ),
+          );
+        },
       ),
+    );
+  }
+
+  /// A nav item that shows a lock icon (greyed) until its tab is unlocked.
+  BottomNavigationBarItem _navItem(
+      int index, IconData icon, String label, Map<int, bool> locked) {
+    final isLocked = locked[index] == true;
+    return BottomNavigationBarItem(
+      icon: Icon(isLocked ? Icons.lock_outline : icon),
+      label: label,
     );
   }
 
@@ -294,6 +354,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Concave projection (matches PrestigeSystem), so the dialog never
     // overstates the reward of this irreversible reset.
     final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
+    // First-time guide: explain what a CLASS is before the very first pick.
+    final classIntro = game.hasChosenClass
+        ? ''
+        : '\n\nNEW — CLASS: pick an archetype that reshapes the whole next '
+            'chain (hash, cost, prestige, luck). You keep it until the next '
+            'New Blockchain, so choose the playstyle you want.';
     _showClassPicker(
       context: context,
       game: game,
@@ -305,7 +371,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'GovTokens and Consensus. Your Stash & Mastery are KEPT.\n\n'
           'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
           'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
-          '→ x${nextMultiplier.toStringAsFixed(1)}',
+          '→ x${nextMultiplier.toStringAsFixed(1)}$classIntro',
       onConfirm: (c) => game.newBlockchain(chosenClass: c),
     );
   }

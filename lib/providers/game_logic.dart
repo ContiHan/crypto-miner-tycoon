@@ -143,6 +143,17 @@ class GameLogic with ChangeNotifier {
   int casinoSpins = 0;
   int casinoJackpots = 0;
 
+  // --- Progressive disclosure (Phase: locked nav tabs) ---
+  // Bottom-nav tabs reveal gradually so a new player isn't shown everything at
+  // once. STICKY: once a tab unlocks it stays unlocked forever (a New Blockchain
+  // wiping rigs must not re-lock TECH). MINE + GOAL are always available.
+  bool unlockedTech = false; // after the first rig
+  bool unlockedStash = false; // after some earnings / a chip / a crate
+  bool unlockedSkill = false; // after the first Hard Fork (first GovTokens)
+  /// Tab names newly unlocked this session, drained by the UI for a toast.
+  final List<String> pendingTabUnlockToasts = [];
+  void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
+
   // SIMULATED casino (in-game Micro-Chips only; house edge EV<1).
   final CasinoService _casino = CasinoService();
   final Random _casinoRng; // injectable so tests can force deterministic spins
@@ -357,6 +368,11 @@ class GameLogic with ChangeNotifier {
     pendingWinCelebration = false;
     sandboxNoCap = false;
     winCount = 0;
+    // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
+    unlockedTech = false;
+    unlockedStash = false;
+    unlockedSkill = false;
+    pendingTabUnlockToasts.clear();
     pendingAchievementToasts.clear();
 
     for (var rig in rigs) {
@@ -421,6 +437,11 @@ class GameLogic with ChangeNotifier {
   /// a New Blockchain first.
   @visibleForTesting
   void debugSelectClass(BtcClass c) => _classManager.select(c);
+  @visibleForTesting
+  void debugUnlockAllTabs() {
+    unlockedTech = unlockedStash = unlockedSkill = true;
+    notifyListeners();
+  }
   @visibleForTesting
   void debugCreditMastery(BtcClass c, double xp) =>
       _classManager.creditMastery(c, xp);
@@ -871,6 +892,41 @@ class GameLogic with ChangeNotifier {
       _soundService.playUnlock();
       _saveGame();
     }
+    _refreshTabUnlocks();
+  }
+
+  /// Reveal bottom-nav tabs as the player progresses (sticky — never re-locks).
+  /// [silent] sets the flags without queuing a toast (used on load so returning
+  /// players / newly-added gates don't spam notifications). Conditions are
+  /// deliberately gentle so content unfolds instead of arriving all at once:
+  ///   TECH  after the first rig; STASH after 1M sats / a chip / a crate;
+  ///   SKILL after the first Hard Fork (when GovTokens first exist to spend).
+  void _refreshTabUnlocks({bool silent = false}) {
+    final newly = <String>[];
+    var changed = false;
+    if (!unlockedTech && rigs.any((r) => r.amount > 0)) {
+      unlockedTech = true;
+      changed = true;
+      newly.add('TECH');
+    }
+    if (!unlockedStash &&
+        (lifetimeEarnings >= 1e6 || chips >= 1 || cratesOpened >= 1)) {
+      unlockedStash = true;
+      changed = true;
+      newly.add('STASH');
+    }
+    if (!unlockedSkill && hardForkCount >= 1) {
+      unlockedSkill = true;
+      changed = true;
+      newly.add('SKILL');
+    }
+    if (!changed) return;
+    if (!silent) {
+      pendingTabUnlockToasts.addAll(newly);
+      _soundService.playUnlock();
+      _saveGame();
+      notifyListeners();
+    }
   }
 
   void _triggerHalving() {
@@ -1250,6 +1306,9 @@ class GameLogic with ChangeNotifier {
       hasWonGame: hasWonGame,
       sandboxNoCap: sandboxNoCap,
       winCount: winCount,
+      unlockedTech: unlockedTech,
+      unlockedStash: unlockedStash,
+      unlockedSkill: unlockedSkill,
     );
   }
 
@@ -1316,6 +1375,13 @@ class GameLogic with ChangeNotifier {
       // Self-heal + defensive invariants.
       if (lifetimeEverSats >= GameConstants.endgameTargetSats) hasWonGame = true;
       if (sandboxNoCap && !hasWonGame) sandboxNoCap = false;
+
+      // Progressive-disclosure tab unlocks (sticky). Defaults false for saves
+      // predating this; the silent refresh below re-derives them from loaded
+      // progress so returning players keep already-earned tabs without a toast.
+      unlockedTech = data['unlockedTech'] == true;
+      unlockedStash = data['unlockedStash'] == true;
+      unlockedSkill = data['unlockedSkill'] == true;
 
       // Achievements + action counters (persist across all prestige tiers).
       hardForkCount = _toInt(data['hardForkCount']);
@@ -1426,6 +1492,9 @@ class GameLogic with ChangeNotifier {
       // achievements don't spam notifications on launch.
       final grandfathered = _achievements.evaluate(_buildAchStats());
       if (grandfathered.isNotEmpty) _saveGame();
+
+      // Same for tab unlocks: derive from loaded progress without a toast.
+      _refreshTabUnlocks(silent: true);
     } catch (e, st) {
       // A failed load must not brick the game: log, keep the in-code defaults,
       // and still mark the game loaded so timers start and play can continue.
