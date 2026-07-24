@@ -248,32 +248,38 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                             ]
                           : null,
                     ),
-                    child: Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text(
-                          _holding ? '×$_batch' : 'BUY',
-                          style: TextStyle(
-                            fontSize: _holding ? 14 : 10,
-                            fontWeight: FontWeight.bold,
-                            color: Colors.black,
+                    // One FittedBox around BOTH lines so the label+price scale
+                    // down together to fit the fixed 104x48 button in BOTH axes
+                    // (a hold showing "×100" is taller — this stops the ~5px
+                    // vertical overflow without ever growing the button).
+                    child: FittedBox(
+                      fit: BoxFit.scaleDown,
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          Text(
+                            _holding ? '×$_batch' : 'BUY',
+                            style: TextStyle(
+                              fontSize: _holding ? 14 : 10,
+                              height: 1.05,
+                              fontWeight: FontWeight.bold,
+                              color: Colors.black,
+                            ),
                           ),
-                        ),
-                        FittedBox(
-                          fit: BoxFit.scaleDown,
-                          child: Text(
+                          Text(
                             widget.game.showFiatPrices
                                 ? '\$ ${Formatter.formatNumber(widget.game.toFiat(widget.game.getRigCost(widget.rig)))}'
                                 : Formatter.formatBitcoin(
                                     widget.game.getRigCost(widget.rig)),
                             style: const TextStyle(
                               fontSize: 12,
+                              height: 1.05,
                               fontWeight: FontWeight.w900,
                               color: Colors.black,
                             ),
                           ),
-                        ),
-                      ],
+                        ],
+                      ),
                     ),
                   ),
                 ),
