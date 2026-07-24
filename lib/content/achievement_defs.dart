@@ -30,6 +30,12 @@ class AchStats {
   final double prestigeMultiplier;
   final int achievementsUnlocked; // for meta ("unlock N achievements")
   final bool Function(String id) ownsArtifact;
+  // RPG classes / Mastery + endgame (Phase 6 role achievements).
+  final int totalMasteryLevel;
+  final int masteredClassCount; // real classes at Mastery >= 1
+  final int Function(String className) classMasteryLevel;
+  final int winCount; // endings reached (New Genesis count)
+  final bool inSandbox; // "break the chain" active
 
   const AchStats({
     required this.lifetimeEarnings,
@@ -58,6 +64,11 @@ class AchStats {
     required this.prestigeMultiplier,
     required this.achievementsUnlocked,
     required this.ownsArtifact,
+    required this.totalMasteryLevel,
+    required this.masteredClassCount,
+    required this.classMasteryLevel,
+    required this.winCount,
+    required this.inSandbox,
   });
 }
 
@@ -357,6 +368,67 @@ final List<Achievement> kAchievements = [
     description: 'Mine more BTC than will ever exist — the true ending.',
     category: AchCategory.meta,
     condition: (s) => s.lifetimeEverSats >= GameConstants.endgameTargetSats,
+  ),
+
+  // --- RPG classes / Mastery (the "play them all" hook) ---
+  Achievement(
+    id: 'class_first',
+    title: 'Specialist',
+    description: 'Master a class for the first time (finish a chain as a class).',
+    category: AchCategory.prestige,
+    condition: (s) => s.masteredClassCount >= 1,
+  ),
+  Achievement(
+    id: 'mastery_solo',
+    title: 'Garage Legend',
+    description: 'Reach Mastery 3 as the Solo Miner.',
+    category: AchCategory.prestige,
+    condition: (s) => s.classMasteryLevel('soloMiner') >= 3,
+  ),
+  Achievement(
+    id: 'mastery_corp',
+    title: 'Boardroom Boss',
+    description: 'Reach Mastery 3 as the Corporation.',
+    category: AchCategory.prestige,
+    condition: (s) => s.classMasteryLevel('corporation') >= 3,
+  ),
+  Achievement(
+    id: 'mastery_og',
+    title: "Satoshi's Heir",
+    description: 'Reach Mastery 3 as the BTC OG.',
+    category: AchCategory.prestige,
+    condition: (s) => s.classMasteryLevel('btcOg') >= 3,
+  ),
+  Achievement(
+    id: 'mastery_pool',
+    title: 'Better Together',
+    description: 'Reach Mastery 3 as the Pool Member.',
+    category: AchCategory.prestige,
+    condition: (s) => s.classMasteryLevel('poolMember') >= 3,
+  ),
+  Achievement(
+    id: 'class_all',
+    title: 'Jack of All Chains',
+    description: 'Master all four classes (Mastery 1+ in each).',
+    category: AchCategory.meta,
+    condition: (s) => s.masteredClassCount >= 4,
+  ),
+  Achievement(
+    id: 'ng_plus',
+    title: 'New Genesis',
+    description: 'Begin a New Genesis (NG+) after winning.',
+    category: AchCategory.prestige,
+    condition: (s) => s.winCount >= 1,
+  ),
+
+  // --- Secret / endgame ---
+  Achievement(
+    id: 'secret_sandbox',
+    title: 'Reality Breaker',
+    description: 'Break the chain — mine with no supply cap.',
+    category: AchCategory.secret,
+    secret: true,
+    condition: (s) => s.inSandbox,
   ),
 
   // --- Secret / shadow (no Notoriety, hidden until earned) ---

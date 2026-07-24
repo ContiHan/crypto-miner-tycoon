@@ -51,6 +51,8 @@ void main() {
       game.hasWonGame = true;
       game.toggleSandboxNoCap();
       expect(game.sandboxNoCap, true);
+      // The secret achievement unlocks at the moment of toggling (not only later).
+      expect(game.isAchievementUnlocked('secret_sandbox'), true);
     });
 
     test('lifts the per-era cap so income flows past 21M', () async {

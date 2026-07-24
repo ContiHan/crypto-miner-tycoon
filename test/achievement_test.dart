@@ -217,6 +217,11 @@ void main() {
           prestigeMultiplier: 1.0,
           achievementsUnlocked: 0,
           ownsArtifact: (_) => false,
+          totalMasteryLevel: 0,
+          masteredClassCount: 0,
+          classMasteryLevel: (_) => 0,
+          winCount: 0,
+          inSandbox: false,
         );
 
     test('every earnings achievement is satisfiable at the per-era cap', () {

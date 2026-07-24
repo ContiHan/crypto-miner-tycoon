@@ -428,6 +428,9 @@ class GameLogic with ChangeNotifier {
   int masteryLevel(BtcClass c) => _classManager.masteryLevel(c);
   double masteryXp(BtcClass c) => _classManager.masteryXp[c] ?? 0;
   int get totalMasteryLevel => _classManager.totalMasteryLevel;
+  int get masteredClassCount => _classManager.masteredCount;
+  int classMasteryLevelByName(String name) =>
+      _classManager.masteryLevelByName(name);
 
   /// Mastery level of the class currently being played (0 for Prospector).
   int get currentClassMasteryLevel =>
@@ -852,6 +855,12 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       achievementsUnlocked: _achievements.unlockedCount,
       ownsArtifact: (id) => _stash.ownedArtifacts.containsKey(id),
+      // RPG class / Mastery + endgame (Phase 6 role achievements).
+      totalMasteryLevel: totalMasteryLevel,
+      masteredClassCount: masteredClassCount,
+      classMasteryLevel: classMasteryLevelByName,
+      winCount: winCount,
+      inSandbox: sandboxNoCap,
     );
   }
 
@@ -1173,6 +1182,7 @@ class GameLogic with ChangeNotifier {
     } else {
       sandboxNoCap = true;
     }
+    _evaluateAchievements(); // unlock secret_sandbox at the moment it's toggled
     _saveGame();
     notifyListeners();
   }
