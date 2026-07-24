@@ -12,13 +12,13 @@ void main() {
       game.wallet = 1e9;
 
       game.buyResearch(ResearchIds.basicOverclock); // hash +0.05
-      game.perks[PerkIds.hashBonus] = 2; // hash +0.20 (2 * 0.10)
+      game.perks[PerkIds.hashBonus] = 2; // hash +0.04 (2 * 0.02)
       game.stashService.loadStash({
         'artifacts': {'old_hdd': 1}, // hash +0.02
       });
 
       final ch = game.buildChannels();
-      expect(ch.sum(Channel.hash), closeTo(0.05 + 0.20 + 0.02, 1e-9));
+      expect(ch.sum(Channel.hash), closeTo(0.05 + 0.04 + 0.02, 1e-9));
     });
 
     test('a NEW data-driven research node contributes with no extra code',
