@@ -1,10 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
-import '../logic/managers/class_manager.dart';
-import '../logic/channels.dart';
 import '../core/constants.dart';
 import '../theme/app_theme.dart';
+import '../widgets/class_picker.dart';
 import 'ending_overlay.dart';
 import '../widgets/news_ticker.dart';
 import 'perks_screen.dart';
@@ -221,11 +220,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             1: !g.unlockedTech,
             2: !g.unlockedStash,
           };
-          const hints = <int, String>{
-            0: 'SKILL unlocks after your first Hard Fork',
-            1: 'TECH unlocks after you buy your first rig',
-            2: 'STASH unlocks once your mining gets going',
-          };
           return Theme(
             data: Theme.of(context).copyWith(
               canvasColor: AppTheme.surface, // Background for Nav Bar
@@ -233,19 +227,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             child: BottomNavigationBar(
               currentIndex: _currentIndex,
               onTap: (index) {
+                // Locked tabs are inert — they don't switch, react, or reveal
+                // what they are (a plain padlock only).
+                if (locked[index] == true) return;
                 _gameLogic.playUiClick();
-                if (locked[index] == true) {
-                  // Locked tab: explain what unlocks it instead of switching.
-                  ScaffoldMessenger.of(context)
-                    ..clearSnackBars()
-                    ..showSnackBar(SnackBar(
-                      content: Text('🔒  ${hints[index]}'),
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                      backgroundColor: AppTheme.surface,
-                    ));
-                  return;
-                }
                 setState(() => _currentIndex = index);
               },
               selectedItemColor: AppTheme.accent,
@@ -280,13 +265,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// A nav item that shows a lock icon (greyed) until its tab is unlocked.
+  /// A nav item. Until unlocked it's an anonymous padlock ("???") — it never
+  /// reveals which feature it will become.
   BottomNavigationBarItem _navItem(
       int index, IconData icon, String label, Map<int, bool> locked) {
     final isLocked = locked[index] == true;
     return BottomNavigationBarItem(
       icon: Icon(isLocked ? Icons.lock_outline : icon),
-      label: label,
+      label: isLocked ? '???' : label,
     );
   }
 
@@ -324,54 +310,26 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  /// Compact one-line effect summary for a class card.
-  static String _classEffectSummary(ClassDef def) {
-    final parts = <String>[];
-    void pct(double v, String label) {
-      if (v == 0) return;
-      final sign = v > 0 ? '+' : '';
-      parts.add('$sign${(v * 100).toStringAsFixed(0)}% $label');
-    }
-
-    pct(def.channelBonuses[Channel.hash] ?? 0, 'hash');
-    pct(def.channelBonuses[Channel.income] ?? 0, 'income');
-    pct(def.channelBonuses[Channel.click] ?? 0, 'click');
-    final rig = def.channelBonuses[Channel.rigCost] ?? 0;
-    if (rig != 0) parts.add('-${(rig * 100).toStringAsFixed(0)}% rig cost');
-    pct(def.channelBonuses[Channel.luck] ?? 0, 'luck');
-    final vol = def.channelBonuses[Channel.volatility] ?? 0;
-    if (vol > 0) parts.add('louder chaos');
-    if (vol < 0) parts.add('calmer markets');
-    if (def.prestigeGainMult > 1) {
-      parts.add('+${((def.prestigeGainMult - 1) * 100).toStringAsFixed(0)}% prestige gain');
-    } else if (def.prestigeGainMult < 1) {
-      parts.add('-${((1 - def.prestigeGainMult) * 100).toStringAsFixed(0)}% prestige gain');
-    }
-    return parts.join(' · ');
-  }
-
   void _showNewBlockchainDialog(BuildContext context, GameLogic game) {
     // Concave projection (matches PrestigeSystem), so the dialog never
     // overstates the reward of this irreversible reset.
     final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
-    // First-time guide: explain what a CLASS is before the very first pick.
-    final classIntro = game.hasChosenClass
+    final classHint = game.hasChosenClass
         ? ''
-        : '\n\nNEW — CLASS: pick an archetype that reshapes the whole next '
-            'chain (hash, cost, prestige, luck). You keep it until the next '
-            'New Blockchain, so choose the playstyle you want.';
-    _showClassPicker(
-      context: context,
+        : '\n\nTip: you can also pick/change your class anytime on the SKILL tab.';
+    showClassPicker(
+      context,
       game: game,
       title: 'START A NEW BLOCKCHAIN?',
       titleColor: Colors.deepPurpleAccent,
       confirmLabel: 'REBORN',
       confirmColor: Colors.deepPurple,
+      headerLabel: 'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
       info: 'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents, Chips, '
           'GovTokens and Consensus. Your Stash & Mastery are KEPT.\n\n'
           'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
           'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
-          '→ x${nextMultiplier.toStringAsFixed(1)}$classIntro',
+          '→ x${nextMultiplier.toStringAsFixed(1)}$classHint',
       onConfirm: (c) => game.newBlockchain(chosenClass: c),
     );
   }
@@ -379,99 +337,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// New Genesis (NG+): the post-win "start again, stronger" reset. Same class
   /// picker, but grants the permanent trophy multiplier instead of Genesis.
   void _showNewGenesisPicker(BuildContext context, GameLogic game) {
-    final nextTrophy = 1.0 +
-        GameConstants.perWinTrophyBonus * (game.winCount + 1);
-    _showClassPicker(
-      context: context,
+    final nextTrophy =
+        1.0 + GameConstants.perWinTrophyBonus * (game.winCount + 1);
+    showClassPicker(
+      context,
       game: game,
       title: 'NEW GENESIS (NG+)',
       titleColor: AppTheme.accent,
       confirmLabel: 'ASCEND',
       confirmColor: AppTheme.accent,
+      headerLabel: 'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
       info: 'Begin a fresh chain, keeping your Stash, Mastery and trophies. '
           'Every ending makes all future prestige gains permanently stronger.\n\n'
           'Prestige-gain trophy: x${game.trophyGainMultiplier.toStringAsFixed(1)} '
           '→ x${nextTrophy.toStringAsFixed(1)}',
       onConfirm: (c) => game.newGenesisPlus(chosenClass: c),
-    );
-  }
-
-  /// Shared class-selection dialog for New Blockchain and New Genesis. Confirm is
-  /// disabled until a class is chosen; [onConfirm] receives the picked class.
-  void _showClassPicker({
-    required BuildContext context,
-    required GameLogic game,
-    required String title,
-    required Color titleColor,
-    required String confirmLabel,
-    required Color confirmColor,
-    required String info,
-    required void Function(BtcClass) onConfirm,
-  }) {
-    final choices =
-        BtcClass.values.where((c) => c != BtcClass.prospector).toList();
-    BtcClass? selected =
-        game.hasChosenClass ? game.currentClass : null; // pre-select current
-
-    showDialog(
-      context: context,
-      builder: (ctx) => StatefulBuilder(
-        builder: (ctx, setLocal) => AlertDialog(
-          backgroundColor: AppTheme.surface,
-          title: Text(title, style: TextStyle(color: titleColor)),
-          content: SizedBox(
-            width: double.maxFinite,
-            child: SingleChildScrollView(
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [
-                  Text(info,
-                      style:
-                          const TextStyle(color: Colors.white70, fontSize: 13)),
-                  const SizedBox(height: 14),
-                  const Text(
-                    'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
-                    style: TextStyle(
-                      color: Colors.white,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 13,
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  for (final c in choices)
-                    _ClassChoiceCard(
-                      def: kClasses[c]!,
-                      masteryLevel: game.masteryLevel(c),
-                      selected: selected == c,
-                      effect: _classEffectSummary(kClasses[c]!),
-                      onTap: () => setLocal(() => selected = c),
-                    ),
-                ],
-              ),
-            ),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx),
-              child: const Text('CANCEL'),
-            ),
-            ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: confirmColor,
-                disabledBackgroundColor: confirmColor.withValues(alpha: 0.3),
-              ),
-              onPressed: selected == null
-                  ? null
-                  : () {
-                      onConfirm(selected!);
-                      Navigator.pop(ctx);
-                    },
-              child: Text(confirmLabel),
-            ),
-          ],
-        ),
-      ),
     );
   }
 
@@ -523,108 +403,5 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // (so it wouldn't stack); show it now that the dialog is dismissed.
       if (mounted) _maybeShowEnding(game);
     });
-  }
-}
-
-/// A selectable class card in the New Blockchain picker.
-class _ClassChoiceCard extends StatelessWidget {
-  final ClassDef def;
-  final int masteryLevel;
-  final bool selected;
-  final String effect;
-  final VoidCallback onTap;
-
-  const _ClassChoiceCard({
-    required this.def,
-    required this.masteryLevel,
-    required this.selected,
-    required this.effect,
-    required this.onTap,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        margin: const EdgeInsets.only(bottom: 8),
-        padding: const EdgeInsets.all(10),
-        decoration: BoxDecoration(
-          color: selected
-              ? def.color.withValues(alpha: 0.15)
-              : Colors.white.withValues(alpha: 0.03),
-          borderRadius: BorderRadius.circular(8),
-          border: Border.all(
-            color: selected ? def.color : Colors.white24,
-            width: selected ? 2 : 1,
-          ),
-        ),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(def.icon, color: def.color, size: 28),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      Expanded(
-                        child: Text(
-                          def.name,
-                          style: TextStyle(
-                            color: def.color,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ),
-                      if (masteryLevel > 0)
-                        Container(
-                          padding: const EdgeInsets.symmetric(
-                            horizontal: 6,
-                            vertical: 2,
-                          ),
-                          decoration: BoxDecoration(
-                            color: Colors.amber.withValues(alpha: 0.2),
-                            borderRadius: BorderRadius.circular(4),
-                          ),
-                          child: Text(
-                            'MASTERY $masteryLevel',
-                            style: const TextStyle(
-                              color: Colors.amber,
-                              fontSize: 9,
-                              fontWeight: FontWeight.bold,
-                            ),
-                          ),
-                        ),
-                    ],
-                  ),
-                  Text(
-                    def.tagline,
-                    style: const TextStyle(
-                      color: Colors.white54,
-                      fontSize: 11,
-                      fontStyle: FontStyle.italic,
-                    ),
-                  ),
-                  if (effect.isNotEmpty) ...[
-                    const SizedBox(height: 4),
-                    Text(
-                      effect,
-                      style: const TextStyle(
-                        color: Colors.white70,
-                        fontSize: 11,
-                      ),
-                    ),
-                  ],
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
   }
 }

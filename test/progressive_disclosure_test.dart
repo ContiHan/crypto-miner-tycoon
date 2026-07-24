@@ -15,11 +15,14 @@ void main() {
       expect(game.unlockedSkill, false);
     });
 
-    test('buying the first rig unlocks TECH (with a toast)', () async {
+    test('reaching 10k sats mined unlocks TECH (with a toast)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.wallet = 1e6;
-      game.buyRig('cpu_rig');
+      game.buyRig('cpu_rig'); // a rig alone no longer unlocks TECH
+      expect(game.unlockedTech, false, reason: 'not just for owning a rig');
+      game.lifetimeEarnings = 10000;
+      game.clickMine(playSound: false); // triggers the unlock refresh
       expect(game.unlockedTech, true);
       expect(game.pendingTabUnlockToasts, contains('TECH'));
     });
@@ -40,17 +43,15 @@ void main() {
       expect(game.unlockedSkill, true);
     });
 
-    test('unlocks are STICKY — a rig wipe never re-locks TECH', () async {
+    test('unlocks are STICKY — an era reset never re-locks TECH', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.wallet = 1e6;
-      game.buyRig('cpu_rig');
+      game.lifetimeEarnings = 10000;
+      game.clickMine(playSound: false);
       expect(game.unlockedTech, true);
 
-      // Simulate a prestige wiping rigs; a later refresh must NOT re-lock.
-      for (final r in game.rigs) {
-        r.amount = 0;
-      }
+      // Simulate a prestige wiping era earnings; a later refresh must NOT re-lock.
+      game.lifetimeEarnings = 0;
       game.clickMine(playSound: false); // runs _refreshTabUnlocks again
       expect(game.unlockedTech, true, reason: 'sticky: never re-locks');
     });
@@ -83,8 +84,9 @@ void main() {
 
       final g1 = make();
       await g1.loadGame();
+      g1.lifetimeEarnings = 10000;
       g1.wallet = 1e6;
-      g1.buyRig('cpu_rig'); // unlocks TECH + saves
+      g1.buyRig('cpu_rig'); // buy triggers a refresh (earnings gate met) + saves
 
       final g2 = make();
       await g2.loadGame();

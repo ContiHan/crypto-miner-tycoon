@@ -203,14 +203,14 @@ void main() {
         reason: 'tier-3 must not be trivially fast even with content');
     expect(firstNewChain, lessThan(days * 86400), reason: 'tier-3 reachable in $days d');
 
-    // Endgame (Phase 5): the cumulative-ever win must be REACHABLE by a whale
-    // within the window but not trivially instant. Empirically ~14 days at the
-    // 2.1e17 target. (Precise ~1-year pacing for a normal player is a Phase-6
-    // [TUNE]; this only guards reachability + the win-latch plumbing.)
-    expect(firstWin, greaterThan(2 * 86400),
-        reason: 'the ending must not be trivially fast even for a whale');
-    expect(firstWin, lessThan(days * 86400),
-        reason: 'the ending must be reachable within $days d');
-    expect(game.hasWonGame, true, reason: 'win latch set once crossed');
+    // Endgame (Phase 5): the ending is a ~1-YEAR goal (endgameTargetSats
+    // 2.1e20), so a 60-day whale run must NOT reach it yet — this guards against
+    // a regression that makes the ending trivially fast (as 2.1e17 was, ~14d).
+    // The cumulative-ever counter must still be climbing steadily toward it.
+    expect(firstWin, -1,
+        reason: 'the ending is a ~1yr goal, not reachable in $days d');
+    expect(game.hasWonGame, false);
+    expect(game.lifetimeEverSats, greaterThan(1e18),
+        reason: 'cumulative-ever climbs toward the target');
   });
 }
