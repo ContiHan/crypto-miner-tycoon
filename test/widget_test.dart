@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/screens/home_screen.dart';
 import 'package:crypto_miner_tycoon/screens/mining_tab.dart';
 import 'package:crypto_miner_tycoon/widgets/news_ticker.dart';
@@ -49,9 +50,10 @@ void main() {
   });
 
   testWidgets('HomeScreen navigation works', (WidgetTester tester) async {
+    final game = createTestGameLogic(startTimers: false);
     await tester.pumpWidget(
-      ChangeNotifierProvider(
-        create: (_) => createTestGameLogic(startTimers: false),
+      ChangeNotifierProvider<GameLogic>.value(
+        value: game,
         child: const MaterialApp(home: HomeScreen()),
       ),
     );
@@ -59,6 +61,10 @@ void main() {
     await tester.pump(const Duration(seconds: 1));
 
     expect(find.byType(MiningTab), findsOneWidget);
+
+    // TECH starts locked (progressive disclosure); unlock so it's navigable.
+    game.debugUnlockAllTabs();
+    await tester.pump();
 
     final researchIcon = find.byIcon(Icons.science);
     expect(researchIcon, findsOneWidget);

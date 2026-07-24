@@ -167,6 +167,9 @@ class FakeGameRepository implements GameRepository {
     bool hasWonGame = false,
     bool sandboxNoCap = false,
     int winCount = 0,
+    bool unlockedTech = false,
+    bool unlockedStash = false,
+    bool unlockedSkill = false,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -192,6 +195,9 @@ class FakeGameRepository implements GameRepository {
     data['hasWonGame'] = hasWonGame;
     data['sandboxNoCap'] = sandboxNoCap;
     data['winCount'] = winCount;
+    data['unlockedTech'] = unlockedTech;
+    data['unlockedStash'] = unlockedStash;
+    data['unlockedSkill'] = unlockedSkill;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

@@ -74,6 +74,9 @@ class GameRepository {
     bool hasWonGame = false,
     bool sandboxNoCap = false,
     int winCount = 0,
+    bool unlockedTech = false,
+    bool unlockedStash = false,
+    bool unlockedSkill = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -119,6 +122,9 @@ class GameRepository {
       'hasWonGame': hasWonGame,
       'sandboxNoCap': sandboxNoCap,
       'winCount': winCount,
+      'unlockedTech': unlockedTech,
+      'unlockedStash': unlockedStash,
+      'unlockedSkill': unlockedSkill,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -237,6 +243,11 @@ class GameRepository {
               GameConstants.endgameTargetSats),
       'sandboxNoCap': m['sandboxNoCap'] == true,
       'winCount': asInt(m['winCount'], 0),
+      // Progressive-disclosure tab unlocks (sticky bools; default false, then
+      // GameLogic re-derives from loaded progress silently).
+      'unlockedTech': m['unlockedTech'] == true,
+      'unlockedStash': m['unlockedStash'] == true,
+      'unlockedSkill': m['unlockedSkill'] == true,
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,
