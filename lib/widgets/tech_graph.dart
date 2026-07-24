@@ -45,6 +45,10 @@ class GraphEdge {
   const GraphEdge(this.fromId, this.toId);
 }
 
+/// How edges are drawn: [straight] (radial spider — TALENTS) or [elbow]
+/// (orthogonal circuit routing — TECH tree, much tidier than fanned diagonals).
+enum GraphEdgeStyle { straight, elbow }
+
 const double kNodeW = 128;
 const double kNodeH = 62;
 
@@ -60,6 +64,9 @@ class BlockGraph extends StatefulWidget {
   /// GENESIS node), so the player doesn't land on empty canvas.
   final Offset? initialFocus;
 
+  /// Edge routing (straight for the radial spider, elbow for the TECH tree).
+  final GraphEdgeStyle edgeStyle;
+
   const BlockGraph({
     super.key,
     required this.nodes,
@@ -67,6 +74,7 @@ class BlockGraph extends StatefulWidget {
     required this.graphSize,
     this.legend,
     this.initialFocus,
+    this.edgeStyle = GraphEdgeStyle.straight,
   });
 
   @override
@@ -124,8 +132,8 @@ class _BlockGraphState extends State<BlockGraph> {
                     Positioned.fill(
                       child: RepaintBoundary(
                         child: CustomPaint(
-                          painter:
-                              _ChainPainter(centers, widget.edges, states),
+                          painter: _ChainPainter(
+                              centers, widget.edges, states, widget.edgeStyle),
                         ),
                       ),
                     ),
@@ -256,7 +264,8 @@ class _ChainPainter extends CustomPainter {
   final Map<String, Offset> centers;
   final List<GraphEdge> edges;
   final Map<String, GraphNodeState> states;
-  _ChainPainter(this.centers, this.edges, this.states);
+  final GraphEdgeStyle edgeStyle;
+  _ChainPainter(this.centers, this.edges, this.states, this.edgeStyle);
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -269,53 +278,73 @@ class _ChainPainter extends CustomPainter {
           childState == GraphNodeState.maxed;
       final base = earned ? AppTheme.accent : Colors.white24;
 
-      // Wide translucent glow under a thin bright line.
-      canvas.drawLine(
-        a,
-        b,
-        Paint()
-          ..color = base.withValues(alpha: earned ? 0.22 : 0.10)
-          ..strokeWidth = 6
-          ..strokeCap = StrokeCap.round,
-      );
-      canvas.drawLine(
-        a,
-        b,
-        Paint()
-          ..color = base.withValues(alpha: earned ? 0.9 : 0.4)
-          ..strokeWidth = 2,
-      );
-
-      // A few small rotated links along the segment for the "chain" read.
-      final dx = b.dx - a.dx, dy = b.dy - a.dy;
-      final len = math.sqrt(dx * dx + dy * dy);
-      if (len < 1) continue;
-      final angle = math.atan2(dy, dx);
-      const linkCount = 4;
-      final linkPaint = Paint()
-        ..color = base.withValues(alpha: earned ? 0.8 : 0.35)
-        ..style = PaintingStyle.stroke
-        ..strokeWidth = 1.5;
-      for (int i = 1; i <= linkCount; i++) {
-        final t = i / (linkCount + 1);
-        final p = Offset(a.dx + dx * t, a.dy + dy * t);
-        canvas.save();
-        canvas.translate(p.dx, p.dy);
-        canvas.rotate(angle);
-        canvas.drawRRect(
-          RRect.fromRectAndRadius(
-            const Rect.fromLTWH(-6, -3.5, 12, 7),
-            const Radius.circular(3),
-          ),
-          linkPaint,
-        );
-        canvas.restore();
+      if (edgeStyle == GraphEdgeStyle.elbow) {
+        // Orthogonal circuit routing: out of the parent's right edge, across to
+        // a mid-column, down/up to the child's row, then into the child. Reads
+        // as a clean tech-tree instead of fanned diagonals.
+        final startX = a.dx + kNodeW / 2;
+        final endX = b.dx - kNodeW / 2;
+        final midX = (startX + endX) / 2;
+        final p1 = Offset(startX, a.dy);
+        final p2 = Offset(midX, a.dy);
+        final p3 = Offset(midX, b.dy);
+        final p4 = Offset(endX, b.dy);
+        _seg(canvas, p1, p2, base, earned, links: true);
+        _seg(canvas, p2, p3, base, earned, links: false);
+        _seg(canvas, p3, p4, base, earned, links: true);
+      } else {
+        _seg(canvas, a, b, base, earned, links: true);
       }
+    }
+  }
+
+  /// Draws one segment: wide glow + thin bright line + a few chain-link rects.
+  void _seg(Canvas canvas, Offset a, Offset b, Color base, bool earned,
+      {required bool links}) {
+    canvas.drawLine(
+      a,
+      b,
+      Paint()
+        ..color = base.withValues(alpha: earned ? 0.22 : 0.10)
+        ..strokeWidth = 6
+        ..strokeCap = StrokeCap.round,
+    );
+    canvas.drawLine(
+      a,
+      b,
+      Paint()
+        ..color = base.withValues(alpha: earned ? 0.9 : 0.4)
+        ..strokeWidth = 2,
+    );
+    if (!links) return;
+    final dx = b.dx - a.dx, dy = b.dy - a.dy;
+    final len = math.sqrt(dx * dx + dy * dy);
+    if (len < 24) return; // too short to bother
+    final angle = math.atan2(dy, dx);
+    final count = (len / 40).clamp(1, 5).floor();
+    final linkPaint = Paint()
+      ..color = base.withValues(alpha: earned ? 0.8 : 0.35)
+      ..style = PaintingStyle.stroke
+      ..strokeWidth = 1.5;
+    for (int i = 1; i <= count; i++) {
+      final t = i / (count + 1);
+      canvas.save();
+      canvas.translate(a.dx + dx * t, a.dy + dy * t);
+      canvas.rotate(angle);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(
+          const Rect.fromLTWH(-6, -3.5, 12, 7),
+          const Radius.circular(3),
+        ),
+        linkPaint,
+      );
+      canvas.restore();
     }
   }
 
   @override
   bool shouldRepaint(covariant _ChainPainter old) =>
+      old.edgeStyle != edgeStyle ||
       !mapEquals(old.centers, centers) ||
       !mapEquals(old.states, states) ||
       old.edges.length != edges.length;
