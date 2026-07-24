@@ -25,6 +25,22 @@ class SlotSpin {
   bool get isJackpot => multiplier >= 25;
 }
 
+/// Result of a single Plinko drop. [path] is one L/R decision per peg row
+/// (true = right); [slotIndex] is the landing bucket (== number of rights);
+/// [multiplier] is that bucket's payout per chip staked.
+class PlinkoDrop {
+  final List<bool> path;
+  final int slotIndex;
+  final double multiplier;
+  final int bet;
+  const PlinkoDrop(this.path, this.slotIndex, this.multiplier, this.bet);
+
+  int get payout => (bet * multiplier).floor();
+  int get net => payout - bet;
+  bool get isWin => payout > 0;
+  bool get isJackpot => multiplier >= 10;
+}
+
 class CasinoService {
   // Weighted paytable. EV = sum(weight*multiplier)/sum(weight)
   //   = (1*25 + 3*10 + 8*5 + 20*3 + 120*1.5 + 220*0) / 372 = 335/372 ≈ 0.90.
@@ -70,4 +86,51 @@ class CasinoService {
   /// Double-or-Nothing: true = win (pays 2x). The sub-50% chance is the edge.
   bool flipWin(Random rng) =>
       rng.nextDouble() < GameConstants.casinoFlipWinChance;
+
+  // ---- Plinko (SIMULATED — Micro-Chips only, EV < 1, odds disclosed) --------
+  // A chip drops through [plinkoRows] rows of pegs, going left/right 50/50 at
+  // each, and lands in one of (rows + 1) buckets. The landing bucket == the
+  // number of "rights", so the distribution is binomial: the centre is common
+  // (low payout) and the edges are rare (jackpot). The multipliers are symmetric
+  // and tuned so the weighted average (EV) is ~0.90 — the same ~10% house edge
+  // as the slots, i.e. a chip sink with an edge-jackpot thrill.
+  static const int plinkoRows = 8;
+  static const List<double> plinkoMultipliers = [
+    12.0, 2.5, 1.2, 0.7, 0.3, 0.7, 1.2, 2.5, 12.0,
+  ];
+
+  /// n-choose-k (small n; used for the binomial slot probabilities).
+  static double _binomial(int n, int k) {
+    if (k < 0 || k > n) return 0;
+    double c = 1;
+    for (int i = 0; i < k; i++) {
+      c = c * (n - i) / (i + 1);
+    }
+    return c;
+  }
+
+  /// Probability of the chip landing in [slot] (0..plinkoRows), binomial(0.5).
+  static double plinkoSlotProbability(int slot) =>
+      _binomial(plinkoRows, slot) / pow(2, plinkoRows);
+
+  /// Average return per chip staked on Plinko (for the disclosed odds).
+  static double get plinkoReturnToPlayer {
+    double ev = 0;
+    for (int k = 0; k <= plinkoRows; k++) {
+      ev += plinkoSlotProbability(k) * plinkoMultipliers[k];
+    }
+    return ev;
+  }
+
+  /// Drop a chip through the pegs for [bet] chips using [rng].
+  PlinkoDrop dropPlinko(int bet, Random rng) {
+    final path = <bool>[];
+    int slot = 0;
+    for (int i = 0; i < plinkoRows; i++) {
+      final right = rng.nextBool();
+      path.add(right);
+      if (right) slot++;
+    }
+    return PlinkoDrop(path, slot, plinkoMultipliers[slot], bet);
+  }
 }

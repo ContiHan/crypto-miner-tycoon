@@ -37,6 +37,17 @@ class _StashScreenState extends State<StashScreen>
   Timer? _spinTimer;
   int? _chipOverride; // shown while spinning so the header can't spoil the win
 
+  // Plinko animation state.
+  bool _plinkoDropping = false;
+  Timer? _plinkoTimer;
+  List<bool>? _plinkoPath; // the drop being animated (null = idle)
+  int _plinkoBallRow = 0; // rows the ball has fallen (0..plinkoRows)
+  int _plinkoLandedSlot = -1; // landed bucket, highlighted after settle
+
+  // The three casino games share _chipOverride and _casinoMessage, so only one
+  // may animate at a time — otherwise a second game clobbers the first's state.
+  bool get _casinoBusy => _slotSpinning || _plinkoDropping;
+
   // Real outline icons (no emoji) for the slot symbol keys.
   static const Map<String, IconData> _slotIcons = {
     'moon': Icons.dark_mode_outlined,
@@ -66,6 +77,7 @@ class _StashScreenState extends State<StashScreen>
     // debug when leaving mid tab-animation.
     _tabController.dispose();
     _spinTimer?.cancel();
+    _plinkoTimer?.cancel();
     super.dispose();
   }
 
@@ -522,7 +534,7 @@ class _StashScreenState extends State<StashScreen>
   // ---- Casino (SIMULATED — in-game Micro-Chips only) ----------------------
 
   void _playSlots(GameLogic game) {
-    if (_slotSpinning) return;
+    if (_casinoBusy) return;
     final spin = game.playSlots(_bet); // resolves the outcome up front
     if (spin == null) return;
 
@@ -582,12 +594,120 @@ class _StashScreenState extends State<StashScreen>
   }
 
   void _playFlip(GameLogic game) {
+    if (_casinoBusy) return;
     final win = game.playDoubleOrNothing(_bet);
     if (win == null) return;
     setState(() {
       _casinoMessage = win ? 'DOUBLED! +$_bet chips' : 'Nothing. -$_bet chips';
       _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
     });
+  }
+
+  void _playPlinko(GameLogic game) {
+    if (_casinoBusy) return;
+    final drop = game.playPlinko(_bet); // resolves the outcome up front
+    if (drop == null) return;
+
+    setState(() {
+      _plinkoDropping = true;
+      _casinoMessage = null;
+      _plinkoPath = drop.path;
+      _plinkoBallRow = 0;
+      _plinkoLandedSlot = -1;
+      // Hide the payout until the ball lands (else the header spoils the win).
+      _chipOverride = game.chips - drop.payout;
+    });
+
+    // Drop the ball one peg-row at a time, then reveal the result.
+    _plinkoTimer?.cancel();
+    _plinkoTimer = Timer.periodic(const Duration(milliseconds: 110), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
+      }
+      setState(() => _plinkoBallRow++);
+      if (_plinkoBallRow >= CasinoService.plinkoRows) {
+        t.cancel();
+        setState(() {
+          _plinkoDropping = false;
+          _plinkoLandedSlot = drop.slotIndex;
+          _chipOverride = null; // reveal the real balance now
+          if (drop.isJackpot) {
+            _casinoMessage = 'JACKPOT!  +${drop.net} chips';
+            _casinoMessageColor = Colors.amberAccent;
+          } else if (drop.net > 0) {
+            _casinoMessage = 'WIN  +${drop.net} chips';
+            _casinoMessageColor = Colors.greenAccent;
+          } else if (drop.net == 0) {
+            _casinoMessage = 'Push — broke even';
+            _casinoMessageColor = Colors.white70;
+          } else {
+            _casinoMessage = 'Down ${drop.net} chips';
+            _casinoMessageColor = Colors.redAccent;
+          }
+        });
+      }
+    });
+  }
+
+  static Color _plinkoSlotColor(double mult) {
+    if (mult >= 10) return Colors.amberAccent; // jackpot edges
+    if (mult >= 2) return Colors.cyanAccent;
+    if (mult >= 1) return Colors.greenAccent;
+    return Colors.white24; // <1x: a net loss bucket
+  }
+
+  Widget _buildPlinko(GameLogic game) {
+    final canBet = game.chips >= _bet && _bet > 0;
+    final rtp = (CasinoService.plinkoReturnToPlayer * 100).toStringAsFixed(0);
+    return StylizedCard(
+      color: const Color(0xFF1E1E24),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text('PLINKO',
+                style: GoogleFonts.orbitron(
+                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            AspectRatio(
+              aspectRatio: 1.15,
+              child: CustomPaint(
+                painter: _PlinkoPainter(
+                  path: _plinkoPath,
+                  ballRow: _plinkoBallRow,
+                  landedSlot: _plinkoLandedSlot,
+                  dropping: _plinkoDropping,
+                ),
+                size: Size.infinite,
+              ),
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed: (canBet && !_casinoBusy)
+                    ? () => _playPlinko(game)
+                    : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(_plinkoDropping ? 'DROPPING…' : 'DROP ($_bet chips)',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 6),
+            Text(
+              'Average return ~$rtp% • edges pay 12×, centre is a sink. Odds disclosed.',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+              textAlign: TextAlign.center,
+            ),
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildCasinoTab(BuildContext context, GameLogic game) {
@@ -643,8 +763,9 @@ class _StashScreenState extends State<StashScreen>
             return ChoiceChip(
               label: Text('$b'),
               selected: selected,
-              // Locked mid-spin so the stake can't change while reels settle.
-              onSelected: _slotSpinning ? null : (_) => setState(() => _bet = b),
+              // Locked while any casino game animates so the stake can't change
+              // mid-spin/mid-drop.
+              onSelected: _casinoBusy ? null : (_) => setState(() => _bet = b),
               selectedColor: AppTheme.accent,
               labelStyle: TextStyle(
                 color: selected ? Colors.black : Colors.white,
@@ -693,7 +814,7 @@ class _StashScreenState extends State<StashScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (canBet && !_slotSpinning)
+                    onPressed: (canBet && !_casinoBusy)
                         ? () => _playSlots(game)
                         : null,
                     style: ElevatedButton.styleFrom(
@@ -713,6 +834,10 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 12),
 
+        // Plinko
+        _buildPlinko(game),
+        const SizedBox(height: 12),
+
         // Double or Nothing
         StylizedCard(
           color: const Color(0xFF1E1E24),
@@ -730,7 +855,7 @@ class _StashScreenState extends State<StashScreen>
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton(
-                    onPressed: (canBet && !_slotSpinning)
+                    onPressed: (canBet && !_casinoBusy)
                         ? () => _playFlip(game)
                         : null,
                     style: ElevatedButton.styleFrom(
@@ -912,4 +1037,93 @@ class _StashScreenState extends State<StashScreen>
       ),
     );
   }
+}
+
+/// Draws the Plinko board: a triangular peg lattice, the payout bins along the
+/// bottom (coloured by multiplier, the landed one highlighted), and the ball at
+/// its current row while a drop animates.
+class _PlinkoPainter extends CustomPainter {
+  final List<bool>? path;
+  final int ballRow;
+  final int landedSlot;
+  final bool dropping;
+
+  _PlinkoPainter({
+    required this.path,
+    required this.ballRow,
+    required this.landedSlot,
+    required this.dropping,
+  });
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    const rows = CasinoService.plinkoRows; // 8
+    const slots = rows + 1; // 9
+    final slotW = size.width / slots;
+    const slotH = 34.0; // bottom bin height
+    final pegAreaH = size.height - slotH;
+    final rowH = pegAreaH / (rows + 1);
+    final centerX = size.width / 2;
+    final halfStep = slotW / 2;
+
+    // Peg lattice (triangular Galton board).
+    final pegPaint = Paint()..color = Colors.white24;
+    for (int r = 1; r <= rows; r++) {
+      final y = r * rowH;
+      for (int j = 0; j <= r; j++) {
+        canvas.drawCircle(
+            Offset(centerX + (2 * j - r) * halfStep, y), 2.5, pegPaint);
+      }
+    }
+
+    // Bottom payout bins.
+    final mults = CasinoService.plinkoMultipliers;
+    for (int i = 0; i < slots; i++) {
+      final color = _StashScreenState._plinkoSlotColor(mults[i]);
+      final left = i * slotW;
+      final highlighted = i == landedSlot;
+      final rect = Rect.fromLTWH(left + 2, pegAreaH + 2, slotW - 4, slotH - 4);
+      canvas.drawRRect(
+        RRect.fromRectAndRadius(rect, const Radius.circular(4)),
+        Paint()..color = color.withValues(alpha: highlighted ? 0.85 : 0.22),
+      );
+      final tp = TextPainter(
+        text: TextSpan(
+          text: _fmtMult(mults[i]),
+          style: TextStyle(
+            color: highlighted ? Colors.black : Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+        textDirection: TextDirection.ltr,
+      )..layout(maxWidth: slotW);
+      tp.paint(
+        canvas,
+        Offset(left + (slotW - tp.width) / 2,
+            pegAreaH + (slotH - tp.height) / 2),
+      );
+    }
+
+    // The ball (only once a drop has started).
+    if (path != null) {
+      final k = ballRow.clamp(0, rows);
+      final rights = path!.take(k).where((b) => b).length;
+      final x = centerX + (2 * rights - k) * halfStep;
+      final y = (k * rowH).clamp(0.0, pegAreaH);
+      canvas.drawCircle(
+          Offset(x, y), 8, Paint()..color = AppTheme.accent.withValues(alpha: 0.3));
+      canvas.drawCircle(Offset(x, y), 6, Paint()..color = AppTheme.accent);
+    }
+  }
+
+  static String _fmtMult(double m) =>
+      '${m.toStringAsFixed(m % 1 == 0 ? 0 : 1)}x';
+
+  @override
+  bool shouldRepaint(_PlinkoPainter old) =>
+      old.ballRow != ballRow ||
+      old.landedSlot != landedSlot ||
+      old.dropping != dropping ||
+      !identical(old.path, path);
 }
