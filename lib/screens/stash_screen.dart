@@ -194,9 +194,21 @@ class _StashScreenState extends State<StashScreen>
       backgroundColor: AppTheme.background,
       appBar: AppBar(
         backgroundColor: AppTheme.surface,
-        title: Text(
-          'STASH & BLACK MARKET',
-          style: GoogleFonts.orbitron(fontWeight: FontWeight.bold),
+        centerTitle: true,
+        // Full title at a size that fits; FittedBox scales down further on very
+        // narrow screens so it never truncates with an ellipsis.
+        title: FittedBox(
+          fit: BoxFit.scaleDown,
+          child: Text(
+            'STASH & BLACK MARKET',
+            maxLines: 1,
+            style: GoogleFonts.orbitron(
+              fontWeight: FontWeight.bold,
+              fontSize: 15,
+              letterSpacing: 0.5,
+              color: AppTheme.accent,
+            ),
+          ),
         ),
         bottom: TabBar(
           controller: _tabController,

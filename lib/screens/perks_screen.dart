@@ -129,25 +129,36 @@ class PerksScreen extends StatelessWidget {
                 ],
               ),
             ),
-            ElevatedButton(
-              onPressed: canAfford ? () => game.buyPerk(id) : null,
-              style: ElevatedButton.styleFrom(
-                backgroundColor: isMaxed
-                    ? Colors.grey
-                    : (canAfford ? AppTheme.accent : Colors.grey[800]),
-                foregroundColor: Colors.black,
-              ),
-              child: Column(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Text(isMaxed ? 'MAX' : 'BUY',
-                      style: const TextStyle(
-                          fontSize: 10, fontWeight: FontWeight.bold)),
-                  if (!isMaxed)
-                    Text(Formatter.formatNumber(cost.toDouble()),
+            const SizedBox(width: 12),
+            // Fixed-width action so it never grows with the price nor crowds the
+            // name; long prices scale down via FittedBox (no ellipsis).
+            SizedBox(
+              width: 96,
+              child: ElevatedButton(
+                onPressed: canAfford ? () => game.buyPerk(id) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: isMaxed
+                      ? Colors.grey
+                      : (canAfford ? AppTheme.accent : Colors.grey[800]),
+                  foregroundColor: Colors.black,
+                  padding:
+                      const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+                ),
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Text(isMaxed ? 'MAX' : 'BUY',
                         style: const TextStyle(
-                            fontSize: 14, fontWeight: FontWeight.bold)),
-                ],
+                            fontSize: 10, fontWeight: FontWeight.bold)),
+                    if (!isMaxed)
+                      FittedBox(
+                        fit: BoxFit.scaleDown,
+                        child: Text(Formatter.formatNumber(cost.toDouble()),
+                            style: const TextStyle(
+                                fontSize: 14, fontWeight: FontWeight.bold)),
+                      ),
+                  ],
+                ),
               ),
             ),
           ],

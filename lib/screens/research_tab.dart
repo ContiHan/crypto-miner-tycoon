@@ -56,19 +56,40 @@ class ResearchTab extends StatelessWidget {
               ),
             ),
             Expanded(
-              child: ListView.builder(
+              child: ListView(
                 padding: const EdgeInsets.all(16),
-                itemCount: game.researchNodes.length,
-                itemBuilder: (context, index) {
-                  final node = game.researchNodes[index];
-                  return _buildResearchItem(context, game, node);
-                },
+                children: _buildResearchList(context, game),
               ),
             ),
           ],
         );
       },
     );
+  }
+
+  /// Unlocked/completed nodes, followed by a SINGLE "???" teaser for the next
+  /// frontier node (matches the Perks screen) — not one teaser per frontier.
+  List<Widget> _buildResearchList(BuildContext context, GameLogic game) {
+    final widgets = <Widget>[];
+    bool teaserShown = false;
+    for (final node in game.researchNodes) {
+      if (node.isCompleted || node.isUnlocked) {
+        widgets.add(_buildResearchItem(context, game, node));
+      } else if (!teaserShown) {
+        final onFrontier = node.requirements.every((reqId) {
+          final req = game.researchNodes.firstWhere(
+            (r) => r.id == reqId,
+            orElse: () => node,
+          );
+          return req.isCompleted || req.isUnlocked;
+        });
+        if (onFrontier) {
+          widgets.add(_buildLockedResearchTeaser());
+          teaserShown = true;
+        }
+      }
+    }
+    return widgets;
   }
 
   /// Dim "???" silhouette for a locked frontier research node.
@@ -201,43 +222,59 @@ class ResearchTab extends StatelessWidget {
                 ],
               ),
             ),
-            // Action
-            if (isCompleted)
-              const Text(
-                'ACTIVE',
-                style: TextStyle(
-                  color: Colors.green,
-                  fontWeight: FontWeight.bold,
-                ),
-              )
-            else
-              ElevatedButton(
-                onPressed: canAfford
-                    ? () {
-                        game.buyResearch(node.id);
-                      }
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canAfford
-                      ? AppTheme.accent
-                      : Colors.grey[800],
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 16,
-                    vertical: 12,
-                  ),
-                ),
-                child: Text(
-                  game.showFiatPrices
-                      ? 'BUY\n\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
-                      : 'BUY\n${Formatter.formatBitcoin(costSats)}',
-                  textAlign: TextAlign.center,
-                  style: const TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-              ),
+            const SizedBox(width: 12),
+            // Fixed-width action slot so BUY never grows with the price nor
+            // crowds the name, and ACTIVE aligns with it. Long prices scale down
+            // via FittedBox (no ellipsis).
+            SizedBox(
+              width: 96,
+              child: isCompleted
+                  ? const Center(
+                      child: Text(
+                        'ACTIVE',
+                        style: TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    )
+                  : ElevatedButton(
+                      onPressed: canAfford
+                          ? () {
+                              game.buyResearch(node.id);
+                            }
+                          : null,
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor:
+                            canAfford ? AppTheme.accent : Colors.grey[800],
+                        foregroundColor: Colors.black,
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 6,
+                          vertical: 10,
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Text(
+                            'BUY',
+                            style: TextStyle(
+                                fontSize: 10, fontWeight: FontWeight.bold),
+                          ),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            child: Text(
+                              game.showFiatPrices
+                                  ? '\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
+                                  : Formatter.formatBitcoin(costSats),
+                              style: const TextStyle(
+                                  fontSize: 13, fontWeight: FontWeight.bold),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+            ),
           ],
         ),
       ),
