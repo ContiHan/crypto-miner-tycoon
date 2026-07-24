@@ -37,7 +37,18 @@ class _OnboardingCoachState extends State<OnboardingCoach> {
   @override
   void initState() {
     super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateRect());
+    _scheduleRect();
+  }
+
+  // Measure the spotlight rect after this frame, then once more on the next —
+  // the first frame after mount isn't always fully laid out (e.g. the HACK
+  // button's position before the ListView finished sizing), which otherwise
+  // left the first beat's spotlight in the wrong place.
+  void _scheduleRect() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _updateRect();
+      WidgetsBinding.instance.addPostFrameCallback((_) => _updateRect());
+    });
   }
 
   void _updateRect() {
@@ -64,7 +75,7 @@ class _OnboardingCoachState extends State<OnboardingCoach> {
       _index++;
       _rect = null;
     });
-    WidgetsBinding.instance.addPostFrameCallback((_) => _updateRect());
+    _scheduleRect();
   }
 
   @override
