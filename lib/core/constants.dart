@@ -81,6 +81,20 @@ class GameConstants {
   // simulated casino must never become +EV (Google Play compliance).
   static const double casinoRtpCap = 0.97;
 
+  // RPG classes + Mastery (Phase 3). A class is picked at each New Blockchain
+  // and reshapes the run via small additive channel weightings (softcapped like
+  // every other bonus) plus a prestige-gain multiplier. Mastery is permanent
+  // (survives everything but a full wipe) and is the "play them all" driver.
+  //
+  // Mastery XP earned when a chain ends (New Blockchain) = the GovTokens minted
+  // during that chain, credited to the class you played it as. Mastery level is
+  // CONCAVE (sqrt) so it keeps growing but never runs away.
+  static const double masteryXpDivisor = 10000.0; // level = floor(sqrt(xp/this))
+  // Each TOTAL mastery level (summed across all classes) grants this much
+  // permanent hash AND income bonus, for every class including Prospector. Tiny
+  // and softcapped, so mastering all four is a gentle nudge, not a power spike.
+  static const double masteryBonusPerLevel = 0.005; // +0.5% hash & income / level
+
   // Perks
   static const double perkBaseClickPower = 5.0;
   static const double perkClickPowerGrowth = 2.0; // +2 per level

@@ -27,6 +27,7 @@ import '../logic/managers/mining_manager.dart';
 import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
 import '../logic/managers/achievement_manager.dart';
+import '../logic/managers/class_manager.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -324,6 +325,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     _miningManager.reset();
     _prestige.reset();
+    _classManager.reset(); // full wipe: back to Prospector, no Mastery
     _achievements.reset(); // full wipe clears achievements + Notoriety
 
     hardForkCount = 0;
@@ -379,10 +381,38 @@ class GameLogic with ChangeNotifier {
     );
   }
 
+  // RPG class + Mastery (Phase 3). Prospector until the first New Blockchain.
+  final ClassManager _classManager = ClassManager();
+  BtcClass get currentClass => _classManager.current;
+  ClassDef get currentClassDef => _classManager.currentDef;
+  bool get hasChosenClass => _classManager.hasChosenClass;
+  int masteryLevel(BtcClass c) => _classManager.masteryLevel(c);
+  double masteryXp(BtcClass c) => _classManager.masteryXp[c] ?? 0;
+  int get totalMasteryLevel => _classManager.totalMasteryLevel;
+
+  /// Mastery level of the class currently being played (0 for Prospector).
+  int get currentClassMasteryLevel =>
+      _classManager.masteryLevel(_classManager.current);
+
+  /// Test seams: set the active class / grant Mastery XP without needing to reach
+  /// a New Blockchain first.
+  @visibleForTesting
+  void debugSelectClass(BtcClass c) => _classManager.select(c);
+  @visibleForTesting
+  void debugCreditMastery(BtcClass c, double xp) =>
+      _classManager.creditMastery(c, xp);
+
+  /// The current class's multiplier on Consensus + GovToken GAIN (1.0 neutral).
+  double get classPrestigeGainMultiplier =>
+      _classManager.prestigeGainMultiplier;
+
   // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
   final PrestigeSystem _prestige = PrestigeSystem();
   int get consensus => _prestige.consensus;
-  int get pendingConsensus => _prestige.pendingConsensus(lifetimeEarnings);
+  int get pendingConsensus => _prestige.pendingConsensus(
+        lifetimeEarnings,
+        gainMultiplier: classPrestigeGainMultiplier,
+      );
 
   /// The Consensus income bonus actually folded into [prestigeMultiplier]
   /// (concave: 0.10*sqrt(consensus)). Exposed so the UI shows the true bonus.
@@ -414,7 +444,10 @@ class GameLogic with ChangeNotifier {
   /// low-stakes — no confirmation needed.
   void softFork() {
     if (pendingConsensus <= 0) return;
-    _prestige.applySoftFork(lifetimeEarnings);
+    _prestige.applySoftFork(
+      lifetimeEarnings,
+      gainMultiplier: classPrestigeGainMultiplier,
+    );
     _researchManager.reset();
     softForkCount++;
     _soundService.playUnlock();
@@ -625,6 +658,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.contributeChannels(ch);
     _perkManager.contributeChannels(ch);
     _stash.contributeChannels(ch);
+    _classManager.contributeChannels(ch); // class weightings + permanent Mastery
     return ch;
   }
 
@@ -786,12 +820,14 @@ class GameLogic with ChangeNotifier {
   }
 
   // Base GovToken accrual, scaled by the tier-3 Genesis gain multiplier (1.0
-  // until the player has Genesis Blocks, so early play is unaffected). The
-  // multiplier is applied to the raw root inside the economy service so partial
-  // token progress is preserved, matching how Consensus (tier-1) is scaled.
+  // until the player has Genesis Blocks, so early play is unaffected) AND the
+  // current class's prestige-gain multiplier (BTC OG boosts, Corporation
+  // reduces). Both are applied to the raw root inside the economy service so
+  // partial token progress is preserved, matching how Consensus (tier-1) scales.
   int get pendingGovTokens => _economy.calculatePendingGovTokens(
     lifetimeEarnings,
-    gainMultiplier: _prestige.genesisGainMultiplier,
+    gainMultiplier:
+        _prestige.genesisGainMultiplier * classPrestigeGainMultiplier,
   );
 
   // Injectable so tests can force a crit / no-crit deterministically.
@@ -937,14 +973,25 @@ class GameLogic with ChangeNotifier {
   /// Genesis Blocks. Rare and high-stakes, so the UI gates it behind a
   /// confirmation dialog. Genesis Blocks permanently multiply future Consensus
   /// and GovToken gains.
-  void newBlockchain() {
+  /// [chosenClass] is the class to play the NEXT chain as (the picker's choice).
+  /// When null the current class carries over (used by sims/tests). Mastery for
+  /// the chain just finished is credited to the class it was played as BEFORE the
+  /// wipe, since the chain-GovToken baseline is reset by [applyNewBlockchain].
+  void newBlockchain({BtcClass? chosenClass}) {
     if (pendingGenesis <= 0) return;
 
     _soundService.playHalving(); // dramatic cue for the deepest reset
     _hapticHeavy();
 
+    // Credit Mastery to the class this chain was played as (GovTokens minted this
+    // chain), BEFORE the baseline snapshot below zeroes the chain counter.
+    _classManager.creditMastery(_classManager.current, _prestige.chainGovTokens());
+
     // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
     _prestige.applyNewBlockchain();
+
+    // Lock in the class for the new chain (if the player picked one).
+    if (chosenClass != null) _classManager.select(chosenClass);
 
     // Wipe the run. Stash artifacts are deliberately preserved (permanent
     // collection); Genesis Blocks were just banked above.
@@ -1089,6 +1136,8 @@ class GameLogic with ChangeNotifier {
       cratesOpened: cratesOpened,
       casinoSpins: casinoSpins,
       casinoJackpots: casinoJackpots,
+      currentClass: _classManager.current.name,
+      mastery: _classManager.masteryJson(),
     );
   }
 
@@ -1137,6 +1186,11 @@ class GameLogic with ChangeNotifier {
       _prestige.govTokensEverAtLastNewChain = _toDouble(
         data['govTokensEverAtLastNewChain'],
       );
+
+      // RPG class + permanent Mastery (persist across all prestige tiers; only a
+      // full wipe clears them). Tolerant of missing/unknown values (falls back to
+      // Prospector / 0 XP for saves predating Phase 3).
+      _classManager.loadFrom(data['currentClass'], data['mastery']);
 
       // Achievements + action counters (persist across all prestige tiers).
       hardForkCount = _toInt(data['hardForkCount']);
