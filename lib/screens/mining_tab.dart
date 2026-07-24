@@ -191,19 +191,23 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
 
   @override
   Widget build(BuildContext context) {
-    return Consumer<GameLogic>(
-      builder: (context, game, child) {
-        return LayoutBuilder(
-          builder: (context, constraints) {
-            // Feed the anomaly spawner the real tab size so anomalies never
-            // spawn off-screen (landscape/small screens) or cluster in a corner.
-            if (constraints.maxWidth.isFinite && constraints.maxHeight.isFinite) {
-              game.setAnomalyViewport(
+    // NOTE: no top-level Consumer here on purpose. The tab STRUCTURE is built
+    // once; only the genuinely per-tick pieces (stats panel, EST.CLICK, teaser)
+    // have their own Consumer, and the heavy rig list + anomaly sit behind
+    // Selectors. A Selector only honours its cache when its parent is stable —
+    // nesting it under a per-tick Consumer recreates it every tick and defeats
+    // the caching entirely, so the outer Consumer was removed.
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        // Feed the anomaly spawner the real tab size (side-effect only — read,
+        // don't listen, so this doesn't rebuild the tab every income tick).
+        if (constraints.maxWidth.isFinite && constraints.maxHeight.isFinite) {
+          context.read<GameLogic>().setAnomalyViewport(
                 constraints.maxWidth,
                 constraints.maxHeight,
               );
-            }
-            return _withShake(Stack(
+        }
+        return _withShake(Stack(
               children: [
             Column(
               children: [
@@ -211,8 +215,11 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                   child: ListView(
                     padding: const EdgeInsets.all(8),
                     children: [
-                      // Stats Panel
-                      StylizedCard(
+                      // Stats Panel — its own Consumer (per-tick wallet / hash /
+                      // difficulty / halving / prestige readouts), kept separate
+                      // from the rig list so it doesn't drag the cards along.
+                      Consumer<GameLogic>(
+                        builder: (context, game, _) => StylizedCard(
                         color: AppTheme.surface,
                         child: Container(
                           width: double.infinity,
@@ -456,36 +463,78 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                             ],
                           ),
                         ),
-                      ),
+                      )),
                       const SizedBox(height: 10),
-                      ...game.visibleRigs.map(
-                        (rig) => RigListItem(
-                          rig: rig,
-                          game: game,
-                          onBuy: (pos) {
-                            // [pos] is a GLOBAL coordinate; convert to this
-                            // Stack's local space (mirrors the HACK handler) so
-                            // the deduction glyph appears on the button, not
-                            // ~100px below it.
-                            final box = context.findRenderObject();
-                            final local = box is RenderBox
-                                ? box.globalToLocal(pos)
-                                : pos;
-                            addFloatingText(
-                              game.showFiatPrices ? '-\$' : '-Ş',
-                              local,
-                            );
-                          },
-                        ),
+                      // The rig cards are the heaviest part of the tab (neon
+                      // icons, shadows, progress bars). A Selector isolates them
+                      // so they only rebuild on a MEANINGFUL change — a purchase,
+                      // an affordability flip, a fiat toggle or a chaos cost
+                      // event — instead of on every 1s income tick. The signature
+                      // string changes exactly on those events (wallet ticking up
+                      // by itself does not alter it), so the cached subtree is
+                      // reused between ticks.
+                      Selector<GameLogic, String>(
+                        selector: (_, g) {
+                          // A signature that changes on exactly the events that
+                          // should rebuild the cards: a purchase (amount), a cost
+                          // change (getRigCost folds in the rig-cost channel +
+                          // chaos), an affordability flip (wallet vs cost), or a
+                          // fiat toggle. getRigCost is stable between income ticks,
+                          // so the wallet ticking up alone does NOT change it.
+                          final sb = StringBuffer();
+                          for (final r in g.visibleRigs) {
+                            final cost = g.getRigCost(r);
+                            sb
+                              ..write(r.id)
+                              ..write(':')
+                              ..write(r.amount)
+                              ..write(':')
+                              ..write(cost)
+                              ..write(g.wallet >= cost ? 'A' : 'x')
+                              ..write(';');
+                          }
+                          return (sb..write(g.showFiatPrices ? 'F' : 'B'))
+                              .toString();
+                        },
+                        builder: (ctx, _, _) {
+                          final g = ctx.read<GameLogic>();
+                          return Column(
+                            children: [
+                              for (final rig in g.visibleRigs)
+                                RigListItem(
+                                  rig: rig,
+                                  game: g,
+                                  onBuy: (pos) {
+                                    // [pos] is GLOBAL; convert to this tab's local
+                                    // space so the deduction glyph appears on the
+                                    // button (mirrors the HACK handler).
+                                    final box = context.findRenderObject();
+                                    final local = box is RenderBox
+                                        ? box.globalToLocal(pos)
+                                        : pos;
+                                    addFloatingText(
+                                      g.showFiatPrices ? '-\$' : '-Ş',
+                                      local,
+                                    );
+                                  },
+                                ),
+                            ],
+                          );
+                        },
                       ),
-                      if (game.nextLockedRig != null)
-                        _LockedRigTeaser(
-                          threshold: game.unlockThresholdFor(
-                            game.nextLockedRig!.id,
-                          ),
-                          showFiat: game.showFiatPrices,
-                          toFiat: game.toFiat,
-                        ),
+                      // Locked-rig teaser — own Consumer (nextLockedRig +
+                      // threshold + fiat), so it isn't rebuilt with the cards.
+                      Consumer<GameLogic>(
+                        builder: (context, game, _) => game.nextLockedRig != null
+                            ? _LockedRigTeaser(
+                                threshold: game.unlockThresholdFor(
+                                  game.nextLockedRig!.id,
+                                ),
+                                showFiat: game.showFiatPrices,
+                                toFiat: game.toFiat,
+                              )
+                            : const SizedBox.shrink(),
+                      ),
                     ],
                   ),
                 ),
@@ -593,46 +642,59 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
             ),
             ..._floatingTexts,
 
-            // Anomaly Widget
-            if (game.isAnomalyActive)
-              Positioned(
-                left: game.anomalyPosition.dx,
-                top: game.anomalyPosition.dy,
-                child: GestureDetector(
-                  onTap: () {
-                    game.clickAnomaly();
-                    spawnBinaryExplosion(game.anomalyPosition); // Reuse visuals
-                    addFloatingText('+1 CHIP', game.anomalyPosition);
-                  },
-                  child: AnimatedContainer(
-                    duration: const Duration(milliseconds: 300),
-                    width: 50,
-                    height: 50,
-                    decoration: const BoxDecoration(
-                      shape: BoxShape.circle,
-                      color: Colors.redAccent,
-                      boxShadow: [
-                        BoxShadow(
-                          color: Colors.red,
-                          blurRadius: 10,
-                          spreadRadius: 2,
+            // Anomaly — isolated behind a Selector so it only rebuilds when it
+            // spawns/despawns (or moves), not on every income tick. Positioned
+            // must be a DIRECT Stack child, so a Positioned.fill hosts the
+            // Selector and an inner Stack hosts the real Positioned.
+            Positioned.fill(
+              child: Selector<GameLogic, ({bool active, Offset pos})>(
+                selector: (_, g) =>
+                    (active: g.isAnomalyActive, pos: g.anomalyPosition),
+                builder: (ctx, s, _) {
+                  if (!s.active) return const SizedBox.shrink();
+                  return Stack(
+                    children: [
+                      Positioned(
+                        left: s.pos.dx,
+                        top: s.pos.dy,
+                        child: GestureDetector(
+                          onTap: () {
+                            ctx.read<GameLogic>().clickAnomaly();
+                            spawnBinaryExplosion(s.pos); // Reuse visuals
+                            addFloatingText('+1 CHIP', s.pos);
+                          },
+                          child: AnimatedContainer(
+                            duration: const Duration(milliseconds: 300),
+                            width: 50,
+                            height: 50,
+                            decoration: const BoxDecoration(
+                              shape: BoxShape.circle,
+                              color: Colors.redAccent,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.red,
+                                  blurRadius: 10,
+                                  spreadRadius: 2,
+                                ),
+                              ],
+                            ),
+                            child: const Icon(
+                              Icons.bug_report,
+                              color: Colors.white,
+                              size: 30,
+                            ),
+                          ),
                         ),
-                      ],
-                    ),
-                    child: const Icon(
-                      Icons.bug_report,
-                      color: Colors.white,
-                      size: 30,
-                    ),
-                  ),
-                ),
+                      ),
+                    ],
+                  );
+                },
               ),
+            ),
               ],
             ));
           },
         );
-      },
-    );
   }
 }
 
