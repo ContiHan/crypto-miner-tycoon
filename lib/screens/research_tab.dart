@@ -183,6 +183,7 @@ class ResearchTab extends StatelessWidget {
       edges: edges,
       graphSize: Size(100 + maxDepth * _colW + 200, _canvasH),
       initialFocus: const Offset(100, _canvasH / 2), // centre on the root
+      edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing for the tree
       legend: const _Legend(lockedHint: 'locked → research the prerequisite'),
     );
   }
