@@ -19,13 +19,17 @@ class StashScreen extends StatefulWidget {
   State<StashScreen> createState() => _StashScreenState();
 }
 
+/// Which casino game the selector is showing (only one is mounted at a time).
+enum CasinoGame { slots, plinko, flip }
+
 class _StashScreenState extends State<StashScreen>
-    with SingleTickerProviderStateMixin {
+    with TickerProviderStateMixin {
   late TabController _tabController;
   bool _isErrorShowing = false;
 
   // Casino local UI state.
   int _bet = 5;
+  CasinoGame _selectedGame = CasinoGame.slots; // slots = the polished default
   String? _casinoMessage;
   Color _casinoMessageColor = Colors.white70;
 
@@ -39,9 +43,8 @@ class _StashScreenState extends State<StashScreen>
 
   // Plinko animation state.
   bool _plinkoDropping = false;
-  Timer? _plinkoTimer;
+  late final AnimationController _plinkoController;
   List<bool>? _plinkoPath; // the drop being animated (null = idle)
-  int _plinkoBallRow = 0; // rows the ball has fallen (0..plinkoRows)
   int _plinkoLandedSlot = -1; // landed bucket, highlighted after settle
 
   // The three casino games share _chipOverride and _casinoMessage, so only one
@@ -68,6 +71,8 @@ class _StashScreenState extends State<StashScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _plinkoController = AnimationController(
+        vsync: this, duration: const Duration(milliseconds: 1400));
   }
 
   @override
@@ -77,7 +82,7 @@ class _StashScreenState extends State<StashScreen>
     // debug when leaving mid tab-animation.
     _tabController.dispose();
     _spinTimer?.cancel();
-    _plinkoTimer?.cancel();
+    _plinkoController.dispose();
     super.dispose();
   }
 
@@ -629,22 +634,17 @@ class _StashScreenState extends State<StashScreen>
       _plinkoDropping = true;
       _casinoMessage = null;
       _plinkoPath = drop.path;
-      _plinkoBallRow = 0;
       _plinkoLandedSlot = -1;
       // Hide the payout until the ball lands (else the header spoils the win).
       _chipOverride = game.chips - drop.payout;
     });
 
-    // Drop the ball one peg-row at a time, then reveal the result.
-    _plinkoTimer?.cancel();
-    _plinkoTimer = Timer.periodic(const Duration(milliseconds: 110), (t) {
-      if (!mounted) {
-        t.cancel();
-        return;
-      }
-      setState(() => _plinkoBallRow++);
-      if (_plinkoBallRow >= CasinoService.plinkoRows) {
-        t.cancel();
+    // Smooth cosmetic drop: the controller animates the ball down the already
+    // decided path (see _PlinkoPainter); reveal the result on completion.
+    _plinkoController
+      ..reset()
+      ..forward().whenComplete(() {
+        if (!mounted) return;
         setState(() {
           _plinkoDropping = false;
           _plinkoLandedSlot = drop.slotIndex;
@@ -663,8 +663,7 @@ class _StashScreenState extends State<StashScreen>
             _casinoMessageColor = Colors.redAccent;
           }
         });
-      }
-    });
+      });
   }
 
   static Color _plinkoSlotColor(double mult) {
@@ -692,7 +691,7 @@ class _StashScreenState extends State<StashScreen>
               child: CustomPaint(
                 painter: _PlinkoPainter(
                   path: _plinkoPath,
-                  ballRow: _plinkoBallRow,
+                  progress: _plinkoController,
                   landedSlot: _plinkoLandedSlot,
                   dropping: _plinkoDropping,
                 ),
@@ -794,7 +793,23 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 16),
 
-        // Result message
+        // Game selector — show ONE focused table at a time so all three games
+        // are discoverable instead of stacked and easy to miss.
+        const Text('GAME',
+            style: TextStyle(
+                color: Colors.white54, fontSize: 11, letterSpacing: 1)),
+        const SizedBox(height: 6),
+        Wrap(
+          spacing: 8,
+          children: [
+            _gameChip(CasinoGame.slots, 'SLOTS', Icons.casino),
+            _gameChip(CasinoGame.plinko, 'PLINKO', Icons.grain),
+            _gameChip(CasinoGame.flip, 'DOUBLE', Icons.monetization_on),
+          ],
+        ),
+        const SizedBox(height: 16),
+
+        // Result message (shared across games)
         if (_casinoMessage != null)
           Container(
             width: double.infinity,
@@ -810,84 +825,12 @@ class _StashScreenState extends State<StashScreen>
             ),
           ),
 
-        // Slots
-        StylizedCard(
-          color: const Color(0xFF1E1E24),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Text('CRYPTO SLOTS',
-                    style: GoogleFonts.orbitron(
-                        color: AppTheme.accent, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 12),
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  children: [
-                    for (int i = 0; i < 3; i++) _buildReel(_reels[i], _reelSettled[i]),
-                  ],
-                ),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (canBet && !_casinoBusy)
-                        ? () => _playSlots(game)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.accent,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text(_slotSpinning ? 'SPINNING…' : 'SPIN ($_bet chips)',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-                const SizedBox(height: 10),
-                _buildPaytable(rtp),
-              ],
-            ),
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Plinko
-        _buildPlinko(game),
-        const SizedBox(height: 12),
-
-        // Double or Nothing
-        StylizedCard(
-          color: const Color(0xFF1E1E24),
-          child: Padding(
-            padding: const EdgeInsets.all(16),
-            child: Column(
-              children: [
-                Text('DOUBLE OR NOTHING',
-                    style: GoogleFonts.orbitron(
-                        color: AppTheme.accent, fontWeight: FontWeight.bold)),
-                const SizedBox(height: 4),
-                Text('$flipPct% chance to win 2×  •  odds disclosed',
-                    style: const TextStyle(color: Colors.white54, fontSize: 11)),
-                const SizedBox(height: 12),
-                SizedBox(
-                  width: double.infinity,
-                  child: ElevatedButton(
-                    onPressed: (canBet && !_casinoBusy)
-                        ? () => _playFlip(game)
-                        : null,
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: Colors.purpleAccent,
-                      foregroundColor: Colors.black,
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    child: Text('FLIP ($_bet chips)',
-                        style: const TextStyle(fontWeight: FontWeight.bold)),
-                  ),
-                ),
-              ],
-            ),
-          ),
-        ),
+        // The selected game — a single focused table.
+        switch (_selectedGame) {
+          CasinoGame.slots => _buildSlots(game, canBet, rtp),
+          CasinoGame.plinko => _buildPlinko(game),
+          CasinoGame.flip => _buildFlip(game, canBet, flipPct),
+        },
         if (!canBet)
           const Padding(
             padding: EdgeInsets.only(top: 12),
@@ -898,6 +841,105 @@ class _StashScreenState extends State<StashScreen>
             ),
           ),
       ],
+    );
+  }
+
+  Widget _gameChip(CasinoGame g, String label, IconData icon) {
+    final selected = _selectedGame == g;
+    return ChoiceChip(
+      avatar: Icon(icon,
+          size: 16, color: selected ? Colors.black : Colors.white70),
+      label: Text(label),
+      selected: selected,
+      // Locked mid-animation so switching can't strand an in-flight spin/drop
+      // on a hidden game; clear the shared result message on switch.
+      onSelected: _casinoBusy
+          ? null
+          : (_) => setState(() {
+                _selectedGame = g;
+                _casinoMessage = null;
+              }),
+      selectedColor: AppTheme.accent,
+      labelStyle: TextStyle(
+        color: selected ? Colors.black : Colors.white,
+        fontWeight: FontWeight.bold,
+      ),
+      backgroundColor: Colors.black45,
+    );
+  }
+
+  Widget _buildSlots(GameLogic game, bool canBet, String rtp) {
+    return StylizedCard(
+      color: const Color(0xFF1E1E24),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text('CRYPTO SLOTS',
+                style: GoogleFonts.orbitron(
+                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                for (int i = 0; i < 3; i++)
+                  _buildReel(_reels[i], _reelSettled[i]),
+              ],
+            ),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    (canBet && !_casinoBusy) ? () => _playSlots(game) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.accent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text(_slotSpinning ? 'SPINNING…' : 'SPIN ($_bet chips)',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+            const SizedBox(height: 10),
+            _buildPaytable(rtp),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildFlip(GameLogic game, bool canBet, String flipPct) {
+    return StylizedCard(
+      color: const Color(0xFF1E1E24),
+      child: Padding(
+        padding: const EdgeInsets.all(16),
+        child: Column(
+          children: [
+            Text('DOUBLE OR NOTHING',
+                style: GoogleFonts.orbitron(
+                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 4),
+            Text('$flipPct% chance to win 2×  •  odds disclosed',
+                style: const TextStyle(color: Colors.white54, fontSize: 11)),
+            const SizedBox(height: 12),
+            SizedBox(
+              width: double.infinity,
+              child: ElevatedButton(
+                onPressed:
+                    (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: Colors.purpleAccent,
+                  foregroundColor: Colors.black,
+                  padding: const EdgeInsets.symmetric(vertical: 14),
+                ),
+                child: Text('FLIP ($_bet chips)',
+                    style: const TextStyle(fontWeight: FontWeight.bold)),
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 
@@ -1061,16 +1103,16 @@ class _StashScreenState extends State<StashScreen>
 /// its current row while a drop animates.
 class _PlinkoPainter extends CustomPainter {
   final List<bool>? path;
-  final int ballRow;
+  final Animation<double> progress; // 0..1 drop animation
   final int landedSlot;
   final bool dropping;
 
   _PlinkoPainter({
     required this.path,
-    required this.ballRow,
+    required this.progress,
     required this.landedSlot,
     required this.dropping,
-  });
+  }) : super(repaint: progress); // repaint every animation frame
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -1122,15 +1164,37 @@ class _PlinkoPainter extends CustomPainter {
       );
     }
 
-    // The ball (only once a drop has started).
+    // The ball. Waypoints = the exact peg path from drop.path (i=0..rows), plus
+    // a final settle into the resolved bin. The ball is animated smoothly along
+    // them (gravity ease-in overall + a small peg-to-peg hop) so it visibly
+    // threads the pegs and lands in the already-decided bin — purely cosmetic.
     if (path != null) {
-      final k = ballRow.clamp(0, rows);
-      final rights = path!.take(k).where((b) => b).length;
-      final x = centerX + (2 * rights - k) * halfStep;
-      final y = (k * rowH).clamp(0.0, pegAreaH);
-      canvas.drawCircle(
-          Offset(x, y), 8, Paint()..color = AppTheme.accent.withValues(alpha: 0.3));
-      canvas.drawCircle(Offset(x, y), 6, Paint()..color = AppTheme.accent);
+      final wp = <Offset>[];
+      for (int i = 0; i <= rows; i++) {
+        final rights = path!.take(i).where((b) => b).length;
+        wp.add(Offset(centerX + (2 * rights - i) * halfStep, i * rowH));
+      }
+      wp.add(Offset(wp.last.dx, pegAreaH + slotH / 2)); // settle into the bin
+
+      Offset ball;
+      if (dropping) {
+        final t = Curves.easeIn.transform(progress.value.clamp(0.0, 1.0));
+        final segTotal = wp.length - 1;
+        final fp = t * segTotal;
+        final seg = fp.floor().clamp(0, segTotal - 1);
+        final u = fp - seg;
+        final a = wp[seg], b = wp[seg + 1];
+        final x = a.dx + (b.dx - a.dx) * Curves.easeOut.transform(u);
+        final yBase = a.dy + (b.dy - a.dy) * Curves.easeInOut.transform(u);
+        final hop = -rowH * 0.35 * sin(pi * u); // arc between pegs
+        ball = Offset(x, yBase + hop);
+      } else {
+        // Resting: in the landed bin after a drop, else at the top.
+        ball = landedSlot >= 0 ? wp.last : wp.first;
+      }
+      canvas.drawCircle(ball, 8,
+          Paint()..color = AppTheme.accent.withValues(alpha: 0.3));
+      canvas.drawCircle(ball, 6, Paint()..color = AppTheme.accent);
     }
   }
 
@@ -1139,7 +1203,6 @@ class _PlinkoPainter extends CustomPainter {
 
   @override
   bool shouldRepaint(_PlinkoPainter old) =>
-      old.ballRow != ballRow ||
       old.landedSlot != landedSlot ||
       old.dropping != dropping ||
       !identical(old.path, path);
