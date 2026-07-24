@@ -632,7 +632,11 @@ class GameLogic with ChangeNotifier {
     return _economy.calculateGlobalHashRate(
       rigs,
       _researchManager.isResearched(ResearchIds.chipFab),
-      buildChannels().multiplier(Channel.hash),
+      buildChannels().multiplier(
+        Channel.hash,
+        softStart: GameConstants.hashSoftStart,
+        power: GameConstants.channelSoftPower,
+      ),
     );
   }
 
@@ -651,8 +655,12 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier:
-          buildChannels().multiplier(Channel.income) * notorietyMultiplier,
+      incomeMultiplier: buildChannels().multiplier(
+            Channel.income,
+            softStart: GameConstants.incomeSoftStart,
+            power: GameConstants.channelSoftPower,
+          ) *
+          notorietyMultiplier,
     );
     double income = perSecond * seconds;
     final room = GameConstants.maxSupplySats - lifetimeEarnings;
@@ -796,7 +804,12 @@ class GameLogic with ChangeNotifier {
     final ch = buildChannels();
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
     clickPower *= _stash.getClickPowerMultiplier();
-    clickPower *= ch.multiplier(Channel.click); // CLICK channel (perks/etc.)
+    clickPower *= ch.multiplier(
+      // CLICK channel (perks/etc.), soft-capped past a generous threshold.
+      Channel.click,
+      softStart: GameConstants.clickSoftStart,
+      power: GameConstants.channelSoftPower,
+    );
 
     double diff = networkDifficulty;
 
@@ -806,7 +819,12 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier: ch.multiplier(Channel.income) * notorietyMultiplier,
+      incomeMultiplier: ch.multiplier(
+            Channel.income,
+            softStart: GameConstants.incomeSoftStart,
+            power: GameConstants.channelSoftPower,
+          ) *
+          notorietyMultiplier,
     );
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
@@ -847,7 +865,11 @@ class GameLogic with ChangeNotifier {
     double clickPower =
         _economy.calculateClickPower(_perkManager.perks) *
         _stash.getClickPowerMultiplier() *
-        ch.multiplier(Channel.click);
+        ch.multiplier(
+          Channel.click,
+          softStart: GameConstants.clickSoftStart,
+          power: GameConstants.channelSoftPower,
+        );
 
     // We can reuse MiningManager logic passing dummy 'hashRate' = clickPower?
     // Yes, MiningManager.calculateMiningIncome handles the formula.
@@ -861,7 +883,12 @@ class GameLogic with ChangeNotifier {
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
-      incomeMultiplier: ch.multiplier(Channel.income) * notorietyMultiplier,
+      incomeMultiplier: ch.multiplier(
+            Channel.income,
+            softStart: GameConstants.incomeSoftStart,
+            power: GameConstants.channelSoftPower,
+          ) *
+          notorietyMultiplier,
     );
   }
 

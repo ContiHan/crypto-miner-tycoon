@@ -11,6 +11,18 @@ class GameConstants {
   // display-only flavour stat.
   static const double satPerHash = 1.0;
 
+  // Channel softcaps (RPG Phase 2c retune). Additive channel bonuses stack
+  // cheaply (many small ~2-6% perk levels), so past a GENEROUS threshold each
+  // channel decelerates (diminishing returns) instead of running the economy
+  // away. Below *SoftStart the channel multiplier is untouched; above it,
+  // applied = start * (mult / start)^channelSoftPower. This is a runaway
+  // BACKSTOP — the small per-level perk %s do the primary pacing, the softcap
+  // only catches a whale who stacks a channel into the hundreds of percent.
+  static const double hashSoftStart = 4.0; // hash decelerates past 4x
+  static const double incomeSoftStart = 3.0; // income decelerates past 3x
+  static const double clickSoftStart = 3.0; // click decelerates past 3x
+  static const double channelSoftPower = 0.6; // <1 = diminishing returns
+
   // Halving as gentle PACING: the gap between halvings doubles, so an early era
   // (~hours) sees 0-1 halvings and income grows before the soft-wall.
   static const int halvingFirstThreshold = 15000; // blocks (~4.2 h at 1 block/s)
