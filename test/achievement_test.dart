@@ -192,6 +192,7 @@ void main() {
     // the cap can never unlock (this caught earn_1q at 1e16 > 2.1e15).
     AchStats statsAtCap() => AchStats(
           lifetimeEarnings: GameConstants.maxSupplySats,
+          lifetimeEverSats: GameConstants.maxSupplySats,
           totalGovTokensEver: 0,
           govTokens: 0,
           consensus: 0,

@@ -44,6 +44,23 @@ class GameLogic with ChangeNotifier {
   double wallet = 0;
   double lifetimeEarnings = 0;
 
+  // --- Endgame (RPG Phase 5) ---
+  // Cumulative sats mined across ALL eras/chains; NEVER reset by any prestige
+  // (only a full Wipe Save clears it). This is the win metric — see
+  // GameConstants.endgameTargetSats.
+  double lifetimeEverSats = 0;
+  // Persisted once-only win latch (also gates sandbox availability).
+  bool hasWonGame = false;
+  // Transient (NOT persisted): drives the one-shot GENESIS COMPLETE overlay,
+  // drained by clearWinCelebration() — mirrors offlineEarningsAmount so a
+  // relaunch never replays the ending.
+  bool pendingWinCelebration = false;
+  // "Break the chain" sandbox toggle: lifts the per-era supply cap. Only
+  // settable after hasWonGame.
+  bool sandboxNoCap = false;
+  // Number of endings reached; drives the permanent NG+ trophy gain multiplier.
+  int winCount = 0;
+
   final GameRepository _gameRepo;
   final SettingsRepository _settingsRepo;
   final EconomyService _economy;
@@ -334,6 +351,12 @@ class GameLogic with ChangeNotifier {
     cratesOpened = 0;
     casinoSpins = 0;
     casinoJackpots = 0;
+    // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
+    lifetimeEverSats = 0;
+    hasWonGame = false;
+    pendingWinCelebration = false;
+    sandboxNoCap = false;
+    winCount = 0;
     pendingAchievementToasts.clear();
 
     for (var rig in rigs) {
@@ -406,12 +429,21 @@ class GameLogic with ChangeNotifier {
   double get classPrestigeGainMultiplier =>
       _classManager.prestigeGainMultiplier;
 
+  /// Permanent New-Genesis (NG+) trophy multiplier on prestige GAIN — grows with
+  /// each ending reached (1.0 with no wins). See GameConstants.perWinTrophyBonus.
+  double get trophyGainMultiplier =>
+      1.0 + GameConstants.perWinTrophyBonus * winCount;
+
+  /// Total multiplier applied to Consensus + GovToken gain (class * trophy).
+  double get prestigeGainMultiplier =>
+      classPrestigeGainMultiplier * trophyGainMultiplier;
+
   // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
   final PrestigeSystem _prestige = PrestigeSystem();
   int get consensus => _prestige.consensus;
   int get pendingConsensus => _prestige.pendingConsensus(
         lifetimeEarnings,
-        gainMultiplier: classPrestigeGainMultiplier,
+        gainMultiplier: prestigeGainMultiplier,
       );
 
   /// The Consensus income bonus actually folded into [prestigeMultiplier]
@@ -446,7 +478,7 @@ class GameLogic with ChangeNotifier {
     if (pendingConsensus <= 0) return;
     _prestige.applySoftFork(
       lifetimeEarnings,
-      gainMultiplier: classPrestigeGainMultiplier,
+      gainMultiplier: prestigeGainMultiplier,
     );
     _researchManager.reset();
     softForkCount++;
@@ -476,7 +508,8 @@ class GameLogic with ChangeNotifier {
   }
 
   double get networkDifficulty =>
-      _miningManager.calculateNetworkDifficulty(lifetimeEarnings);
+      _miningManager.calculateNetworkDifficulty(lifetimeEarnings,
+          noCap: sandboxNoCap);
 
   // Chaos/news events — extracted into ChaosEventSystem (lib/logic/systems).
   late final ChaosEventSystem _events;
@@ -695,13 +728,19 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
+      ignoreCap: sandboxNoCap,
     );
     double income = perSecond * seconds;
-    final room = GameConstants.maxSupplySats - lifetimeEarnings;
-    if (room <= 0) return 0;
-    if (income > room) income = room;
+    if (!sandboxNoCap) {
+      final room = GameConstants.maxSupplySats - lifetimeEarnings;
+      if (room <= 0) return 0;
+      if (income > room) income = room;
+    } else if (income > 1e300) {
+      income = 1e300; // sandbox floor-of-last-resort against double overflow
+    }
     wallet += income;
     lifetimeEarnings += income;
+    _creditLifetimeEver(income); // cumulative-ever endgame counter + win check
     return income;
   }
 
@@ -767,6 +806,7 @@ class GameLogic with ChangeNotifier {
     }
     return AchStats(
       lifetimeEarnings: lifetimeEarnings,
+      lifetimeEverSats: lifetimeEverSats,
       totalGovTokensEver: totalGovTokensEver,
       govTokens: govTokens,
       consensus: consensus,
@@ -792,6 +832,34 @@ class GameLogic with ChangeNotifier {
       achievementsUnlocked: _achievements.unlockedCount,
       ownsArtifact: (id) => _stash.ownedArtifacts.containsKey(id),
     );
+  }
+
+  /// The single chokepoint that grows the cumulative-ever endgame counter and
+  /// checks the win. Called from EVERY income-crediting site (passive tick,
+  /// click, offline catch-up) with the sats just credited. Fires the "GENESIS
+  /// COMPLETE" ending exactly once — the persisted [hasWonGame] latch makes
+  /// every later call a cheap no-op, so it's safe to call every tick.
+  void _creditLifetimeEver(double amount) {
+    if (!amount.isFinite || amount <= 0) return;
+    lifetimeEverSats += amount;
+    // Extreme uncapped sandbox play could sum finite chunks into Infinity, which
+    // fin() would then persist as 0 — clamp so the monotonic counter survives.
+    if (!lifetimeEverSats.isFinite) lifetimeEverSats = double.maxFinite;
+    if (hasWonGame) return;
+    if (lifetimeEverSats < GameConstants.endgameTargetSats) return;
+    hasWonGame = true;
+    pendingWinCelebration = true; // drained once by the UI (not persisted)
+    _soundService.playHalving(); // dramatic cue for the ending
+    _hapticHeavy();
+    _saveGame();
+    notifyListeners();
+  }
+
+  /// Drain the one-shot ending trigger after the UI has shown it.
+  void clearWinCelebration() {
+    if (!pendingWinCelebration) return;
+    pendingWinCelebration = false;
+    notifyListeners();
   }
 
   /// Evaluate achievements; queue toasts + save on any new unlock. Cheap enough
@@ -821,13 +889,12 @@ class GameLogic with ChangeNotifier {
 
   // Base GovToken accrual, scaled by the tier-3 Genesis gain multiplier (1.0
   // until the player has Genesis Blocks, so early play is unaffected) AND the
-  // current class's prestige-gain multiplier (BTC OG boosts, Corporation
-  // reduces). Both are applied to the raw root inside the economy service so
-  // partial token progress is preserved, matching how Consensus (tier-1) scales.
+  // prestige-gain multiplier (class: BTC OG boosts / Corporation reduces; plus
+  // the permanent NG+ trophy multiplier). All applied to the raw root inside the
+  // economy service so partial token progress is preserved, matching Consensus.
   int get pendingGovTokens => _economy.calculatePendingGovTokens(
     lifetimeEarnings,
-    gainMultiplier:
-        _prestige.genesisGainMultiplier * classPrestigeGainMultiplier,
+    gainMultiplier: _prestige.genesisGainMultiplier * prestigeGainMultiplier,
   );
 
   // Injectable so tests can force a crit / no-crit deterministically.
@@ -861,6 +928,7 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
+      ignoreCap: sandboxNoCap,
     );
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
@@ -874,16 +942,19 @@ class GameLogic with ChangeNotifier {
 
     // Re-clamp to the per-era supply cap AFTER the crit multiply (mirrors
     // _accrueMining) so a crit near the cap can't push lifetimeEarnings over
-    // maxSupplySats and flip networkDifficulty to Infinity.
-    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
-    if (room <= 0) {
-      clickSats = 0;
-    } else if (clickSats > room) {
-      clickSats = room;
+    // maxSupplySats and flip networkDifficulty to Infinity. Skipped in sandbox.
+    if (!sandboxNoCap) {
+      final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+      if (room <= 0) {
+        clickSats = 0;
+      } else if (clickSats > room) {
+        clickSats = room;
+      }
     }
 
     lifetimeEarnings += clickSats;
     wallet += clickSats;
+    _creditLifetimeEver(clickSats); // cumulative-ever endgame counter + win check
     // Only a real tap makes the click sound; the AI auto-clicker stays silent
     // so it doesn't emit a click every 5 seconds on its own.
     if (playSound) {
@@ -909,9 +980,9 @@ class GameLogic with ChangeNotifier {
 
     // We can reuse MiningManager logic passing dummy 'hashRate' = clickPower?
     // Yes, MiningManager.calculateMiningIncome handles the formula.
-    // But we need to handle "Infinite difficulty" etc.
-
-    if (networkDifficulty.isInfinite) return 0;
+    // Difficulty is ∞ only at the per-era cap OUTSIDE sandbox; in sandbox the
+    // cap is lifted so clicks still pay and the readout must show a real value.
+    if (!sandboxNoCap && networkDifficulty.isInfinite) return 0;
 
     return _miningManager.calculateMiningIncome(
       hashRate: clickPower,
@@ -925,6 +996,7 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
+      ignoreCap: sandboxNoCap,
     );
   }
 
@@ -979,7 +1051,16 @@ class GameLogic with ChangeNotifier {
   /// wipe, since the chain-GovToken baseline is reset by [applyNewBlockchain].
   void newBlockchain({BtcClass? chosenClass}) {
     if (pendingGenesis <= 0) return;
+    _newChainInternal(chosenClass: chosenClass);
+  }
 
+  /// The New-Blockchain reset body, WITHOUT the pendingGenesis guard, so it can
+  /// also power New Genesis (NG+) from the ending — where the reward is the
+  /// permanent trophy multiplier, not Genesis Blocks (which may be 0). Order is
+  /// load-bearing: creditMastery -> applyNewBlockchain -> select -> wipe ->
+  /// count -> evaluate -> save. Do NOT reset any endgame field here (they are
+  /// the permanent spine that survives every prestige).
+  void _newChainInternal({BtcClass? chosenClass}) {
     _soundService.playHalving(); // dramatic cue for the deepest reset
     _hapticHeavy();
 
@@ -1009,6 +1090,33 @@ class GameLogic with ChangeNotifier {
 
     newChainCount++;
     _evaluateAchievements();
+    _saveGame();
+    notifyListeners();
+  }
+
+  /// New Genesis (NG+): the post-win reset. Reuses the New-Blockchain wipe but
+  /// grants a PERMANENT prestige-gain trophy (winCount) instead of requiring
+  /// pending Genesis Blocks — so "start again, stronger" always works after an
+  /// ending. Endgame spine (lifetimeEverSats/hasWonGame/winCount) is preserved.
+  void newGenesisPlus({BtcClass? chosenClass}) {
+    if (!hasWonGame) return;
+    winCount++;
+    _newChainInternal(chosenClass: chosenClass);
+  }
+
+  /// Toggle the "break the chain" sandbox (uncapped mining). Only after a win.
+  /// Turning it OFF while past the per-era cap would strand the player at 0
+  /// income (room<=0), so that case starts a fresh New Genesis chain.
+  void toggleSandboxNoCap() {
+    if (!hasWonGame) return;
+    if (sandboxNoCap) {
+      sandboxNoCap = false;
+      if (lifetimeEarnings >= GameConstants.maxSupplySats) {
+        newGenesisPlus(); // land on a clean, income-producing chain
+      }
+    } else {
+      sandboxNoCap = true;
+    }
     _saveGame();
     notifyListeners();
   }
@@ -1138,6 +1246,10 @@ class GameLogic with ChangeNotifier {
       casinoJackpots: casinoJackpots,
       currentClass: _classManager.current.name,
       mastery: _classManager.masteryJson(),
+      lifetimeEverSats: lifetimeEverSats,
+      hasWonGame: hasWonGame,
+      sandboxNoCap: sandboxNoCap,
+      winCount: winCount,
     );
   }
 
@@ -1191,6 +1303,19 @@ class GameLogic with ChangeNotifier {
       // full wipe clears them). Tolerant of missing/unknown values (falls back to
       // Prospector / 0 XP for saves predating Phase 3).
       _classManager.loadFrom(data['currentClass'], data['mastery']);
+
+      // Endgame (Phase 5). MUST load before the offline sim below so an
+      // already-won returning player has hasWonGame=true first and the offline
+      // catch-up can't falsely re-fire the ending. _normalize seeds legacy saves
+      // (lifetimeEverSats defaults from lifetimeEarnings, a conservative lower
+      // bound that stays < endgameTargetSats).
+      lifetimeEverSats = _toDouble(data['lifetimeEverSats']);
+      hasWonGame = data['hasWonGame'] == true;
+      sandboxNoCap = data['sandboxNoCap'] == true;
+      winCount = _toInt(data['winCount']);
+      // Self-heal + defensive invariants.
+      if (lifetimeEverSats >= GameConstants.endgameTargetSats) hasWonGame = true;
+      if (sandboxNoCap && !hasWonGame) sandboxNoCap = false;
 
       // Achievements + action counters (persist across all prestige tiers).
       hardForkCount = _toInt(data['hardForkCount']);
@@ -1334,7 +1459,10 @@ class GameLogic with ChangeNotifier {
     for (int i = 0; i < iterations; i++) {
       accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
       _advanceBlocks(timePerTick);
-      if (lifetimeEarnings >= GameConstants.maxSupplySats) break;
+      // Stop early once the per-era supply is exhausted (income is 0 past it) —
+      // but NOT in sandbox, where the cap is lifted and offline income must keep
+      // flowing the full absence (the +1e300 clamp in _accrueMining bounds it).
+      if (!sandboxNoCap && lifetimeEarnings >= GameConstants.maxSupplySats) break;
     }
 
     if (accrued > 0) {

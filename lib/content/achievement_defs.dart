@@ -1,8 +1,11 @@
+import '../core/constants.dart';
+
 /// A snapshot of the game stats achievements are evaluated against. Built once
 /// per evaluation by GameLogic so the (data-driven) achievement conditions stay
 /// pure functions of state.
 class AchStats {
   final double lifetimeEarnings;
+  final double lifetimeEverSats; // cumulative-ever mined (endgame win metric)
   final double totalGovTokensEver;
   final int govTokens;
   final int consensus;
@@ -30,6 +33,7 @@ class AchStats {
 
   const AchStats({
     required this.lifetimeEarnings,
+    required this.lifetimeEverSats,
     required this.totalGovTokensEver,
     required this.govTokens,
     required this.consensus,
@@ -344,6 +348,15 @@ final List<Achievement> kAchievements = [
     description: 'Unlock 40 achievements.',
     category: AchCategory.meta,
     condition: (s) => s.achievementsUnlocked >= 40,
+  ),
+  Achievement(
+    id: 'meta_genesis_complete',
+    title: 'Genesis Complete',
+    // The true ending: mine more Bitcoin than will ever exist — a cumulative
+    // total, across every chain, of ~100x the entire 21M supply.
+    description: 'Mine more BTC than will ever exist — the true ending.',
+    category: AchCategory.meta,
+    condition: (s) => s.lifetimeEverSats >= GameConstants.endgameTargetSats,
   ),
 
   // --- Secret / shadow (no Notoriety, hidden until earned) ---
