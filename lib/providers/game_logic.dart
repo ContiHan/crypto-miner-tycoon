@@ -436,6 +436,17 @@ class GameLogic with ChangeNotifier {
   int get currentClassMasteryLevel =>
       _classManager.masteryLevel(_classManager.current);
 
+  /// Choose / switch the active class from the SKILL tab (available as soon as
+  /// SKILL unlocks at the first Hard Fork), so the player doesn't have to wait
+  /// for a far-off New Blockchain to pick a class.
+  void chooseClass(BtcClass c) {
+    if (_classManager.current == c) return;
+    _classManager.select(c);
+    _evaluateAchievements(); // may satisfy class_first once a class is played
+    _saveGame();
+    notifyListeners();
+  }
+
   /// Test seams: set the active class / grant Mastery XP without needing to reach
   /// a New Blockchain first.
   @visibleForTesting
@@ -908,12 +919,13 @@ class GameLogic with ChangeNotifier {
   /// [silent] sets the flags without queuing a toast (used on load so returning
   /// players / newly-added gates don't spam notifications). Conditions are
   /// deliberately gentle so content unfolds instead of arriving all at once:
-  ///   TECH  after the first rig; STASH after 1M sats / a chip / a crate;
+  ///   TECH  after 10k sats mined (a bit of play, not the very first rig);
+  ///   STASH after 1M sats / a chip / a crate;
   ///   SKILL after the first Hard Fork (when GovTokens first exist to spend).
   void _refreshTabUnlocks({bool silent = false}) {
     final newly = <String>[];
     var changed = false;
-    if (!unlockedTech && rigs.any((r) => r.amount > 0)) {
+    if (!unlockedTech && lifetimeEarnings >= 10000) {
       unlockedTech = true;
       changed = true;
       newly.add('TECH');

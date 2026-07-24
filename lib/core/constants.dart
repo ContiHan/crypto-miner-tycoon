@@ -4,14 +4,19 @@ class GameConstants {
 
   // Endgame (RPG Phase 5): the true "own all the Bitcoin" win is a MONOTONIC
   // cumulative-ever counter (lifetimeEverSats) that survives every prestige
-  // reset — distinct from the per-era maxSupplySats soft-wall above. A whale
-  // mines a per-era 21M-worth (2.1e15) in ~19h, so the win target is a separate,
-  // larger number: 2.1e17 sats (~100x the entire supply — "more BTC than will
-  // ever exist"). The whale crosses it at ~14 sim-days; the real ~1-year pace is
-  // a Phase-6 [TUNE]. INVARIANT: must stay > maxSupplySats so a legacy save
-  // (seeded from lifetimeEarnings <= 2.1e15) can never falsely win and at least
-  // one prestige is always required to finish.
-  static const double endgameTargetSats = 2.1e17;
+  // reset — distinct from the per-era maxSupplySats soft-wall above. Framed as
+  // "mine more BTC than will ever exist" (a huge multiple of the 21M supply).
+  //
+  // Tuned so an ENGAGED player takes ~1 YEAR to reach the ending. At 2.1e17 a
+  // whale crossed it in only ~14 sim-days (too fast — owner feedback), so the
+  // target was raised to 2.1e20 (~100,000x the 21M supply). This is a [TUNE]
+  // estimate from the late-game accrual rate — pacing is play-pattern-dependent
+  // (a very active player is far faster than a casual check-in one), so refine
+  // it against real playtest data; bump higher if the ending still comes too
+  // soon. INVARIANT: must stay > maxSupplySats so a legacy save (seeded from
+  // lifetimeEarnings <= 2.1e15) can never falsely win and >=1 prestige is
+  // always required to finish.
+  static const double endgameTargetSats = 2.1e20;
 
   // Each ending reached grants a permanent New Genesis (NG+) prestige-gain
   // bonus: trophyGainMultiplier = 1 + perWinTrophyBonus * winCount. [TUNE]

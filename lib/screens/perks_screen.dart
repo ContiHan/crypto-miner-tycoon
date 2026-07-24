@@ -8,6 +8,7 @@ import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/tech_graph.dart';
 import '../widgets/graph_node_sheet.dart';
+import '../widgets/class_picker.dart';
 
 /// TALENTS (perks), rendered as a radial "spider" around a central GENESIS hub —
 /// one branch per channel (click / hash / income / rigCost / special), perks
@@ -57,6 +58,39 @@ class PerksScreen extends StatelessWidget {
                 ),
                 const Text('Tap a node to spend tokens. Drag to explore.',
                     style: TextStyle(color: Colors.white38, fontSize: 12)),
+                const SizedBox(height: 10),
+                // Class chooser — pickable HERE (early, ongoing), not only at a
+                // far-off New Blockchain.
+                OutlinedButton.icon(
+                  style: OutlinedButton.styleFrom(
+                    foregroundColor: game.hasChosenClass
+                        ? game.currentClassDef.color
+                        : AppTheme.accent,
+                    side: BorderSide(
+                        color: game.hasChosenClass
+                            ? game.currentClassDef.color
+                            : AppTheme.accent),
+                  ),
+                  icon: Icon(game.hasChosenClass
+                      ? game.currentClassDef.icon
+                      : Icons.person_add_alt),
+                  label: Text(game.hasChosenClass
+                      ? 'CLASS: ${game.currentClassDef.name}  ·  CHANGE'
+                      : 'CHOOSE YOUR CLASS'),
+                  onPressed: () => showClassPicker(
+                    context,
+                    game: game,
+                    title: game.hasChosenClass ? 'CHANGE CLASS' : 'CHOOSE YOUR CLASS',
+                    titleColor: AppTheme.accent,
+                    confirmLabel: game.hasChosenClass ? 'SWITCH' : 'CHOOSE',
+                    confirmColor: AppTheme.accent,
+                    headerLabel: 'PICK AN ARCHETYPE:',
+                    info: 'Your class reshapes the whole run (hash, cost, '
+                        'prestige, luck). Switch anytime — Mastery is earned per '
+                        'class and kept forever.',
+                    onConfirm: (c) => game.chooseClass(c),
+                  ),
+                ),
               ],
             ),
           ),

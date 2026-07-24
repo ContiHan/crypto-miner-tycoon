@@ -494,7 +494,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   game.hasChosenClass
                                       ? 'CLASS: ${game.currentClassDef.name}'
                                           '${game.currentClassMasteryLevel > 0 ? ' · MASTERY ${game.currentClassMasteryLevel}' : ''}'
-                                      : 'CLASS: PROSPECTOR — choose your path at your first New Blockchain',
+                                      : 'CLASS: PROSPECTOR — pick one on the SKILL tab (unlocks at your first Hard Fork)',
                                   textAlign: TextAlign.center,
                                   style: TextStyle(
                                     color: game.hasChosenClass
