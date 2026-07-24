@@ -17,9 +17,11 @@ class SlotSpin {
   final List<String> symbols;
   final double multiplier;
   final int bet;
-  const SlotSpin(this.symbols, this.multiplier, this.bet);
+  final double luckFactor; // >= 1, scales winnings; RTP stays < 1 (see below)
+  const SlotSpin(this.symbols, this.multiplier, this.bet,
+      {this.luckFactor = 1.0});
 
-  int get payout => (bet * multiplier).floor();
+  int get payout => (bet * multiplier * luckFactor).floor();
   int get net => payout - bet;
   bool get isWin => payout > 0;
   bool get isJackpot => multiplier >= 25;
@@ -33,9 +35,11 @@ class PlinkoDrop {
   final int slotIndex;
   final double multiplier;
   final int bet;
-  const PlinkoDrop(this.path, this.slotIndex, this.multiplier, this.bet);
+  final double luckFactor; // >= 1, scales winnings; RTP stays < 1
+  const PlinkoDrop(this.path, this.slotIndex, this.multiplier, this.bet,
+      {this.luckFactor = 1.0});
 
-  int get payout => (bet * multiplier).floor();
+  int get payout => (bet * multiplier * luckFactor).floor();
   int get net => payout - bet;
   bool get isWin => payout > 0;
   bool get isJackpot => multiplier >= 10;
@@ -72,15 +76,34 @@ class CasinoService {
   static double get slotsReturnToPlayer =>
       slotTable.fold(0.0, (s, o) => s + o.weight * o.multiplier) / totalWeight;
 
-  /// Spin the slots for [bet] chips using [rng].
-  SlotSpin spinSlots(int bet, Random rng) {
+  /// Double-or-Nothing base return: 48% chance to win 2x => 0.96.
+  static double get flipReturnToPlayer =>
+      GameConstants.casinoFlipWinChance * 2;
+
+  /// Luck multiplier actually applied to winnings, clamped so the realized RTP
+  /// (baseRtp * factor) never exceeds [GameConstants.casinoRtpCap] (< 1). Never
+  /// reduces winnings (factor >= 1). This is the single compliance guardrail:
+  /// even with maxed Luck the casino stays a negative-EV chip sink.
+  static double effectiveLuck(double luck, double baseRtp) {
+    if (luck <= 1.0 || baseRtp <= 0) return 1.0;
+    final double maxFactor = GameConstants.casinoRtpCap / baseRtp;
+    if (maxFactor <= 1.0) return 1.0; // base RTP already at/above the cap
+    return luck < maxFactor ? luck : maxFactor;
+  }
+
+  /// Spin the slots for [bet] chips using [rng]. [luck] (>=1) scales winnings,
+  /// clamped so RTP stays below the cap.
+  SlotSpin spinSlots(int bet, Random rng, {double luck = 1.0}) {
+    final double lf = effectiveLuck(luck, slotsReturnToPlayer);
     int roll = rng.nextInt(totalWeight);
     for (final o in slotTable) {
-      if (roll < o.weight) return SlotSpin(o.symbols, o.multiplier, bet);
+      if (roll < o.weight) {
+        return SlotSpin(o.symbols, o.multiplier, bet, luckFactor: lf);
+      }
       roll -= o.weight;
     }
     final last = slotTable.last;
-    return SlotSpin(last.symbols, last.multiplier, bet);
+    return SlotSpin(last.symbols, last.multiplier, bet, luckFactor: lf);
   }
 
   /// Double-or-Nothing: true = win (pays 2x). The sub-50% chance is the edge.
@@ -122,8 +145,10 @@ class CasinoService {
     return ev;
   }
 
-  /// Drop a chip through the pegs for [bet] chips using [rng].
-  PlinkoDrop dropPlinko(int bet, Random rng) {
+  /// Drop a chip through the pegs for [bet] chips using [rng]. [luck] (>=1)
+  /// scales winnings, clamped so RTP stays below the cap.
+  PlinkoDrop dropPlinko(int bet, Random rng, {double luck = 1.0}) {
+    final double lf = effectiveLuck(luck, plinkoReturnToPlayer);
     final path = <bool>[];
     int slot = 0;
     for (int i = 0; i < plinkoRows; i++) {
@@ -131,6 +156,6 @@ class CasinoService {
       path.add(right);
       if (right) slot++;
     }
-    return PlinkoDrop(path, slot, plinkoMultipliers[slot], bet);
+    return PlinkoDrop(path, slot, plinkoMultipliers[slot], bet, luckFactor: lf);
   }
 }

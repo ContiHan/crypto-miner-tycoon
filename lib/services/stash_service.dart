@@ -9,8 +9,9 @@ enum BonusType {
   hashRate, // Global Hash Rate Multiplier
   rigCost, // Discount on Rigs
   clickPower, // Click Power Multiplier
-  vcInterval, // Faster VC Funding (if implemented)
-  criticalChance, // Crit Mining Chance
+  luck, // Luck: crit chance + casino RTP (capped) + (later) crate/anomaly odds
+  vcInterval, // legacy, unused
+  criticalChance, // legacy, unused (superseded by luck)
 }
 
 class Artifact {
@@ -40,7 +41,7 @@ class StashService {
     Artifact(id: 'old_hdd', name: 'Old HDD', description: '+2% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.02),
     Artifact(id: 'usb_fan', name: 'USB Fan', description: '-1% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.01),
     Artifact(id: 'energy_drink', name: 'Energy Drink', description: '+3% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.03),
-    Artifact(id: 'lucky_coin', name: 'Lucky Coin', description: '+3% Click Power', rarity: ArtifactRarity.common, bonusType: BonusType.clickPower, baseBonus: 0.03),
+    Artifact(id: 'lucky_coin', name: 'Lucky Coin', description: '+2% Luck', rarity: ArtifactRarity.common, bonusType: BonusType.luck, baseBonus: 0.02),
     Artifact(id: 'cable_tie', name: 'Cable Tie', description: '-1% Rig Cost', rarity: ArtifactRarity.common, bonusType: BonusType.rigCost, baseBonus: 0.01),
     Artifact(id: 'dust_filter', name: 'Dust Filter', description: '+3% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.03),
     Artifact(id: 'rgb_strip', name: 'RGB Strip', description: '+2% Hash Rate', rarity: ArtifactRarity.common, bonusType: BonusType.hashRate, baseBonus: 0.02),
@@ -200,11 +201,24 @@ class StashService {
     return 1.0 + total;
   }
 
-  /// Adds owned-artifact hash & rig-cost bonuses to the shared channel model.
-  /// (Click power stays applied via getClickPowerMultiplier in the click path.)
+  /// Raw additive Luck bonus from owned artifacts (0.05 == +5% luck).
+  double getTotalLuckBonus() {
+    double total = 0.0;
+    _ownedArtifacts.forEach((id, count) {
+      final artifact = _getArtifact(id);
+      if (artifact != null && artifact.bonusType == BonusType.luck) {
+        total += artifact.baseBonus * count;
+      }
+    });
+    return total;
+  }
+
+  /// Adds owned-artifact hash, rig-cost & luck bonuses to the shared channel
+  /// model. (Click power stays applied via getClickPowerMultiplier.)
   void contributeChannels(Channels ch) {
     ch.add(Channel.hash, getTotalHashBonus() - 1.0); // getTotalHashBonus = 1+sum
     ch.add(Channel.rigCost, getMainCostDiscount()); // already a raw sum
+    ch.add(Channel.luck, getTotalLuckBonus()); // raw sum
   }
   
   // === LOOT LOGIC ===

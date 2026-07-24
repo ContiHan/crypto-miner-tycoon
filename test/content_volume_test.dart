@@ -185,6 +185,7 @@ void main() {
         BonusType.hashRate,
         BonusType.rigCost,
         BonusType.clickPower,
+        BonusType.luck, // consumed via Channel.luck (crit + casino RTP)
       };
       for (final a in StashService.allArtifacts) {
         expect(consumed.contains(a.bonusType), true,

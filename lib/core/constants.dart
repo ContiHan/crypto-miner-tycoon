@@ -58,8 +58,16 @@ class GameConstants {
   // Mining tap "critical hit" (pure game feel): a small chance for a tap to pay
   // out a multiple, with a gold float + heavy haptic + screen shake. Cosmetic
   // thrill only — the estimated-click readout stays the non-crit value.
-  static const double clickCritChance = 0.06; // ~6% of taps crit
+  static const double clickCritChance = 0.06; // ~6% of taps crit (base)
   static const double clickCritMultiplier = 5.0; // crit taps pay 5x
+  // Luck scales the crit chance up to this hard cap (keeps it a thrill, not the
+  // main income source).
+  static const double clickCritChanceCap = 0.25;
+
+  // Luck may nudge casino winnings up, but the realized return-to-player is
+  // clamped to this so every game stays a negative-EV chip sink (< 1) — the
+  // simulated casino must never become +EV (Google Play compliance).
+  static const double casinoRtpCap = 0.97;
 
   // Perks
   static const double perkBaseClickPower = 5.0;
