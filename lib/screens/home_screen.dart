@@ -176,9 +176,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           items: [
             const BottomNavigationBarItem(
               icon: Icon(Icons.auto_graph),
-              label: 'PERKS',
+              label: 'TALENTS',
             ),
-            const BottomNavigationBarItem(icon: Icon(Icons.science), label: 'LAB'),
+            const BottomNavigationBarItem(
+                icon: Icon(Icons.science), label: 'TECH'),
             const BottomNavigationBarItem(
               icon: Icon(Icons.inventory_2),
               label: 'STASH',

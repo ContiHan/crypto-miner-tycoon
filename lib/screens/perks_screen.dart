@@ -72,7 +72,7 @@ class PerksScreen extends StatelessWidget {
     }
 
     return Scaffold(
-      appBar: AppBar(title: const Text('PERMANENT PERKS')),
+      appBar: AppBar(title: const Text('TALENTS')),
       body: content,
     );
   }
