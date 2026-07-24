@@ -27,14 +27,24 @@ class ChaosEventSystem {
   final double Function() onHackLoss; // deduct wallet, return loss amount
   final void Function(bool good) onEventSound;
 
+  /// Volatility factor (>=1 raises event frequency, <1 lowers it) read at each
+  /// reschedule. Default 1.0 keeps the original cadence. (Sources arrive with
+  /// classes: e.g. Pool Member lowers it, others raise it.)
+  final double Function()? volatilityFactor;
+
   ChaosEventSystem({
     required this.onChanged,
     required this.onHackLoss,
     required this.onEventSound,
+    this.volatilityFactor,
   });
 
   void start() {
-    final next = 60 + _random.nextInt(240);
+    // Higher volatility => shorter gap between events. Clamped so it never
+    // spams or stalls.
+    final double v = (volatilityFactor?.call() ?? 1.0).clamp(0.5, 3.0);
+    final int next =
+        ((60 + _random.nextInt(240)) / v).round().clamp(20, 600);
     _scheduleTimer = Timer(Duration(seconds: next), () {
       triggerRandom();
       start(); // reschedule

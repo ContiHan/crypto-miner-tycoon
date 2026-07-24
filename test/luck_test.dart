@@ -2,6 +2,7 @@ import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
+import 'package:crypto_miner_tycoon/logic/systems/anomaly_system.dart';
 import 'package:crypto_miner_tycoon/services/casino_service.dart';
 import 'test_helper.dart';
 
@@ -72,6 +73,22 @@ void main() {
       }
       expect(game.clickMine().isCrit, true,
           reason: 'luck pushed the crit chance above the 0.11 roll');
+    });
+  });
+
+  group('Luck raises anomaly spawn rate (capped)', () {
+    test('spawnChance scales with luck and is capped', () {
+      double luck = 1.0;
+      final sys = AnomalySystem(
+        onChanged: () {},
+        onCollect: () {},
+        luckFactor: () => luck,
+      );
+      expect(sys.spawnChance, closeTo(0.05, 1e-9));
+      luck = 2.0;
+      expect(sys.spawnChance, closeTo(0.10, 1e-9));
+      luck = 100.0;
+      expect(sys.spawnChance, 0.30, reason: 'hard-capped, never guaranteed');
     });
   });
 }

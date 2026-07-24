@@ -24,7 +24,24 @@ class AnomalySystem {
   final void Function() onChanged;
   final void Function() onCollect;
 
-  AnomalySystem({required this.onChanged, required this.onCollect});
+  /// Luck factor (>=1) read at each spawn tick; higher Luck => anomalies (chips)
+  /// appear more often, up to a hard cap so they never become guaranteed.
+  final double Function()? luckFactor;
+
+  static const double _baseSpawnChance = 0.05; // per 5s tick
+  static const double _spawnChanceCap = 0.30;
+
+  AnomalySystem({
+    required this.onChanged,
+    required this.onCollect,
+    this.luckFactor,
+  });
+
+  /// Current per-tick spawn chance, scaled by Luck and capped.
+  @visibleForTesting
+  double get spawnChance =>
+      (_baseSpawnChance * (luckFactor?.call() ?? 1.0))
+          .clamp(0.0, _spawnChanceCap);
 
   /// Update the spawnable area from the actual view size. The full 50x50 widget
   /// is inset so it always stays fully on-screen (and clear of the bottom
@@ -39,7 +56,7 @@ class AnomalySystem {
   void start() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!active && _random.nextDouble() < 0.05) {
+      if (!active && _random.nextDouble() < spawnChance) {
         position = Offset(_random.nextDouble() * _maxX, _random.nextDouble() * _maxY);
         active = true;
         onChanged();

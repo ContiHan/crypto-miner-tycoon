@@ -205,6 +205,11 @@ class GameLogic with ChangeNotifier {
   double get luckMultiplier =>
       buildChannels().multiplier(Channel.luck, softStart: 1.5, power: 0.5);
 
+  /// Aggregate Volatility factor (1.0 with no sources) — scales chaos-event
+  /// frequency. Sources arrive with classes (Pool lowers it, others raise it).
+  double get volatilityMultiplier =>
+      buildChannels().multiplier(Channel.volatility, softStart: 1.5, power: 0.5);
+
   // Fire-and-forget haptics that never throw (no platform channel in tests) and
   // honour the user's haptics toggle. Typed by intensity so call sites read
   // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
@@ -514,6 +519,7 @@ class GameLogic with ChangeNotifier {
         _evaluateAchievements();
         _saveGame();
       },
+      luckFactor: () => luckMultiplier,
     );
 
     _events = ChaosEventSystem(
@@ -525,6 +531,7 @@ class GameLogic with ChangeNotifier {
       },
       onEventSound: (good) =>
           good ? _soundService.playEventGood() : _soundService.playEventBad(),
+      volatilityFactor: () => volatilityMultiplier,
     );
 
     _autoStartTimers = startTimers;
