@@ -178,7 +178,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           items: [
             const BottomNavigationBarItem(
               icon: Icon(Icons.auto_graph),
-              label: 'TALENTS',
+              label: 'SKILL',
             ),
             const BottomNavigationBarItem(
                 icon: Icon(Icons.science), label: 'TECH'),
@@ -200,7 +200,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                       )
                     : const Icon(Icons.emoji_events),
               ),
-              label: 'GOALS',
+              label: 'GOAL',
             ),
           ],
         ),

@@ -67,10 +67,14 @@ class NewsTicker extends StatelessWidget {
           key = ValueKey('idle_$bucket');
         }
 
-        // Define Style with Glow
-        final textStyle = GoogleFonts.dotGothic16(
+        // Define Style with Glow. Use the app's bundled Orbitron (the "LED"
+        // brand font) — GoogleFonts.dotGothic16 required a runtime fetch which
+        // is disabled in release (allowRuntimeFetching=false), so it fell back
+        // to the plain system font and the ticker looked off-brand.
+        final textStyle = GoogleFonts.orbitron(
           color: color,
-          fontSize: 14, // Slightly larger for readability
+          fontSize: 13,
+          letterSpacing: 1.0, // spaced-out glyphs read as an LED strip
           fontWeight: FontWeight.bold,
           shadows: [
             Shadow(
