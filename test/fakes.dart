@@ -73,6 +73,9 @@ class FakeSettingsRepository implements SettingsRepository {
     'sound_enabled': true,
     'haptics_enabled': true,
     'show_fiat_prices': false,
+    // Default to DONE so widget tests aren't covered by the first-run coach;
+    // the onboarding test flips this to false explicitly.
+    'onboarding_complete': true,
   };
 
   @override
@@ -85,10 +88,12 @@ class FakeSettingsRepository implements SettingsRepository {
     required bool soundEnabled,
     required bool showFiatPrices,
     bool hapticsEnabled = true,
+    bool onboardingComplete = false,
   }) async {
     data['sound_enabled'] = soundEnabled;
     data['haptics_enabled'] = hapticsEnabled;
     data['show_fiat_prices'] = showFiatPrices;
+    data['onboarding_complete'] = onboardingComplete;
   }
 }
 

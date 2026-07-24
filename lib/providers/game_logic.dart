@@ -237,6 +237,7 @@ class GameLogic with ChangeNotifier {
   bool soundEnabled = true;
   bool hapticsEnabled = true; // Vibration feedback toggle (see _haptic)
   bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
+  bool onboardingComplete = false; // first-run coach marks shown once
 
   // Offline Earnings (UI Display)
   double? offlineEarningsAmount;
@@ -273,7 +274,16 @@ class GameLogic with ChangeNotifier {
         soundEnabled: soundEnabled,
         hapticsEnabled: hapticsEnabled,
         showFiatPrices: showFiatPrices,
+        onboardingComplete: onboardingComplete,
       );
+
+  /// Marks the first-run onboarding as seen so it never shows again.
+  Future<void> completeOnboarding() async {
+    if (onboardingComplete) return;
+    onboardingComplete = true;
+    await _persistSettings();
+    notifyListeners();
+  }
 
   /// A light click for generic UI interactions (e.g. bottom-nav tab switches)
   /// that have no dedicated effect of their own.
@@ -1042,6 +1052,7 @@ class GameLogic with ChangeNotifier {
       soundEnabled = settings['sound_enabled'] ?? true;
       hapticsEnabled = settings['haptics_enabled'] ?? true;
       showFiatPrices = settings['show_fiat_prices'] ?? false;
+      onboardingComplete = settings['onboarding_complete'] ?? false;
       _soundService.setMuted(!soundEnabled);
 
       final data = await _gameRepo.loadGameState();

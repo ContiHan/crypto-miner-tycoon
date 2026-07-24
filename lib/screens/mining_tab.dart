@@ -11,6 +11,7 @@ import '../widgets/pulse_button.dart';
 import '../widgets/floating_text.dart';
 import '../widgets/binary_particle.dart';
 import '../widgets/animated_count_text.dart';
+import '../widgets/onboarding_overlay.dart';
 
 class MiningTab extends StatefulWidget {
   final VoidCallback
@@ -33,6 +34,9 @@ class MiningTab extends StatefulWidget {
 
 class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
   final List<Widget> _floatingTexts = [];
+  // Spotlight targets for the first-run onboarding coach.
+  final GlobalKey _hackKey = GlobalKey();
+  final GlobalKey _firstRigKey = GlobalKey();
   late AnimationController _buttonScaleController;
   late Animation<double> _buttonScaleAnimation;
   // Decaying horizontal shake, kicked on a critical tap for extra impact.
@@ -498,11 +502,14 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                         },
                         builder: (ctx, _, _) {
                           final g = ctx.read<GameLogic>();
+                          final rigs = g.visibleRigs;
                           return Column(
                             children: [
-                              for (final rig in g.visibleRigs)
+                              for (int i = 0; i < rigs.length; i++)
                                 RigListItem(
-                                  rig: rig,
+                                  // First rig is the onboarding spotlight target.
+                                  key: i == 0 ? _firstRigKey : null,
+                                  rig: rigs[i],
                                   game: g,
                                   onBuy: (pos) {
                                     // [pos] is GLOBAL; convert to this tab's local
@@ -579,6 +586,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                     child: ScaleTransition(
                       scale: _buttonScaleAnimation,
                       child: Container(
+                        key: _hackKey,
                         width: double.infinity,
                         height: 60,
                         decoration: BoxDecoration(
@@ -685,6 +693,40 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                             ),
                           ),
                         ),
+                      ),
+                    ],
+                  );
+                },
+              ),
+            ),
+            // First-run onboarding coach marks — shown once, persisted. Its own
+            // Selector so it never rebuilds on an income tick.
+            Positioned.fill(
+              child: Selector<GameLogic, bool>(
+                selector: (_, g) => g.onboardingComplete,
+                builder: (ctx, done, _) {
+                  if (done) return const SizedBox.shrink();
+                  return OnboardingCoach(
+                    onComplete: () =>
+                        ctx.read<GameLogic>().completeOnboarding(),
+                    steps: [
+                      CoachStep(
+                        title: 'MINE',
+                        body: 'Tap HACK NETWORK to mine Bitcoin. Every tap earns '
+                            'sats — and some crit for 5×!',
+                        targetKey: _hackKey,
+                      ),
+                      CoachStep(
+                        title: 'AUTOMATE',
+                        body: 'Buy rigs — they mine passively, even while you are '
+                            'away. Hold BUY to buy in bulk.',
+                        targetKey: _firstRigKey,
+                      ),
+                      const CoachStep(
+                        title: 'PRESTIGE',
+                        body: 'When growth slows, FORK to reset your run for a '
+                            'permanent multiplier. Grow → fork → repeat — that is '
+                            'the loop!',
                       ),
                     ],
                   );
