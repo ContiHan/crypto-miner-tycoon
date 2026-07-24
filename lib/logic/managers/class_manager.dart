@@ -154,6 +154,22 @@ class ClassManager {
   int get totalMasteryLevel =>
       BtcClass.values.fold(0, (sum, c) => sum + masteryLevel(c));
 
+  /// How many REAL classes (excluding Prospector) have reached Mastery >= 1 —
+  /// drives the "play them all" achievement.
+  int get masteredCount => BtcClass.values
+      .where((c) => c != BtcClass.prospector && masteryLevel(c) >= 1)
+      .length;
+
+  /// Mastery level for a class looked up by its enum name (for AchStats, which
+  /// is a plain data snapshot). Unknown names return 0.
+  int masteryLevelByName(String name) {
+    final c = BtcClass.values.firstWhere(
+      (c) => c.name == name,
+      orElse: () => BtcClass.prospector,
+    );
+    return masteryLevel(c);
+  }
+
   /// Credit [govTokensMinted] of Mastery XP to the class a just-finished chain
   /// was played as. Prospector earns nothing (it isn't a real class).
   void creditMastery(BtcClass playedAs, double govTokensMinted) {
