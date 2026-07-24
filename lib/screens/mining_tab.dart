@@ -484,21 +484,27 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     ),
                                   ),
                                 ),
-                              // RPG class identity (once chosen at a New
-                              // Blockchain); Prospector before that shows nothing.
-                              if (game.hasChosenClass)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 6.0),
-                                  child: Text(
-                                    'CLASS: ${game.currentClassDef.name}'
-                                    '${game.currentClassMasteryLevel > 0 ? ' · MASTERY ${game.currentClassMasteryLevel}' : ''}',
-                                    style: TextStyle(
-                                      color: game.currentClassDef.color,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
+                              // RPG class identity. Always shown (even as the
+                              // class-less Prospector) so the feature is
+                              // discoverable and the player learns WHEN they pick
+                              // one — at their first New Blockchain.
+                              Padding(
+                                padding: const EdgeInsets.only(top: 6.0),
+                                child: Text(
+                                  game.hasChosenClass
+                                      ? 'CLASS: ${game.currentClassDef.name}'
+                                          '${game.currentClassMasteryLevel > 0 ? ' · MASTERY ${game.currentClassMasteryLevel}' : ''}'
+                                      : 'CLASS: PROSPECTOR — choose your path at your first New Blockchain',
+                                  textAlign: TextAlign.center,
+                                  style: TextStyle(
+                                    color: game.hasChosenClass
+                                        ? game.currentClassDef.color
+                                        : Colors.white38,
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: game.hasChosenClass ? 13 : 11,
                                   ),
                                 ),
+                              ),
                               // Tier-3: New Blockchain / Genesis Blocks.
                               if (game.genesisBlocks > 0)
                                 Padding(
