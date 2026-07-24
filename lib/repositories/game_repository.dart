@@ -70,6 +70,10 @@ class GameRepository {
     int casinoJackpots = 0,
     String currentClass = 'prospector',
     Map<String, dynamic> mastery = const {},
+    double lifetimeEverSats = 0,
+    bool hasWonGame = false,
+    bool sandboxNoCap = false,
+    int winCount = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -111,6 +115,10 @@ class GameRepository {
       'casinoJackpots': casinoJackpots,
       'currentClass': currentClass,
       'mastery': mastery,
+      'lifetimeEverSats': fin(lifetimeEverSats),
+      'hasWonGame': hasWonGame,
+      'sandboxNoCap': sandboxNoCap,
+      'winCount': winCount,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -216,6 +224,19 @@ class GameRepository {
       'currentClass':
           m['currentClass'] is String ? m['currentClass'] : 'prospector',
       'mastery': m['mastery'] is Map ? m['mastery'] : const {},
+      // Endgame (Phase 5). Legacy saves (no lifetimeEverSats) seed it from the
+      // per-era lifetimeEarnings — a conservative lower bound that, since it is
+      // capped at maxSupplySats < endgameTargetSats, can never falsely win.
+      'lifetimeEverSats': m.containsKey('lifetimeEverSats')
+          ? asDouble(m['lifetimeEverSats'], 0)
+          : asDouble(m['lifetimeEarnings'], 0),
+      'hasWonGame': (m['hasWonGame'] == true) ||
+          ((m.containsKey('lifetimeEverSats')
+                  ? asDouble(m['lifetimeEverSats'], 0)
+                  : asDouble(m['lifetimeEarnings'], 0)) >=
+              GameConstants.endgameTargetSats),
+      'sandboxNoCap': m['sandboxNoCap'] == true,
+      'winCount': asInt(m['winCount'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

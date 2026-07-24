@@ -3,7 +3,9 @@ import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../logic/managers/class_manager.dart';
 import '../logic/channels.dart';
+import '../core/constants.dart';
 import '../theme/app_theme.dart';
+import 'ending_overlay.dart';
 import '../widgets/news_ticker.dart';
 import 'perks_screen.dart';
 import 'research_tab.dart';
@@ -27,6 +29,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // fresh offlineEarningsAmount + notifies) can't stack a second dialog over an
   // un-dismissed first one.
   bool _offlineDialogOpen = false;
+  // Guards the once-per-crossing GENESIS COMPLETE ending overlay.
+  bool _endingShown = false;
 
   @override
   void initState() {
@@ -45,6 +49,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           _gameLogic.offlineEarningsAmount!,
         );
       }
+      _maybeShowEnding(_gameLogic);
     });
 
     // Listen for future updates (async load)
@@ -85,6 +90,23 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (game.pendingAchievementToasts.isNotEmpty) {
       _showAchievementToasts(game);
     }
+    _maybeShowEnding(game);
+  }
+
+  /// Fire the GENESIS COMPLETE ending exactly once when the win first crosses.
+  void _maybeShowEnding(GameLogic game) {
+    if (!game.pendingWinCelebration || _endingShown) return;
+    // Don't stack over the WELCOME BACK dialog (an offline catch-up can trigger
+    // both at once); defer — its whenComplete re-invokes this once dismissed.
+    if (_offlineDialogOpen) return;
+    _endingShown = true;
+    game.clearWinCelebration();
+    showEndingOverlay(
+      context,
+      game,
+      onNewGenesis: () => _showNewGenesisPicker(context, game),
+      onBreakChain: () => game.toggleSandboxNoCap(),
+    );
   }
 
   void _showAchievementToasts(GameLogic game) {
@@ -272,10 +294,56 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // Concave projection (matches PrestigeSystem), so the dialog never
     // overstates the reward of this irreversible reset.
     final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
-    // The four real archetypes (Prospector is only the class-less start).
-    final choices = BtcClass.values
-        .where((c) => c != BtcClass.prospector)
-        .toList();
+    _showClassPicker(
+      context: context,
+      game: game,
+      title: 'START A NEW BLOCKCHAIN?',
+      titleColor: Colors.deepPurpleAccent,
+      confirmLabel: 'REBORN',
+      confirmColor: Colors.deepPurple,
+      info: 'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents, Chips, '
+          'GovTokens and Consensus. Your Stash & Mastery are KEPT.\n\n'
+          'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
+          'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
+          '→ x${nextMultiplier.toStringAsFixed(1)}',
+      onConfirm: (c) => game.newBlockchain(chosenClass: c),
+    );
+  }
+
+  /// New Genesis (NG+): the post-win "start again, stronger" reset. Same class
+  /// picker, but grants the permanent trophy multiplier instead of Genesis.
+  void _showNewGenesisPicker(BuildContext context, GameLogic game) {
+    final nextTrophy = 1.0 +
+        GameConstants.perWinTrophyBonus * (game.winCount + 1);
+    _showClassPicker(
+      context: context,
+      game: game,
+      title: 'NEW GENESIS (NG+)',
+      titleColor: AppTheme.accent,
+      confirmLabel: 'ASCEND',
+      confirmColor: AppTheme.accent,
+      info: 'Begin a fresh chain, keeping your Stash, Mastery and trophies. '
+          'Every ending makes all future prestige gains permanently stronger.\n\n'
+          'Prestige-gain trophy: x${game.trophyGainMultiplier.toStringAsFixed(1)} '
+          '→ x${nextTrophy.toStringAsFixed(1)}',
+      onConfirm: (c) => game.newGenesisPlus(chosenClass: c),
+    );
+  }
+
+  /// Shared class-selection dialog for New Blockchain and New Genesis. Confirm is
+  /// disabled until a class is chosen; [onConfirm] receives the picked class.
+  void _showClassPicker({
+    required BuildContext context,
+    required GameLogic game,
+    required String title,
+    required Color titleColor,
+    required String confirmLabel,
+    required Color confirmColor,
+    required String info,
+    required void Function(BtcClass) onConfirm,
+  }) {
+    final choices =
+        BtcClass.values.where((c) => c != BtcClass.prospector).toList();
     BtcClass? selected =
         game.hasChosenClass ? game.currentClass : null; // pre-select current
 
@@ -284,10 +352,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setLocal) => AlertDialog(
           backgroundColor: AppTheme.surface,
-          title: const Text(
-            'START A NEW BLOCKCHAIN?',
-            style: TextStyle(color: Colors.deepPurpleAccent),
-          ),
+          title: Text(title, style: TextStyle(color: titleColor)),
           content: SizedBox(
             width: double.maxFinite,
             child: SingleChildScrollView(
@@ -295,14 +360,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                 mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Text(
-                    'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents, '
-                    'Chips, GovTokens and Consensus. Your Stash & Mastery are KEPT.\n\n'
-                    'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
-                    'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
-                    '→ x${nextMultiplier.toStringAsFixed(1)}',
-                    style: const TextStyle(color: Colors.white70, fontSize: 13),
-                  ),
+                  Text(info,
+                      style:
+                          const TextStyle(color: Colors.white70, fontSize: 13)),
                   const SizedBox(height: 14),
                   const Text(
                     'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
@@ -332,16 +392,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
             ),
             ElevatedButton(
               style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.deepPurple,
-                disabledBackgroundColor: Colors.deepPurple.withValues(alpha: 0.3),
+                backgroundColor: confirmColor,
+                disabledBackgroundColor: confirmColor.withValues(alpha: 0.3),
               ),
               onPressed: selected == null
                   ? null
                   : () {
-                      game.newBlockchain(chosenClass: selected);
+                      onConfirm(selected!);
                       Navigator.pop(ctx);
                     },
-              child: const Text('REBORN'),
+              child: Text(confirmLabel),
             ),
           ],
         ),
@@ -391,7 +451,12 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-    ).whenComplete(() => _offlineDialogOpen = false);
+    ).whenComplete(() {
+      _offlineDialogOpen = false;
+      // A win that crossed during the just-shown offline catch-up was deferred
+      // (so it wouldn't stack); show it now that the dialog is dismissed.
+      if (mounted) _maybeShowEnding(game);
+    });
   }
 }
 

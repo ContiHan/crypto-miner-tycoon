@@ -42,7 +42,30 @@ class SettingsScreen extends StatelessWidget {
                 ),
               ),
               const Divider(color: Colors.white24),
-              
+
+              // Sandbox — appears only after the game has been won ("Genesis
+              // Complete"). Removes the 21M supply cap; numbers go to absurdity.
+              if (game.hasWonGame) ...[
+                ListTile(
+                  title: const Text('Break the Chain (Sandbox)',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: Text(
+                    game.sandboxNoCap
+                        ? 'On — supply cap removed, numbers go wild'
+                        : 'Off — normal 21M supply cap',
+                    style: const TextStyle(color: Colors.white70),
+                  ),
+                  trailing: Switch(
+                    value: game.sandboxNoCap,
+                    activeThumbColor: AppTheme.accent,
+                    activeTrackColor: AppTheme.accent.withValues(alpha: 0.3),
+                    onChanged: (_) => game.toggleSandboxNoCap(),
+                  ),
+                ),
+                const Divider(color: Colors.white24),
+              ],
+
               // Danger Zone
               const Padding(
                 padding: EdgeInsets.symmetric(vertical: 16.0),

@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/game_logic.dart';
+import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
@@ -374,9 +375,57 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                         ),
                                       ],
                                     ),
+                                    // Endgame: cumulative-ever progress toward
+                                    // "own all Bitcoin". Hidden once won / in
+                                    // sandbox.
+                                    if (!game.hasWonGame && !game.sandboxNoCap) ...[
+                                      const SizedBox(height: 6),
+                                      Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: (game.lifetimeEverSats /
+                                                      GameConstants
+                                                          .endgameTargetSats)
+                                                  .clamp(0.0, 1.0),
+                                              backgroundColor: Colors.black54,
+                                              color: AppTheme.accent
+                                                  .withValues(alpha: 0.6),
+                                              minHeight: 14,
+                                            ),
+                                          ),
+                                          Text(
+                                            'ALL BITCOIN: ${(game.lifetimeEverSats / GameConstants.endgameTargetSats * 100).clamp(0, 100).toStringAsFixed(2)}%',
+                                            style: GoogleFonts.orbitron(
+                                              color: Colors.white,
+                                              fontSize: 10,
+                                              fontWeight: FontWeight.bold,
+                                              shadows: [
+                                                const Shadow(
+                                                  color: Colors.black,
+                                                  blurRadius: 2,
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
                                   ],
                                 ),
                               ),
+                              // Per-era cap reached: turn the ∞-difficulty / 0
+                              // income dead-end into a clear message + CTA.
+                              if (game.networkDifficulty.isInfinite &&
+                                  !game.sandboxNoCap)
+                                _CapReachedBanner(
+                                  game: game,
+                                  onNewBlockchain: widget.onNewBlockchain,
+                                  onHardFork: widget.onHardFork,
+                                ),
                               const SizedBox(height: 10),
                               if (game.consensus > 0)
                                 Text(
@@ -836,6 +885,81 @@ class _LockedRigTeaser extends StatelessWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+}
+
+/// Shown when a single era's entire 21M supply is mined (networkDifficulty is ∞,
+/// income clamped to 0). Replaces the "looks broken" dead-end with a clear
+/// message + the right next step: enter Sandbox (if the game is won), else start
+/// a New Blockchain, else Hard Fork.
+class _CapReachedBanner extends StatelessWidget {
+  final GameLogic game;
+  final VoidCallback? onNewBlockchain;
+  final VoidCallback? onHardFork;
+
+  const _CapReachedBanner({
+    required this.game,
+    required this.onNewBlockchain,
+    required this.onHardFork,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    String cta;
+    VoidCallback? action;
+    if (game.hasWonGame) {
+      cta = 'BREAK THE CHAIN (SANDBOX)';
+      action = game.toggleSandboxNoCap;
+    } else if (game.pendingGenesis > 0 && onNewBlockchain != null) {
+      cta = 'START NEW BLOCKCHAIN';
+      action = onNewBlockchain;
+    } else {
+      cta = 'HARD FORK NOW';
+      action = onHardFork;
+    }
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: Colors.redAccent.withValues(alpha: 0.12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
+      ),
+      child: Column(
+        children: [
+          const Text(
+            'ERA MINED OUT',
+            style: TextStyle(
+              color: Colors.redAccent,
+              fontWeight: FontWeight.bold,
+              fontSize: 14,
+              letterSpacing: 1,
+            ),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            "This blockchain's entire 21M supply is mined — income is capped. "
+            'Move on to keep growing.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white70, fontSize: 12),
+          ),
+          const SizedBox(height: 10),
+          SizedBox(
+            width: double.infinity,
+            child: ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: Colors.redAccent,
+                foregroundColor: Colors.white,
+              ),
+              onPressed: action,
+              child: Text(cta,
+                  style: const TextStyle(fontWeight: FontWeight.bold)),
+            ),
+          ),
+        ],
       ),
     );
   }

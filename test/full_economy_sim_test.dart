@@ -77,7 +77,7 @@ void main() {
     const days = 60;
     final totalSteps = days * 86400 ~/ step;
 
-    int firstHardFork = -1, firstNewChain = -1;
+    int firstHardFork = -1, firstNewChain = -1, firstWin = -1;
     int softForks = 0, hardForks = 0, newChains = 0;
     int lastBuyStep = 0, lastForkStep = 0;
     bool sawBad = false;
@@ -103,6 +103,7 @@ void main() {
       final earned = game.advanceForTest(step.toDouble());
       final perSec = earned / step;
       if (perSec > peakIncome) peakIncome = perSec;
+      if (firstWin < 0 && game.hasWonGame) firstWin = t;
 
       if (bad(game.wallet) ||
           bad(game.globalHashRate) ||
@@ -175,6 +176,8 @@ void main() {
     }
     print('First Hard Fork      : ${_hms(firstHardFork)}');
     print('First New Blockchain : ${_hms(firstNewChain)}');
+    print('First Win (21M-ever) : ${_hms(firstWin)}');
+    print('lifetimeEverSats     : ${game.lifetimeEverSats.toStringAsExponential(2)}');
     print('Totals               : $softForks SF / $hardForks HF / $newChains NB');
     print('Final hash channel   : x${hashX.toStringAsFixed(2)}');
     print('Final income channel : x${incomeX.toStringAsFixed(2)}');
@@ -199,5 +202,15 @@ void main() {
     expect(firstNewChain, greaterThan(2 * 86400),
         reason: 'tier-3 must not be trivially fast even with content');
     expect(firstNewChain, lessThan(days * 86400), reason: 'tier-3 reachable in $days d');
+
+    // Endgame (Phase 5): the cumulative-ever win must be REACHABLE by a whale
+    // within the window but not trivially instant. Empirically ~14 days at the
+    // 2.1e17 target. (Precise ~1-year pacing for a normal player is a Phase-6
+    // [TUNE]; this only guards reachability + the win-latch plumbing.)
+    expect(firstWin, greaterThan(2 * 86400),
+        reason: 'the ending must not be trivially fast even for a whale');
+    expect(firstWin, lessThan(days * 86400),
+        reason: 'the ending must be reachable within $days d');
+    expect(game.hasWonGame, true, reason: 'win latch set once crossed');
   });
 }

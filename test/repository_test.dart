@@ -152,6 +152,80 @@ void main() {
       expect(data['mastery'], isA<Map>());
       expect((data['mastery'] as Map).isEmpty, true);
     });
+
+    test('persists endgame state (Phase 5) round-trip', () async {
+      await gameRepo.saveGameState(
+        wallet: 0,
+        lifetimeEarnings: 0,
+        govTokens: 0,
+        spentGovTokens: 0,
+        perks: {},
+        perkCosts: {},
+        rigs: [],
+        researchNodes: [],
+        networkDifficulty: 100,
+        blockReward: 50,
+        blocksMined: 0,
+        nextHalvingThreshold: 5000,
+        bitcoinExchangeRate: 1.0,
+        lifetimeEverSats: 2.5e17,
+        hasWonGame: true,
+        sandboxNoCap: true,
+        winCount: 2,
+      );
+
+      final data = await gameRepo.loadGameState();
+      expect((data['lifetimeEverSats'] as num).toDouble(), 2.5e17);
+      expect(data['hasWonGame'], true);
+      expect(data['sandboxNoCap'], true);
+      expect(data['winCount'], 2);
+    });
+
+    test('legacy save (pre-Phase-5) defaults endgame + seeds ever from earnings',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2':
+            jsonEncode({'version': 2, 'wallet': 5.0, 'lifetimeEarnings': 1.0e12}),
+      });
+      final data = await GameRepository().loadGameState();
+      // Conservative seed from per-era earnings; well below the win target.
+      expect((data['lifetimeEverSats'] as num).toDouble(), 1.0e12);
+      expect(data['hasWonGame'], false);
+      expect(data['sandboxNoCap'], false);
+      expect(data['winCount'], 0);
+    });
+
+    test('self-heals hasWonGame when lifetimeEverSats already >= target',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode(
+            {'version': 2, 'lifetimeEverSats': GameConstants.endgameTargetSats}),
+      });
+      final data = await GameRepository().loadGameState();
+      expect(data['hasWonGame'], true, reason: 'crossed target => won on load');
+    });
+
+    test('non-finite lifetimeEverSats is coerced finite on save (sandbox safety)',
+        () async {
+      await gameRepo.saveGameState(
+        wallet: 0,
+        lifetimeEarnings: 0,
+        govTokens: 0,
+        spentGovTokens: 0,
+        perks: {},
+        perkCosts: {},
+        rigs: [],
+        researchNodes: [],
+        networkDifficulty: double.infinity,
+        blockReward: 50,
+        blocksMined: 0,
+        nextHalvingThreshold: 5000,
+        bitcoinExchangeRate: 1.0,
+        lifetimeEverSats: double.infinity,
+      );
+      final data = await gameRepo.loadGameState();
+      expect((data['lifetimeEverSats'] as num).isFinite, true);
+    });
   });
 
   group('GameRepository save integrity (bug #1)', () {

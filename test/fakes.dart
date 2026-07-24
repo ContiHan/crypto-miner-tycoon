@@ -163,6 +163,10 @@ class FakeGameRepository implements GameRepository {
     int casinoJackpots = 0,
     String currentClass = 'prospector',
     Map<String, dynamic> mastery = const {},
+    double lifetimeEverSats = 0,
+    bool hasWonGame = false,
+    bool sandboxNoCap = false,
+    int winCount = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -184,6 +188,10 @@ class FakeGameRepository implements GameRepository {
     data['casinoJackpots'] = casinoJackpots;
     data['currentClass'] = currentClass;
     data['mastery'] = mastery;
+    data['lifetimeEverSats'] = lifetimeEverSats;
+    data['hasWonGame'] = hasWonGame;
+    data['sandboxNoCap'] = sandboxNoCap;
+    data['winCount'] = winCount;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

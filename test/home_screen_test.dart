@@ -60,6 +60,10 @@ void main() {
 
     expect(hardForkButton, findsOneWidget);
 
+    // The MINE tab is scrollable and the endgame progress bar pushes the button
+    // lower than the 800x600 test viewport, so bring it on-screen before tapping.
+    await tester.ensureVisible(hardForkButton);
+    await tester.pump();
     await tester.tap(hardForkButton);
     await tester.pump(const Duration(milliseconds: 300));
 
