@@ -25,7 +25,7 @@ class ResearchTab extends StatelessWidget {
                   const Icon(Icons.science, size: 40, color: AppTheme.accent),
                   const SizedBox(height: 5),
                   const Text(
-                    'LABORATORY',
+                    'TECH TREE',
                     style: TextStyle(
                       fontSize: 20,
                       fontWeight: FontWeight.bold,
