@@ -226,13 +226,20 @@ class _AchievementCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
-            // Trailing swaps between CLAIM -> checkmark with a scale pop.
-            AnimatedSwitcher(
-              duration: const Duration(milliseconds: 300),
-              transitionBuilder: (c, anim) =>
-                  ScaleTransition(scale: anim, child: c),
-              child: _trailing(),
+            const SizedBox(width: 12),
+            // Fixed-width trailing slot so the CLAIM button / checkmark always
+            // align and never crowd the title/description.
+            SizedBox(
+              width: 72,
+              child: Center(
+                // Trailing swaps between CLAIM -> checkmark with a scale pop.
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 300),
+                  transitionBuilder: (c, anim) =>
+                      ScaleTransition(scale: anim, child: c),
+                  child: _trailing(),
+                ),
+              ),
             ),
           ],
         ),

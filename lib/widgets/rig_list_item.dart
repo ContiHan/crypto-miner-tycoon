@@ -225,8 +225,13 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                   child: AnimatedContainer(
                     key: _buttonKey,
                     duration: const Duration(milliseconds: 120),
-                    constraints: const BoxConstraints(minWidth: 80, minHeight: 40),
-                    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                    // Fixed size so the button never grows with a long price and
+                    // never crowds the rig name. Long prices scale DOWN via the
+                    // FittedBox below (no ellipsis).
+                    width: 104,
+                    height: 48,
+                    alignment: Alignment.center,
+                    padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
                     decoration: BoxDecoration(
                       color: canAfford ? AppTheme.accent : Colors.grey[800],
                       borderRadius: BorderRadius.circular(4),
