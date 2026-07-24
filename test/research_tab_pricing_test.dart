@@ -7,6 +7,22 @@ import 'test_helper.dart';
 
 void main() {
   group('LAB pricing follows the exchange rate (bug #2)', () {
+    // The TECH tree is now a graph; the BUY button lives in the tap sheet. Use a
+    // large surface so the (0,0)-anchored root node sits inside the viewport.
+    Future<void> pumpTree(WidgetTester tester, GameLogic game) async {
+      tester.view.physicalSize = const Size(1400, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.resetPhysicalSize);
+      addTearDown(tester.view.resetDevicePixelRatio);
+      await tester.pumpWidget(
+        ChangeNotifierProvider<GameLogic>.value(
+          value: game,
+          child: const MaterialApp(home: Scaffold(body: ResearchTab())),
+        ),
+      );
+      await tester.pump();
+    }
+
     testWidgets('BTC price adapts to the rate and affordability uses sats cost',
         (tester) async {
       final game = createTestGameLogic(loadOnStart: false);
@@ -15,28 +31,21 @@ void main() {
       // After hard forks the exchange rate climbs. Basic Overclocking costs 500
       // credits, so the real charge becomes 500 / 10 = 50 sats.
       game.bitcoinExchangeRate = 10.0;
-      game.wallet = 100; // 100 sats: below the raw 500, above the true 50.
+      game.wallet = 100; // 100 sats: below raw 500, above the true 50.
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<GameLogic>.value(
-          value: game,
-          child: const MaterialApp(home: Scaffold(body: ResearchTab())),
-        ),
-      );
-      await tester.pump();
+      await pumpTree(tester, game);
 
-      // Only Basic Overclocking is unlocked at the start => one buy button.
-      final buttonFinder = find.byType(ElevatedButton);
-      expect(buttonFinder, findsOneWidget);
-
-      // The rate-adjusted sats price (50) is shown, not the raw 500.
+      // The node sublabel shows the rate-adjusted sats price (50), not raw 500.
       expect(find.textContaining('50 Ş'), findsOneWidget);
       expect(find.textContaining('500'), findsNothing);
 
-      // 100 sats >= 50 sats => affordable, so the button must be enabled. The
-      // buggy version compared 100 against the raw 500 and stayed disabled.
-      final button = tester.widget<ElevatedButton>(buttonFinder);
-      expect(button.onPressed, isNotNull);
+      // Tap the root node to open its sheet; the BUY button must be enabled
+      // (100 sats >= 50 sats). The buggy version compared 100 vs the raw 500.
+      await tester.tap(find.text('BASIC OVERCLOCKING'));
+      await tester.pumpAndSettle();
+      final buttonFinder = find.byType(ElevatedButton);
+      expect(buttonFinder, findsOneWidget);
+      expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNotNull);
     });
 
     testWidgets('buying at a raised rate deducts only the sats cost',
@@ -46,15 +55,11 @@ void main() {
       game.bitcoinExchangeRate = 10.0;
       game.wallet = 100;
 
-      await tester.pumpWidget(
-        ChangeNotifierProvider<GameLogic>.value(
-          value: game,
-          child: const MaterialApp(home: Scaffold(body: ResearchTab())),
-        ),
-      );
-      await tester.pump();
+      await pumpTree(tester, game);
 
-      await tester.tap(find.byType(ElevatedButton));
+      await tester.tap(find.text('BASIC OVERCLOCKING')); // open the sheet
+      await tester.pumpAndSettle();
+      await tester.tap(find.byType(ElevatedButton)); // RESEARCH
       await tester.pump();
 
       expect(game.isResearched('basic_overclock'), true);
