@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'providers/game_logic.dart';
 import 'screens/home_screen.dart';
@@ -14,6 +15,10 @@ import 'services/stash_service.dart';
 import 'services/sound_service.dart';
 
 void main() {
+  // Orbitron is bundled under assets/fonts/, so google_fonts must use those
+  // local files and never fetch over the network (release builds have no
+  // INTERNET permission — runtime fetching would fall back to a system font).
+  GoogleFonts.config.allowRuntimeFetching = false;
   runApp(
     MultiProvider(
       providers: [
