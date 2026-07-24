@@ -46,6 +46,50 @@ void main() {
       expect(spin.payout, 250);
       expect(spin.net, 240);
     });
+
+    test('plinko return-to-player is below 1 (a chip sink)', () {
+      expect(CasinoService.plinkoReturnToPlayer, lessThan(1.0));
+      expect(CasinoService.plinkoReturnToPlayer, closeTo(0.90, 0.01));
+    });
+
+    test('plinko slot probabilities are a valid distribution (sum to 1)', () {
+      double sum = 0;
+      for (int k = 0; k <= CasinoService.plinkoRows; k++) {
+        sum += CasinoService.plinkoSlotProbability(k);
+      }
+      expect(sum, closeTo(1.0, 1e-9));
+    });
+
+    test('plinko multiplier table matches the row count', () {
+      expect(CasinoService.plinkoMultipliers.length,
+          CasinoService.plinkoRows + 1);
+    });
+
+    test('dropPlinko: slot == number of rights, multiplier matches the bucket',
+        () {
+      final c = CasinoService();
+      final rng = Random(123);
+      for (int i = 0; i < 5000; i++) {
+        final d = c.dropPlinko(10, rng);
+        expect(d.path.length, CasinoService.plinkoRows);
+        expect(d.slotIndex, d.path.where((r) => r).length);
+        expect(d.slotIndex, inInclusiveRange(0, CasinoService.plinkoRows));
+        expect(d.multiplier, CasinoService.plinkoMultipliers[d.slotIndex]);
+      }
+    });
+
+    test('empirical plinko payout has a house edge over many drops', () {
+      final c = CasinoService();
+      final rng = Random(2024);
+      int staked = 0, returned = 0;
+      for (int i = 0; i < 200000; i++) {
+        staked += 100;
+        returned += c.dropPlinko(100, rng).payout;
+      }
+      final rtp = returned / staked;
+      expect(rtp, lessThan(1.0), reason: 'house always keeps an edge');
+      expect(rtp, closeTo(CasinoService.plinkoReturnToPlayer, 0.03));
+    });
   });
 
   group('Casino in GameLogic', () {
@@ -155,6 +199,53 @@ void main() {
       }
       expect(game.casinoSpins, 25);
       expect(game.isAchievementUnlocked('casino_25'), true);
+    });
+
+    test('playPlinko deducts the bet, credits the payout, counts the play',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100;
+      final drop = game.playPlinko(10);
+      expect(drop, isNotNull);
+      expect(game.chips, 100 - 10 + drop!.payout);
+      expect(game.casinoSpins, 1);
+      expect(game.chips, greaterThanOrEqualTo(0));
+    });
+
+    test('playPlinko rejects zero/negative and unaffordable bets', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 3;
+      expect(game.playPlinko(0), isNull);
+      expect(game.playPlinko(-5), isNull);
+      expect(game.playPlinko(10), isNull); // more than balance
+      expect(game.chips, 3, reason: 'no chips created or destroyed');
+      expect(game.casinoSpins, 0);
+    });
+
+    test('a plinko edge (12x) counts as a jackpot', () async {
+      // Seed chosen so an edge bucket (all-left or all-right) occurs.
+      final repo = FakeGameRepository();
+      GameLogic build(int seed) => GameLogic(
+            gameRepository: repo,
+            settingsRepository: FakeSettingsRepository(),
+            economyService: EconomyService(),
+            stashService: StashService(),
+            soundService: FakeSoundService(),
+            startTimers: false,
+            loadOnStart: false,
+            casinoRandom: Random(seed),
+          );
+      final game = build(4);
+      await game.loadGame();
+      game.chips = 100000;
+      var guard = 0;
+      while (game.casinoJackpots == 0 && guard++ < 100000) {
+        game.playPlinko(1);
+      }
+      expect(game.casinoJackpots, greaterThan(0),
+          reason: 'a 12x edge bucket registers as a jackpot');
     });
   });
 }

@@ -163,6 +163,26 @@ class GameLogic with ChangeNotifier {
     return win;
   }
 
+  /// Drop a Plinko chip for [bet] chips. Returns the drop (null if unaffordable).
+  PlinkoDrop? playPlinko(int bet) {
+    if (bet <= 0 || chips < bet) return null;
+    chips -= bet;
+    final drop = _casino.dropPlinko(bet, _casinoRng);
+    chips += drop.payout;
+    casinoSpins++;
+    if (drop.isJackpot) casinoJackpots++;
+    _soundService.playBuy();
+    if (drop.isJackpot) {
+      _hapticHeavy();
+    } else if (drop.isWin) {
+      _hapticLight();
+    }
+    _evaluateAchievements();
+    notifyListeners();
+    _saveGame();
+    return drop;
+  }
+
   // Achievements + Notoriety (permanent income bonus). Persists across all
   // prestige tiers like the Stash — only a full wipe clears it.
   final AchievementManager _achievements = AchievementManager();
