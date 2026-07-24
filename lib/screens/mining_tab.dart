@@ -435,6 +435,21 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     ),
                                   ),
                                 ),
+                              // RPG class identity (once chosen at a New
+                              // Blockchain); Prospector before that shows nothing.
+                              if (game.hasChosenClass)
+                                Padding(
+                                  padding: const EdgeInsets.only(top: 6.0),
+                                  child: Text(
+                                    'CLASS: ${game.currentClassDef.name}'
+                                    '${game.currentClassMasteryLevel > 0 ? ' · MASTERY ${game.currentClassMasteryLevel}' : ''}',
+                                    style: TextStyle(
+                                      color: game.currentClassDef.color,
+                                      fontWeight: FontWeight.bold,
+                                      fontSize: 13,
+                                    ),
+                                  ),
+                                ),
                               // Tier-3: New Blockchain / Genesis Blocks.
                               if (game.genesisBlocks > 0)
                                 Padding(

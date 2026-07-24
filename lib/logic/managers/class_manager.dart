@@ -1,0 +1,227 @@
+import 'dart:math';
+import 'package:flutter/material.dart';
+import '../../core/constants.dart';
+import '../channels.dart';
+
+/// The Bitcoin "class" you play a chain as (RPG Phase 3).
+///
+/// [prospector] is the class-less early game before the first New Blockchain —
+/// no bonuses, no Mastery. From the first New Blockchain onward the player picks
+/// one of the four real archetypes and is locked to it for the whole chain
+/// (re-pick only at the next New Blockchain).
+enum BtcClass { prospector, soloMiner, corporation, btcOg, poolMember }
+
+/// Static definition of a class: its identity + how it reshapes the run.
+///
+/// Class edges are routed through the same additive channel model as every other
+/// bonus (so they stack and soft-cap consistently), plus a single multiplicative
+/// [prestigeGainMult] hook for CX/GT gain (the one attribute that isn't a live
+/// channel). Increments are small and graduated per the RPG design (§3/§5).
+class ClassDef {
+  final String name;
+  final String tagline;
+  final String description;
+  final IconData icon;
+  final Color color;
+
+  /// Additive channel weightings applied every buildChannels() (e.g. +0.20 hash).
+  /// Negative values are debuffs (e.g. Corporation's worse prestige lives in
+  /// [prestigeGainMult]; louder chaos is +volatility here).
+  final Map<Channel, double> channelBonuses;
+
+  /// Multiplies Consensus + GovToken GAIN (1.0 = neutral). BTC OG > 1 (best
+  /// prestige farmer); Corporation < 1 (brute force, worse prestige efficiency).
+  final double prestigeGainMult;
+
+  const ClassDef({
+    required this.name,
+    required this.tagline,
+    required this.description,
+    required this.icon,
+    required this.color,
+    this.channelBonuses = const {},
+    this.prestigeGainMult = 1.0,
+  });
+}
+
+/// The four archetypes + the class-less Prospector. Weightings are intentionally
+/// small (~2-20%) and each class trades a strength for a weakness so the choice
+/// reshapes strategy without dominating the economy. [TUNE] via the sims.
+const Map<BtcClass, ClassDef> kClasses = {
+  BtcClass.prospector: ClassDef(
+    name: 'PROSPECTOR',
+    tagline: 'Not yet specialised',
+    description:
+        'The early game before your first New Blockchain. No class bonuses '
+        'yet — reach a New Blockchain to choose your path.',
+    icon: Icons.explore,
+    color: Colors.blueGrey,
+  ),
+  BtcClass.soloMiner: ClassDef(
+    name: 'SOLO MINER',
+    tagline: 'Lone hacker in a garage',
+    description:
+        'Cheap, efficient and hands-on. Big discounts on rig cost, stronger '
+        'manual clicks, and luckier anomaly/crate finds — but a lower raw '
+        'output ceiling than the big players.',
+    icon: Icons.person,
+    color: Colors.greenAccent,
+    channelBonuses: {
+      Channel.rigCost: 0.20, // rigs 20% cheaper
+      Channel.click: 0.15,
+      Channel.luck: 0.10,
+    },
+  ),
+  BtcClass.corporation: ClassDef(
+    name: 'CORPORATION',
+    tagline: 'Ruthless data-center',
+    description:
+        'Brute force — money is no object. Huge passive hash and income, but '
+        'worse prestige efficiency and louder market chaos.',
+    icon: Icons.corporate_fare,
+    color: Colors.orangeAccent,
+    channelBonuses: {
+      Channel.hash: 0.20,
+      Channel.income: 0.15,
+      Channel.volatility: 0.15, // louder chaos (higher event frequency)
+    },
+    prestigeGainMult: 0.85, // worse prestige efficiency
+  ),
+  BtcClass.btcOg: ClassDef(
+    name: 'BTC OG',
+    tagline: 'Satoshi-era whale',
+    description:
+        'Manipulates the chain itself. The best prestige gains (Consensus / '
+        'GovTokens / Genesis) and luckier rare finds, and steadier markets — '
+        'but a slow raw start.',
+    icon: Icons.workspace_premium,
+    color: Colors.amberAccent,
+    channelBonuses: {
+      Channel.hash: 0.05, // slow raw start
+      Channel.luck: 0.08,
+      Channel.volatility: -0.10, // steer the chaos: fewer events
+    },
+    prestigeGainMult: 1.25, // best prestige farmer
+  ),
+  BtcClass.poolMember: ClassDef(
+    name: 'POOL MEMBER',
+    tagline: 'Co-op collective',
+    description:
+        'Steady and low-variance. Far fewer/softer market crashes, better '
+        'casino odds, and reliable income — but no big spikes.',
+    icon: Icons.groups,
+    color: Colors.cyanAccent,
+    channelBonuses: {
+      Channel.income: 0.08,
+      Channel.luck: 0.10,
+      Channel.volatility: -0.25, // low variance: fewest events
+    },
+  ),
+};
+
+/// Owns the player's current class and permanent per-class Mastery.
+///
+/// Extracted from GameLogic (god-object pattern): GameLogic holds one instance,
+/// feeds its channel/prestige contributions into the economy, and drives class
+/// selection + Mastery crediting at each New Blockchain.
+class ClassManager {
+  BtcClass current = BtcClass.prospector;
+
+  /// Permanent Mastery XP per class. Survives every prestige tier and only a
+  /// full Wipe Save clears it. XP is the GovTokens minted while playing that
+  /// class, accumulated across all of its chains.
+  final Map<BtcClass, double> masteryXp = {
+    for (final c in BtcClass.values) c: 0.0,
+  };
+
+  ClassDef get currentDef => kClasses[current]!;
+
+  /// Whether the player has chosen a real class yet (past the Prospector start).
+  bool get hasChosenClass => current != BtcClass.prospector;
+
+  // ---- Mastery ------------------------------------------------------------
+
+  /// Concave Mastery level for a class (sqrt of XP), so it always climbs but
+  /// never runs away.
+  int masteryLevel(BtcClass c) {
+    final xp = masteryXp[c] ?? 0;
+    if (xp <= 0) return 0;
+    return sqrt(xp / GameConstants.masteryXpDivisor).floor();
+  }
+
+  /// Sum of Mastery levels across every class — the permanent all-class bonus
+  /// scales with this.
+  int get totalMasteryLevel =>
+      BtcClass.values.fold(0, (sum, c) => sum + masteryLevel(c));
+
+  /// Credit [govTokensMinted] of Mastery XP to the class a just-finished chain
+  /// was played as. Prospector earns nothing (it isn't a real class).
+  void creditMastery(BtcClass playedAs, double govTokensMinted) {
+    if (playedAs == BtcClass.prospector || govTokensMinted <= 0) return;
+    masteryXp[playedAs] = (masteryXp[playedAs] ?? 0) + govTokensMinted;
+  }
+
+  // ---- Economy contributions ---------------------------------------------
+
+  /// Adds the current class's channel weightings AND the permanent all-class
+  /// Mastery bonus into [ch]. Everything is additive within its channel and
+  /// soft-capped downstream, so a class can never explode the economy.
+  void contributeChannels(Channels ch) {
+    currentDef.channelBonuses.forEach(ch.add);
+
+    // Permanent Mastery bonus (all classes, including Prospector): a small hash
+    // + income nudge that grows as you master more classes.
+    final masteryBonus =
+        totalMasteryLevel * GameConstants.masteryBonusPerLevel;
+    if (masteryBonus > 0) {
+      ch.add(Channel.hash, masteryBonus);
+      ch.add(Channel.income, masteryBonus);
+    }
+  }
+
+  /// Multiplier applied to Consensus + GovToken gain by the current class.
+  double get prestigeGainMultiplier => currentDef.prestigeGainMult;
+
+  // ---- Selection ----------------------------------------------------------
+
+  /// Lock in a class for the next chain (called at a New Blockchain).
+  void select(BtcClass c) => current = c;
+
+  // ---- Persistence --------------------------------------------------------
+
+  /// Serialises Mastery XP as {className: xp} for the save blob.
+  Map<String, double> masteryJson() =>
+      {for (final e in masteryXp.entries) e.key.name: e.value};
+
+  /// Restore from a saved class name + Mastery map (both tolerant of nulls /
+  /// unknown names so an old or corrupt save falls back to Prospector / 0 XP).
+  void loadFrom(dynamic className, dynamic mastery) {
+    current = BtcClass.values.firstWhere(
+      (c) => c.name == className,
+      orElse: () => BtcClass.prospector,
+    );
+    for (final c in BtcClass.values) {
+      masteryXp[c] = 0.0;
+    }
+    if (mastery is Map) {
+      mastery.forEach((k, v) {
+        final match = BtcClass.values.firstWhere(
+          (c) => c.name == k,
+          orElse: () => BtcClass.prospector,
+        );
+        // Ignore an XP entry mislabelled as prospector (it earns none anyway).
+        if (match != BtcClass.prospector && v is num) {
+          masteryXp[match] = v.toDouble();
+        }
+      });
+    }
+  }
+
+  /// Full Wipe Save: back to a class-less start with no Mastery.
+  void reset() {
+    current = BtcClass.prospector;
+    for (final c in BtcClass.values) {
+      masteryXp[c] = 0.0;
+    }
+  }
+}

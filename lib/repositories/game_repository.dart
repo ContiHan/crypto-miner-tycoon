@@ -68,6 +68,8 @@ class GameRepository {
     int cratesOpened = 0,
     int casinoSpins = 0,
     int casinoJackpots = 0,
+    String currentClass = 'prospector',
+    Map<String, dynamic> mastery = const {},
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -107,6 +109,8 @@ class GameRepository {
       'cratesOpened': cratesOpened,
       'casinoSpins': casinoSpins,
       'casinoJackpots': casinoJackpots,
+      'currentClass': currentClass,
+      'mastery': mastery,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -207,6 +211,11 @@ class GameRepository {
       'cratesOpened': asInt(m['cratesOpened'], 0),
       'casinoSpins': asInt(m['casinoSpins'], 0),
       'casinoJackpots': asInt(m['casinoJackpots'], 0),
+      // RPG class + Mastery (Phase 3). Class name is a plain string; ClassManager
+      // maps unknown names back to Prospector. Mastery is a {className: xp} map.
+      'currentClass':
+          m['currentClass'] is String ? m['currentClass'] : 'prospector',
+      'mastery': m['mastery'] is Map ? m['mastery'] : const {},
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

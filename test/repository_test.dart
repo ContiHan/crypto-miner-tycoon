@@ -115,6 +115,43 @@ void main() {
       // Ensure static fields were NOT saved (optimization check)
       expect(stats[0].containsKey('name'), false);
     });
+
+    test('persists RPG class + Mastery through jsonEncode round-trip', () async {
+      await gameRepo.saveGameState(
+        wallet: 0,
+        lifetimeEarnings: 0,
+        govTokens: 0,
+        spentGovTokens: 0,
+        perks: {},
+        perkCosts: {},
+        rigs: [],
+        researchNodes: [],
+        networkDifficulty: 100,
+        blockReward: 50,
+        blocksMined: 0,
+        nextHalvingThreshold: 5000,
+        bitcoinExchangeRate: 1.0,
+        currentClass: 'btcOg',
+        mastery: {'corporation': 40000.0, 'btcOg': 12345.0},
+      );
+
+      final data = await gameRepo.loadGameState();
+      expect(data['currentClass'], 'btcOg');
+      final mastery = data['mastery'] as Map;
+      expect((mastery['corporation'] as num).toDouble(), 40000.0);
+      expect((mastery['btcOg'] as num).toDouble(), 12345.0);
+    });
+
+    test('save predating Phase 3 (no class keys) normalizes to Prospector',
+        () async {
+      SharedPreferences.setMockInitialValues({
+        'game_save_v2': jsonEncode({'version': 2, 'wallet': 5.0}),
+      });
+      final data = await GameRepository().loadGameState();
+      expect(data['currentClass'], 'prospector');
+      expect(data['mastery'], isA<Map>());
+      expect((data['mastery'] as Map).isEmpty, true);
+    });
   });
 
   group('GameRepository save integrity (bug #1)', () {

@@ -77,15 +77,16 @@ class PrestigeSystem {
       lifetimeEarnings - lifetimeAtLastSoftFork;
 
   /// Consensus the player would gain by soft-forking now (cube-root curve,
-  /// scaled by the Genesis gain multiplier).
-  int pendingConsensus(double lifetimeEarnings) {
+  /// scaled by the Genesis gain multiplier and the current class's prestige-gain
+  /// multiplier [gainMultiplier], 1.0 = neutral).
+  int pendingConsensus(double lifetimeEarnings, {double gainMultiplier = 1.0}) {
     final era = eraSats(lifetimeEarnings);
     if (era < GameConstants.consensusDivisor) return 0;
     // +epsilon BEFORE scaling so perfect cubes don't lose 1 to float error
     // (cbrt(27)=2.9999…); adding it after the gain multiplier would let the
     // amplified error round 9 down to 8.
     final base = pow(era / GameConstants.consensusDivisor, 1 / 3).toDouble();
-    return ((base + 1e-9) * genesisGainMultiplier).floor();
+    return ((base + 1e-9) * genesisGainMultiplier * gainMultiplier).floor();
   }
 
   /// Always-on income bonus from held Consensus (added into the prestige
@@ -94,9 +95,10 @@ class PrestigeSystem {
   double get consensusBonus =>
       GameConstants.perConsensusBonus * sqrt(consensus);
 
-  /// Apply a Soft Fork: bank the CX and start a new era.
-  void applySoftFork(double lifetimeEarnings) {
-    consensus += pendingConsensus(lifetimeEarnings);
+  /// Apply a Soft Fork: bank the CX (with the class prestige-gain multiplier, so
+  /// what's banked matches the projected [pendingConsensus]) and start a new era.
+  void applySoftFork(double lifetimeEarnings, {double gainMultiplier = 1.0}) {
+    consensus += pendingConsensus(lifetimeEarnings, gainMultiplier: gainMultiplier);
     lifetimeAtLastSoftFork = lifetimeEarnings;
   }
 
