@@ -66,16 +66,22 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void didChangeAppLifecycleState(AppLifecycleState state) {
     switch (state) {
       case AppLifecycleState.paused:
-      case AppLifecycleState.hidden:
       case AppLifecycleState.detached:
-        // Leaving the foreground: persist now and stop the loop.
+        // Leaving the foreground: persist now and stop the loop. `paused` is
+        // always reached on the way to the background (inactive->hidden->paused).
         _gameLogic.onAppPaused();
         break;
       case AppLifecycleState.resumed:
         // Returning: credit the elapsed background time and restart the loop.
         _gameLogic.onAppResumed();
         break;
+      case AppLifecycleState.hidden:
       case AppLifecycleState.inactive:
+        // Do NOT treat these as a pause. Flutter's lifecycle machine also
+        // traverses paused->hidden->inactive->resumed on the way BACK to the
+        // foreground; routing `hidden` to onAppPaused here would re-save
+        // last_save_time=now on re-entry, zeroing the elapsed gap so the
+        // WELCOME BACK offline payout is silently dropped on every warm resume.
         break;
     }
   }

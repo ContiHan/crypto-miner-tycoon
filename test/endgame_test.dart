@@ -109,18 +109,66 @@ void main() {
           reason: 'sandbox offline ran the full absence, not one capped chunk');
     });
 
-    test('turning sandbox OFF past the cap starts a fresh NG+ chain', () async {
+    test('turning sandbox OFF past the cap is NON-destructive (no wipe, no trophy)',
+        () async {
+      // Regression (QA HIGH+MED): a cosmetic on/off toggle must never wipe the
+      // run or mint a permanent win trophy. Past the cap it only clamps the
+      // mined-supply back under the ceiling, keeping wallet/rigs/prestige.
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.hasWonGame = true;
       game.sandboxNoCap = true;
+      game.wallet = 1e18;
+      game.rigs.firstWhere((r) => r.id == 'cpu_rig').amount = 42;
       game.lifetimeEarnings = GameConstants.maxSupplySats + 1e15; // past cap
       final winsBefore = game.winCount;
 
       game.toggleSandboxNoCap();
+
       expect(game.sandboxNoCap, false);
-      expect(game.winCount, winsBefore + 1, reason: 'NG+ so income isn\'t 0');
-      expect(game.lifetimeEarnings, 0, reason: 'landed on a clean chain');
+      expect(game.winCount, winsBefore,
+          reason: 'no NG+ / no trophy minted by a cosmetic toggle');
+      expect(game.lifetimeEarnings,
+          lessThanOrEqualTo(GameConstants.maxSupplySats),
+          reason: 'mined-supply clamped back under the legal cap');
+      expect(game.lifetimeEarnings, greaterThan(0),
+          reason: 'a hair of headroom keeps a trickle of income, not a soft-lock');
+      expect(game.wallet, 1e18, reason: 'wallet NOT wiped');
+      expect(game.rigs.firstWhere((r) => r.id == 'cpu_rig').amount, 42,
+          reason: 'rigs NOT wiped');
+    });
+
+    test('flipping sandbox off repeatedly never farms winCount', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.hasWonGame = true;
+      for (var i = 0; i < 5; i++) {
+        game.toggleSandboxNoCap(); // on
+        game.lifetimeEarnings = GameConstants.maxSupplySats + 1e15; // past cap
+        game.toggleSandboxNoCap(); // off
+      }
+      expect(game.winCount, 0, reason: 'no trophy runaway from toggling');
+    });
+
+    test('running totals are clamped finite so a save never persists them as 0',
+        () async {
+      // Regression (QA MED): extreme uncapped sandbox play can sum finite income
+      // chunks into Infinity; fin() would then persist wallet/lifetimeEarnings as
+      // 0 and silently wipe the balance on reload. Simulate the already-overflowed
+      // state and prove the next accrual restores finiteness.
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.rigs.firstWhere((r) => r.id == 'cpu_rig').amount = 1; // hashRate > 0
+      game.hasWonGame = true;
+      game.sandboxNoCap = true; // ignoreCap => lifetimeEarnings unused in the math
+      game.wallet = double.infinity;
+      game.lifetimeEarnings = double.infinity;
+
+      game.advanceForTest(1);
+
+      expect(game.wallet.isFinite, true, reason: 'wallet clamped, not Infinity');
+      expect(game.lifetimeEarnings.isFinite, true,
+          reason: 'lifetimeEarnings clamped, not Infinity');
     });
   });
 

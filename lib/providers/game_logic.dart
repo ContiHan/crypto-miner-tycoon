@@ -775,6 +775,11 @@ class GameLogic with ChangeNotifier {
     }
     wallet += income;
     lifetimeEarnings += income;
+    // Extreme uncapped sandbox play can sum finite chunks into Infinity; fin()
+    // would then persist that as 0 and wipe the balance on reload. Clamp the
+    // running totals the same way lifetimeEverSats is guarded below.
+    if (!wallet.isFinite) wallet = 1e300;
+    if (!lifetimeEarnings.isFinite) lifetimeEarnings = 1e300;
     _creditLifetimeEver(income); // cumulative-ever endgame counter + win check
     return income;
   }
@@ -1088,6 +1093,11 @@ class GameLogic with ChangeNotifier {
     // Feed tier-3 progress: every GovToken ever minted counts toward the next
     // New Blockchain / Genesis Block.
     _prestige.recordGovTokensMinted(tokensToClaim);
+    // Credit Mastery XP HERE, at mint time, to the class actually active now —
+    // not in bulk at New Blockchain reading the class at reset time (which a
+    // last-second class switch could farm onto a class that minted nothing).
+    // Crediting per-mint makes Mastery honestly follow who was played.
+    _classManager.creditMastery(_classManager.current, tokensToClaim.toDouble());
     // Exchange rate is neutralised (was: *= (1 + tokensToClaim), which overflowed
     // to Infinity late-game). Cross-era power is the prestige income multiplier,
     // which rises because govTokens rose.
@@ -1123,9 +1133,9 @@ class GameLogic with ChangeNotifier {
   /// confirmation dialog. Genesis Blocks permanently multiply future Consensus
   /// and GovToken gains.
   /// [chosenClass] is the class to play the NEXT chain as (the picker's choice).
-  /// When null the current class carries over (used by sims/tests). Mastery for
-  /// the chain just finished is credited to the class it was played as BEFORE the
-  /// wipe, since the chain-GovToken baseline is reset by [applyNewBlockchain].
+  /// When null the current class carries over (used by sims/tests). Mastery is
+  /// credited incrementally at each Hard Fork (mint time), so nothing needs to be
+  /// credited here.
   void newBlockchain({BtcClass? chosenClass}) {
     if (pendingGenesis <= 0) return;
     _newChainInternal(chosenClass: chosenClass);
@@ -1134,16 +1144,13 @@ class GameLogic with ChangeNotifier {
   /// The New-Blockchain reset body, WITHOUT the pendingGenesis guard, so it can
   /// also power New Genesis (NG+) from the ending — where the reward is the
   /// permanent trophy multiplier, not Genesis Blocks (which may be 0). Order is
-  /// load-bearing: creditMastery -> applyNewBlockchain -> select -> wipe ->
-  /// count -> evaluate -> save. Do NOT reset any endgame field here (they are
-  /// the permanent spine that survives every prestige).
+  /// load-bearing: applyNewBlockchain -> select -> wipe -> count -> evaluate ->
+  /// save. Do NOT reset any endgame field here (they are the permanent spine
+  /// that survives every prestige). Mastery is NOT credited here — it accrues
+  /// per-mint at each Hard Fork (see [hardFork]).
   void _newChainInternal({BtcClass? chosenClass}) {
     _soundService.playHalving(); // dramatic cue for the deepest reset
     _hapticHeavy();
-
-    // Credit Mastery to the class this chain was played as (GovTokens minted this
-    // chain), BEFORE the baseline snapshot below zeroes the chain counter.
-    _classManager.creditMastery(_classManager.current, _prestige.chainGovTokens());
 
     // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
     _prestige.applyNewBlockchain();
@@ -1182,14 +1189,23 @@ class GameLogic with ChangeNotifier {
   }
 
   /// Toggle the "break the chain" sandbox (uncapped mining). Only after a win.
-  /// Turning it OFF while past the per-era cap would strand the player at 0
-  /// income (room<=0), so that case starts a fresh New Genesis chain.
+  ///
+  /// Turning it OFF is deliberately NON-DESTRUCTIVE: uncapped play may have
+  /// pushed this era's mined supply (lifetimeEarnings) far past the legal 21M
+  /// ceiling, so we simply clamp it back under the cap (keeping wallet, rigs,
+  /// research, prestige — everything). The player lands in the normal "you've
+  /// mined ~all 21M this era" state (income trickles to 0 at the cap) and can
+  /// prestige via the usual buttons if they want a fresh income-producing chain.
+  /// A cosmetic on/off switch must never wipe the run or mint a win trophy.
   void toggleSandboxNoCap() {
     if (!hasWonGame) return;
     if (sandboxNoCap) {
       sandboxNoCap = false;
-      if (lifetimeEarnings >= GameConstants.maxSupplySats) {
-        newGenesisPlus(); // land on a clean, income-producing chain
+      // Re-enforcing the cap: pull mined-supply back just under the ceiling so
+      // it's a valid capped state (a hair of room keeps a trickle of income
+      // rather than a hard 0 that reads like a soft-lock).
+      if (lifetimeEarnings > GameConstants.maxSupplySats) {
+        lifetimeEarnings = GameConstants.maxSupplySats * 0.99;
       }
     } else {
       sandboxNoCap = true;

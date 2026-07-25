@@ -122,24 +122,36 @@ void main() {
       expect(game.pendingGovTokens, lessThan(ogGT));
     });
 
-    test('newBlockchain credits Mastery to the outgoing class + sets the new one',
+    test('Mastery follows the MINT-time class; a last-second switch cannot farm it',
         () async {
+      // QA regression: Mastery XP is credited per GovToken at Hard Fork (mint)
+      // time to whoever was active THEN — not to the class held at New Blockchain
+      // reset time. So switching class right before a New Blockchain credits the
+      // switched-to class nothing.
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // Build a chain worth 260000 GovTokens ever (as Prospector so mintTokens'
-      // pending assertion holds), then pretend it was played as Corporation.
-      game.lifetimeEarnings = 260000 * 260000 * 5.0e8;
-      expect(game.pendingGovTokens, 260000);
-      game.hardFork(); // feeds totalGovTokensEver = 260000
-      expect(game.pendingGenesis, 2);
-
+      // Play & mint a big batch of GovTokens as Corporation.
       game.debugSelectClass(BtcClass.corporation);
-      game.newBlockchain(chosenClass: BtcClass.soloMiner);
+      game.lifetimeEarnings = 260000 * 260000 * 5.0e8;
+      final minted = game.pendingGovTokens;
+      expect(minted, greaterThan(0));
+      game.hardFork(); // credits `minted` XP to Corporation at mint time
+      expect(game.pendingGenesis, greaterThan(0)); // enough to New Blockchain
 
-      expect(game.currentClass, BtcClass.soloMiner, reason: 'new class locked in');
-      // sqrt(260000/10000) = sqrt(26) ~= 5.09 -> level 5
-      expect(game.masteryLevel(BtcClass.corporation), 5);
+      final corpLevel = game.masteryLevel(BtcClass.corporation);
+      expect(corpLevel, greaterThan(0),
+          reason: 'the class that actually minted earns the XP');
+
+      // Farm attempt: switch to a class that minted nothing, THEN New Blockchain.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.newBlockchain(chosenClass: BtcClass.btcOg);
+
+      expect(game.currentClass, BtcClass.btcOg, reason: 'new class locked in');
+      expect(game.masteryLevel(BtcClass.corporation), corpLevel,
+          reason: 'earner keeps exactly its mint-time credit (no bulk re-credit)');
+      expect(game.masteryLevel(BtcClass.soloMiner), 0,
+          reason: 'the switched-through class minted nothing → no farmed credit');
       // Chain baseline reset, so the fresh chain starts at 0 mastery-earning.
       expect(game.pendingGenesis, 0);
     });
