@@ -28,7 +28,7 @@ class _StashScreenState extends State<StashScreen>
   bool _isErrorShowing = false;
 
   // Casino local UI state.
-  int _bet = 5;
+  int _bet = 1;
   CasinoGame _selectedGame = CasinoGame.slots; // slots = the polished default
   String? _casinoMessage;
   Color _casinoMessageColor = Colors.white70;
@@ -94,7 +94,7 @@ class _StashScreenState extends State<StashScreen>
       ScaffoldMessenger.of(context)
           .showSnackBar(
             const SnackBar(
-              content: Text('Not enough Chips!'),
+              content: Text('Not enough DUST!'),
               backgroundColor: Colors.red,
             ),
           )
@@ -224,7 +224,7 @@ class _StashScreenState extends State<StashScreen>
           tabs: const [
             Tab(icon: Icon(Icons.inventory_2), text: "CRATES"),
             Tab(icon: Icon(Icons.grid_view), text: "COLLECTION"),
-            Tab(icon: Icon(Icons.casino), text: "CASINO"),
+            Tab(icon: Icon(Icons.terminal), text: "SWEEP"),
           ],
         ),
       ),
@@ -262,7 +262,7 @@ class _StashScreenState extends State<StashScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'MICRO-CHIPS OBTAINED',
+                    'DUST COLLECTED',
                     style: TextStyle(
                       color: Colors.white54,
                       fontSize: 10,
@@ -332,7 +332,7 @@ class _StashScreenState extends State<StashScreen>
               size: 32,
             ),
             title: const Text(
-              'Buy 1 Micro-Chip',
+              'Buy 1 DUST',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -425,7 +425,7 @@ class _StashScreenState extends State<StashScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '$cost CHIPS',
+              '$cost DUST',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -548,7 +548,7 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  // ---- Casino (SIMULATED — in-game Micro-Chips only) ----------------------
+  // ---- SWEEP minigame (SIMULATED — in-game DUST only) --------------------
 
   void _playSlots(GameLogic game) {
     if (_casinoBusy) return;
@@ -592,17 +592,17 @@ class _StashScreenState extends State<StashScreen>
           _slotSpinning = false;
           _chipOverride = null; // reveal the real balance now
           if (spin.isJackpot) {
-            _casinoMessage = 'JACKPOT!  +${spin.net} chips';
+            _casinoMessage = 'JACKPOT!  +${spin.net} DUST';
             _casinoMessageColor = Colors.amberAccent;
           } else if (spin.net > 0) {
-            _casinoMessage = 'WIN  +${spin.net} chips';
+            _casinoMessage = 'SWEEP  +${spin.net} DUST';
             _casinoMessageColor = Colors.greenAccent;
           } else if (spin.net == 0) {
             _casinoMessage = 'Push — broke even';
             _casinoMessageColor = Colors.white70;
           } else {
             // Use the staked amount from the resolved spin, not the live _bet.
-            _casinoMessage = 'Bust.  -${spin.bet} chips';
+            _casinoMessage = 'Junk block.  -${spin.bet} DUST';
             _casinoMessageColor = Colors.redAccent;
           }
         });
@@ -620,7 +620,7 @@ class _StashScreenState extends State<StashScreen>
     final delta = game.chips - chipsBefore;
     setState(() {
       _casinoMessage =
-          win ? 'DOUBLED! +$delta chips' : 'Nothing. $delta chips';
+          win ? 'DOUBLED! +$delta DUST' : 'Nothing. $delta DUST';
       _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
     });
   }
@@ -650,16 +650,16 @@ class _StashScreenState extends State<StashScreen>
           _plinkoLandedSlot = drop.slotIndex;
           _chipOverride = null; // reveal the real balance now
           if (drop.isJackpot) {
-            _casinoMessage = 'JACKPOT!  +${drop.net} chips';
+            _casinoMessage = 'JACKPOT!  +${drop.net} DUST';
             _casinoMessageColor = Colors.amberAccent;
           } else if (drop.net > 0) {
-            _casinoMessage = 'WIN  +${drop.net} chips';
+            _casinoMessage = 'RELAYED  +${drop.net} DUST';
             _casinoMessageColor = Colors.greenAccent;
           } else if (drop.net == 0) {
             _casinoMessage = 'Push — broke even';
             _casinoMessageColor = Colors.white70;
           } else {
-            _casinoMessage = 'Down ${drop.net} chips';
+            _casinoMessage = 'Dropped ${drop.net} DUST';
             _casinoMessageColor = Colors.redAccent;
           }
         });
@@ -673,92 +673,63 @@ class _StashScreenState extends State<StashScreen>
     return Colors.white24; // <1x: a net loss bucket
   }
 
-  Widget _buildPlinko(GameLogic game) {
-    final canBet = game.chips >= _bet && _bet > 0;
-    final rtp = (CasinoService.plinkoReturnToPlayer * 100).toStringAsFixed(0);
-    return StylizedCard(
-      color: const Color(0xFF1E1E24),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text('PLINKO',
-                style: GoogleFonts.orbitron(
-                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            AspectRatio(
-              aspectRatio: 1.15,
-              child: CustomPaint(
-                painter: _PlinkoPainter(
-                  path: _plinkoPath,
-                  progress: _plinkoController,
-                  landedSlot: _plinkoLandedSlot,
-                  dropping: _plinkoDropping,
-                ),
-                size: Size.infinite,
-              ),
+  Widget _buildPlinko(GameLogic game, bool canBet) {
+    return _sweepCard(
+      title: 'PACKET RELAY',
+      children: [
+        SizedBox(
+          height: 240,
+          width: double.infinity,
+          child: CustomPaint(
+            painter: _PlinkoPainter(
+              path: _plinkoPath,
+              progress: _plinkoController,
+              landedSlot: _plinkoLandedSlot,
+              dropping: _plinkoDropping,
             ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed: (canBet && !_casinoBusy)
-                    ? () => _playPlinko(game)
-                    : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: Text(_plinkoDropping ? 'DROPPING…' : 'DROP ($_bet chips)',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 6),
-            Text(
-              'Average return ~$rtp% • edges pay 12×, centre is a sink. Odds disclosed.',
-              style: const TextStyle(color: Colors.white38, fontSize: 10),
-              textAlign: TextAlign.center,
-            ),
-          ],
+            size: Size.infinite,
+          ),
         ),
-      ),
+        const SizedBox(height: 14),
+        _sweepButton(
+          label: _plinkoDropping ? 'RELAYING…' : 'RELAY ($_bet DUST)',
+          onPressed:
+              (canBet && !_casinoBusy) ? () => _playPlinko(game) : null,
+        ),
+      ],
     );
   }
 
+  static const double _kGameBodyHeight = 400;
+
+  /// A sweep is allowed when the stake is affordable AND the per-window cap has
+  /// not been hit.
+  bool _canSweep(GameLogic game) =>
+      game.chips >= _bet && _bet > 0 && !game.casinoCapped;
+
+  String _resetCountdown(int ms) {
+    if (ms <= 0) return 'soon';
+    final h = ms ~/ 3600000;
+    final m = (ms % 3600000) ~/ 60000;
+    return h > 0 ? '${h}h ${m}m' : '${m}m';
+  }
+
   Widget _buildCasinoTab(BuildContext context, GameLogic game) {
-    final canBet = game.chips >= _bet && _bet > 0;
-    final rtp = (CasinoService.slotsReturnToPlayer * 100).toStringAsFixed(0);
+    final canBet = _canSweep(game);
     final flipPct =
         (GameConstants.casinoFlipWinChance * 100).toStringAsFixed(0);
 
     return ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // Compliance disclosure — required for simulated gambling content.
-        Container(
-          padding: const EdgeInsets.all(12),
-          decoration: BoxDecoration(
-            color: Colors.redAccent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: Colors.redAccent.withValues(alpha: 0.4)),
-          ),
-          child: const Text(
-            '🎰 SIMULATED — For entertainment only. Micro-Chips are in-game '
-            'tokens with NO real-world value. No real money, deposits, or prizes.',
-            style: TextStyle(color: Colors.white70, fontSize: 11),
-          ),
-        ),
-        const SizedBox(height: 16),
-
-        // Chip balance
+        // DUST balance
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.memory, color: Colors.cyanAccent, size: 26),
+            const Icon(Icons.blur_on, color: Colors.cyanAccent, size: 24),
             const SizedBox(width: 8),
             Text(
-              '${_chipOverride ?? game.chips} CHIPS',
+              '${_chipOverride ?? game.chips} DUST',
               style: GoogleFonts.orbitron(
                 fontSize: 24,
                 color: Colors.cyanAccent,
@@ -767,20 +738,48 @@ class _StashScreenState extends State<StashScreen>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-        // Bet selector
-        const Text('BET', style: TextStyle(color: Colors.white54, fontSize: 11, letterSpacing: 1)),
+        // Anti-farm: the per-window net cap blocks further sweeps.
+        if (game.casinoCapped)
+          Container(
+            width: double.infinity,
+            margin: const EdgeInsets.only(bottom: 12),
+            padding: const EdgeInsets.all(12),
+            decoration: BoxDecoration(
+              color: Colors.orangeAccent.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+              border:
+                  Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
+            ),
+            child: Text(
+              'MEMPOOL CONGESTED — the network flagged your sweeps. '
+              'Bounties reset in ${_resetCountdown(game.casinoWindowResetInMs)}.',
+              textAlign: TextAlign.center,
+              style: const TextStyle(
+                color: Colors.orangeAccent,
+                fontSize: 12,
+                fontWeight: FontWeight.bold,
+              ),
+            ),
+          ),
+
+        // Stake selector (centered)
+        const Center(
+          child: Text('STAKE',
+              style: TextStyle(
+                  color: Colors.white54, fontSize: 11, letterSpacing: 1)),
+        ),
         const SizedBox(height: 6),
         Wrap(
+          alignment: WrapAlignment.center,
           spacing: 8,
           children: [1, 5, 10, 25, 100].map((b) {
             final selected = _bet == b;
             return ChoiceChip(
               label: Text('$b'),
               selected: selected,
-              // Locked while any casino game animates so the stake can't change
-              // mid-spin/mid-drop.
+              // Locked while a sweep animates so the stake can't change mid-run.
               onSelected: _casinoBusy ? null : (_) => setState(() => _bet = b),
               selectedColor: AppTheme.accent,
               labelStyle: TextStyle(
@@ -791,56 +790,86 @@ class _StashScreenState extends State<StashScreen>
             );
           }).toList(),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
 
-        // Game selector — show ONE focused table at a time so all three games
-        // are discoverable instead of stacked and easy to miss.
-        const Text('GAME',
-            style: TextStyle(
-                color: Colors.white54, fontSize: 11, letterSpacing: 1)),
-        const SizedBox(height: 6),
-        Wrap(
-          spacing: 8,
-          children: [
-            _gameChip(CasinoGame.slots, 'SLOTS', Icons.casino),
-            _gameChip(CasinoGame.plinko, 'PLINKO', Icons.grain),
-            _gameChip(CasinoGame.flip, 'DOUBLE', Icons.monetization_on),
-          ],
+        // Script selector (centered) — one focused game at a time.
+        Center(
+          child: Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 8,
+            children: [
+              _gameChip(CasinoGame.slots, 'BLOCK SCAN', Icons.grid_on),
+              _gameChip(CasinoGame.plinko, 'RELAY', Icons.account_tree),
+              _gameChip(CasinoGame.flip, 'HASH FLIP', Icons.bolt),
+            ],
+          ),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 12),
 
-        // Result message (shared across games)
-        if (_casinoMessage != null)
-          Container(
-            width: double.infinity,
-            padding: const EdgeInsets.symmetric(vertical: 10),
-            alignment: Alignment.center,
-            child: Text(
-              _casinoMessage!,
-              style: GoogleFonts.orbitron(
-                color: _casinoMessageColor,
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+        // Shared result line (fixed slot so the layout never jumps).
+        SizedBox(
+          height: 28,
+          child: _casinoMessage == null
+              ? null
+              : Center(
+                  child: Text(
+                    _casinoMessage!,
+                    style: GoogleFonts.orbitron(
+                      color: _casinoMessageColor,
+                      fontSize: 16,
+                      fontWeight: FontWeight.bold,
+                    ),
+                  ),
+                ),
+        ),
 
-        // The selected game — a single focused table.
-        switch (_selectedGame) {
-          CasinoGame.slots => _buildSlots(game, canBet, rtp),
-          CasinoGame.plinko => _buildPlinko(game),
-          CasinoGame.flip => _buildFlip(game, canBet, flipPct),
-        },
-        if (!canBet)
-          const Padding(
-            padding: EdgeInsets.only(top: 12),
-            child: Text(
-              'Not enough chips for this bet. Earn chips from anomalies or the Black Market.',
-              style: TextStyle(color: Colors.redAccent, fontSize: 12),
-              textAlign: TextAlign.center,
-            ),
-          ),
+        // The selected game — FIXED height so switching scripts never jumps.
+        SizedBox(
+          height: _kGameBodyHeight,
+          child: switch (_selectedGame) {
+            CasinoGame.slots => _buildSlots(game, canBet),
+            CasinoGame.plinko => _buildPlinko(game, canBet),
+            CasinoGame.flip => _buildFlip(game, canBet, flipPct),
+          },
+        ),
       ],
+    );
+  }
+
+  /// Shared card shell for the three SWEEP games — uniform title + centering, so
+  /// each fills the same fixed body height and switching never jumps.
+  Widget _sweepCard({required String title, required List<Widget> children}) {
+    return StylizedCard(
+      color: const Color(0xFF1E1E24),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Text(title,
+              style: GoogleFonts.orbitron(
+                  color: AppTheme.accent, fontWeight: FontWeight.bold)),
+          const SizedBox(height: 12),
+          ...children,
+        ],
+      ),
+    );
+  }
+
+  Widget _sweepButton({
+    required String label,
+    required VoidCallback? onPressed,
+    Color color = AppTheme.accent,
+  }) {
+    return SizedBox(
+      width: double.infinity,
+      child: ElevatedButton(
+        onPressed: onPressed,
+        style: ElevatedButton.styleFrom(
+          backgroundColor: color,
+          foregroundColor: Colors.black,
+          padding: const EdgeInsets.symmetric(vertical: 14),
+        ),
+        child: Text(label, style: const TextStyle(fontWeight: FontWeight.bold)),
+      ),
     );
   }
 
@@ -868,78 +897,41 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  Widget _buildSlots(GameLogic game, bool canBet, String rtp) {
-    return StylizedCard(
-      color: const Color(0xFF1E1E24),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
+  Widget _buildSlots(GameLogic game, bool canBet) {
+    return _sweepCard(
+      title: 'BLOCK SCANNER',
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            Text('CRYPTO SLOTS',
-                style: GoogleFonts.orbitron(
-                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 12),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                for (int i = 0; i < 3; i++)
-                  _buildReel(_reels[i], _reelSettled[i]),
-              ],
-            ),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed:
-                    (canBet && !_casinoBusy) ? () => _playSlots(game) : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppTheme.accent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: Text(_slotSpinning ? 'SPINNING…' : 'SPIN ($_bet chips)',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-            const SizedBox(height: 10),
-            _buildPaytable(rtp),
+            for (int i = 0; i < 3; i++) _buildReel(_reels[i], _reelSettled[i]),
           ],
         ),
-      ),
+        const SizedBox(height: 14),
+        _sweepButton(
+          label: _slotSpinning ? 'SCANNING…' : 'SCAN ($_bet DUST)',
+          onPressed: (canBet && !_casinoBusy) ? () => _playSlots(game) : null,
+        ),
+        const SizedBox(height: 12),
+        _buildPaytable(),
+      ],
     );
   }
 
   Widget _buildFlip(GameLogic game, bool canBet, String flipPct) {
-    return StylizedCard(
-      color: const Color(0xFF1E1E24),
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          children: [
-            Text('DOUBLE OR NOTHING',
-                style: GoogleFonts.orbitron(
-                    color: AppTheme.accent, fontWeight: FontWeight.bold)),
-            const SizedBox(height: 4),
-            Text('$flipPct% chance to win 2×  •  odds disclosed',
-                style: const TextStyle(color: Colors.white54, fontSize: 11)),
-            const SizedBox(height: 12),
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                onPressed:
-                    (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: Colors.purpleAccent,
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                child: Text('FLIP ($_bet chips)',
-                    style: const TextStyle(fontWeight: FontWeight.bold)),
-              ),
-            ),
-          ],
+    return _sweepCard(
+      title: 'HASH FLIP',
+      children: [
+        Text('$flipPct% to call the nonce parity — pays 2×',
+            textAlign: TextAlign.center,
+            style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        const SizedBox(height: 18),
+        _sweepButton(
+          label: 'FLIP ($_bet DUST)',
+          color: Colors.purpleAccent,
+          onPressed: (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
         ),
-      ),
+      ],
     );
   }
 
@@ -964,11 +956,12 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  Widget _buildPaytable(String rtp) {
+  Widget _buildPaytable() {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
       children: [
-        const Text('PAYTABLE (odds disclosed)',
+        const Text('PAYTABLE',
             style: TextStyle(color: Colors.white38, fontSize: 10, letterSpacing: 1)),
         const SizedBox(height: 4),
         ...CasinoService.slotTable
@@ -1013,9 +1006,6 @@ class _StashScreenState extends State<StashScreen>
                     ],
                   ),
                 )),
-        const SizedBox(height: 4),
-        Text('Average return ~$rtp% • house edge (a chip sink for fun).',
-            style: const TextStyle(color: Colors.white38, fontSize: 10)),
       ],
     );
   }
