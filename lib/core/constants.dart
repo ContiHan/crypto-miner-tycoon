@@ -77,13 +77,14 @@ class GameConstants {
   // by the fixed achievement count, so it can't run away.
   static const double perAchievementNotoriety = 0.01; // +1% income each
 
-  // SWEEP minigame (simulated, in-game DUST only — no real money or value).
+  // SWEEP minigame (simulated, in-game UTXO only — no real money or value).
   // Deliberately PLAYER-FAVOURED: every game returns >1 per stake on average, so
-  // sweeping the chain pays out. It is NOT an infinite faucet: net DUST gained is
+  // sweeping the chain pays out. It is NOT an infinite faucet: net UTXO gained is
   // bounded per real-time window by [casinoDailyNetCap] (thematically, the
   // network gets congested), which is the anti-farm guardrail.
-  // Hash Flip (double-or-nothing) win chance > 50% => EV = 0.58*2 = 1.16.
-  static const double casinoFlipWinChance = 0.58;
+  // Hash Flip (double-or-nothing) win chance > 50% => EV = 0.68*2 = 1.36. The
+  // risky game: you win most flips, but a miss still loses the whole stake.
+  static const double casinoFlipWinChance = 0.68;
 
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
@@ -99,11 +100,12 @@ class GameConstants {
   static const double clickCritChanceCap = 0.25;
 
   // Luck scales SWEEP winnings up, but the realized average return per stake is
-  // clamped to this ceiling so even maxed Luck can't make it absurd. The economy
-  // is bounded by [casinoDailyNetCap], not by a sub-1 return.
-  static const double casinoEvCeiling = 1.6;
+  // clamped to this ceiling so even maxed Luck can't make it absurd. Set above
+  // the base EVs (~1.36–1.65) so Luck still meaningfully boosts winnings. The
+  // economy is bounded by [casinoDailyNetCap], not by the return.
+  static const double casinoEvCeiling = 2.5;
 
-  // Anti-farm guardrail: the net-DUST BLOCK THRESHOLD for SWEEP within one
+  // Anti-farm guardrail: the net-UTXO BLOCK THRESHOLD for SWEEP within one
   // real-time window ([casinoWindowHours]). Once net gain reaches this, sweeps
   // are blocked until the window resets ("the mempool is congested"). The sweep
   // that CROSSES the threshold is still paid in full (a fair final win), so the
