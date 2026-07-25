@@ -113,7 +113,12 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                       width: double.infinity,
                       child: PulseButton(
                         animate: true,
-                        onPressed: () => game.claimAllAchievements(),
+                        onPressed: () {
+                          // Claiming here makes the "tap to claim" unlock toast
+                          // stale — dismiss it so it doesn't linger for its 4s.
+                          ScaffoldMessenger.of(context).clearSnackBars();
+                          game.claimAllAchievements();
+                        },
                         child: Text('CLAIM ALL  ($unclaimed)'),
                       ),
                     ),
@@ -133,7 +138,11 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                     claimable: game.isAchievementClaimable(a.id),
                     claimed: game.isAchievementClaimed(a.id),
                     color: _categoryColor[a.category] ?? AppTheme.accent,
-                    onClaim: () => game.claimAchievement(a.id),
+                    onClaim: () {
+                      // Dismiss the stale "tap to claim" unlock toast on claim.
+                      ScaffoldMessenger.of(context).clearSnackBars();
+                      game.claimAchievement(a.id);
+                    },
                   );
                 },
               ),

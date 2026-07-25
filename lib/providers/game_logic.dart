@@ -745,6 +745,13 @@ class GameLogic with ChangeNotifier {
   // Fractional block accumulator, shared by the live tick and offline catch-up.
   double _blockCarry = 0;
 
+  // True only while _simulateOfflineMining is running its catch-up loop. While
+  // set, a win crossing mid-loop sets the latches but does NOT notify/save/cue —
+  // otherwise the ending overlay would be pushed BEFORE offlineEarningsAmount is
+  // assigned and end up buried under the WELCOME BACK dialog. The single trailing
+  // notify after the loop lets the offline dialog open first and the ending defer.
+  bool _inOfflineSim = false;
+
   /// Applies [seconds] of passive mining at the CURRENT hash rate and returns
   /// the income earned. Single source of truth for both the 1-second live tick
   /// and the chunked offline catch-up so the two can never diverge.
@@ -895,6 +902,11 @@ class GameLogic with ChangeNotifier {
     if (lifetimeEverSats < GameConstants.endgameTargetSats) return;
     hasWonGame = true;
     pendingWinCelebration = true; // drained once by the UI (not persisted)
+    // During offline catch-up, defer ALL UI side effects: the loop assigns
+    // offlineEarningsAmount only after it finishes, so a notify here would show
+    // the ending before the WELCOME BACK dialog and stack it underneath. The
+    // caller's trailing notify (+ end-of-loop _saveGame) surfaces both in order.
+    if (_inOfflineSim) return;
     _soundService.playHalving(); // dramatic cue for the ending
     _hapticHeavy();
     _saveGame();
@@ -1563,13 +1575,18 @@ class GameLogic with ChangeNotifier {
     }
 
     double accrued = 0;
-    for (int i = 0; i < iterations; i++) {
-      accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
-      _advanceBlocks(timePerTick);
-      // Stop early once the per-era supply is exhausted (income is 0 past it) —
-      // but NOT in sandbox, where the cap is lifted and offline income must keep
-      // flowing the full absence (the +1e300 clamp in _accrueMining bounds it).
-      if (!sandboxNoCap && lifetimeEarnings >= GameConstants.maxSupplySats) break;
+    _inOfflineSim = true;
+    try {
+      for (int i = 0; i < iterations; i++) {
+        accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
+        _advanceBlocks(timePerTick);
+        // Stop early once the per-era supply is exhausted (income is 0 past it) —
+        // but NOT in sandbox, where the cap is lifted and offline income must keep
+        // flowing the full absence (the +1e300 clamp in _accrueMining bounds it).
+        if (!sandboxNoCap && lifetimeEarnings >= GameConstants.maxSupplySats) break;
+      }
+    } finally {
+      _inOfflineSim = false;
     }
 
     if (accrued > 0) {

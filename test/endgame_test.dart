@@ -39,6 +39,53 @@ void main() {
       game.clickMine(playSound: false);
       expect(game.isAchievementUnlocked('meta_genesis_complete'), true);
     });
+
+    test('a win crossing during offline catch-up is never surfaced before the '
+        'offline amount (no ending-under-dialog stacking) — QA regression',
+        () async {
+      // If the win notifies mid-offline-loop (before offlineEarningsAmount is
+      // set), HomeScreen pushes the GENESIS COMPLETE overlay first and the
+      // WELCOME BACK dialog stacks on top of it. Assert no notification ever
+      // carries a pending win with the offline amount still unset.
+      final repo = FakeGameRepository();
+      repo.data.addAll({
+        'lifetimeEverSats': GameConstants.endgameTargetSats - 1e6,
+        'rigs': [
+          {'id': 'cpu_rig', 'amount': 500000},
+        ],
+        // No cold-start gap: the win must cross on the WARM-resume path below.
+        'last_save_time': DateTime.now().millisecondsSinceEpoch,
+      });
+      final game = GameLogic(
+        gameRepository: repo,
+        settingsRepository: FakeSettingsRepository(),
+        economyService: EconomyService(),
+        stashService: StashService(),
+        soundService: FakeSoundService(),
+        startTimers: false,
+        loadOnStart: false,
+      )..clickRng = NoCritRandom();
+      await game.loadGame();
+      expect(game.hasWonGame, false, reason: 'no win yet (cold-start gap ~0)');
+
+      var sawWinBeforeOfflineAmount = false;
+      game.addListener(() {
+        if (game.pendingWinCelebration && game.offlineEarningsAmount == null) {
+          sawWinBeforeOfflineAmount = true;
+        }
+      });
+
+      // Warm resume after a long absence: offline mining crosses the target.
+      repo.data['last_save_time'] = DateTime.now()
+          .subtract(const Duration(hours: 10))
+          .millisecondsSinceEpoch;
+      await game.onAppResumed();
+
+      expect(game.hasWonGame, true, reason: 'win crossed during offline catch-up');
+      expect(game.offlineEarningsAmount, isNotNull, reason: 'long gap is announced');
+      expect(sawWinBeforeOfflineAmount, false,
+          reason: 'win never surfaced before the offline amount was set');
+    });
   });
 
   group('Sandbox ("break the chain")', () {
