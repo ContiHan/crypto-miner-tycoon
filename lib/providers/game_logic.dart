@@ -154,16 +154,62 @@ class GameLogic with ChangeNotifier {
   final List<String> pendingTabUnlockToasts = [];
   void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
 
-  // SIMULATED casino (in-game Micro-Chips only; house edge EV<1).
+  // SIMULATED "SWEEP" minigame (in-game DUST only). Player-favoured (EV>1),
+  // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted DUST.
   final CasinoService _casino = CasinoService();
   final Random _casinoRng; // injectable so tests can force deterministic spins
 
-  /// Bet [bet] chips on the slots. Returns the spin (null if unaffordable).
+  // --- Anti-farm: the NET DUST gained from SWEEP per real-time window is capped;
+  // past it, sweeps are blocked until the window resets ("mempool congested"). --
+  double casinoWindowNet = 0; // net DUST gained since the window opened
+  int casinoWindowStartMs = 0; // window-open epoch ms (0 = not yet opened)
+
+  static const int _casinoWindowMs =
+      GameConstants.casinoWindowHours * 60 * 60 * 1000;
+
+  bool _casinoWindowExpired(int nowMs) =>
+      casinoWindowStartMs == 0 || nowMs - casinoWindowStartMs >= _casinoWindowMs;
+
+  /// Net DUST gained in the CURRENT window (0 once it has elapsed). Pure read.
+  double get casinoNetThisWindow =>
+      _casinoWindowExpired(DateTime.now().millisecondsSinceEpoch)
+          ? 0
+          : casinoWindowNet;
+
+  /// True when the per-window net-gain cap is reached — sweeps are blocked until
+  /// the window resets. Pure read (no mutation), safe to call during build.
+  bool get casinoCapped =>
+      casinoNetThisWindow >= GameConstants.casinoDailyNetCap;
+
+  /// Milliseconds until the current window resets (0 if none open / already up).
+  int get casinoWindowResetInMs {
+    if (casinoWindowStartMs == 0) return 0;
+    final left = _casinoWindowMs -
+        (DateTime.now().millisecondsSinceEpoch - casinoWindowStartMs);
+    return left < 0 ? 0 : left;
+  }
+
+  /// Opens a fresh window (resetting the net) if none is open or the current one
+  /// has elapsed, then reports whether a sweep is allowed (block threshold not
+  /// yet reached). The crossing sweep is still paid in full — see [casinoDailyNetCap].
+  bool _beginSweep() {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    if (_casinoWindowExpired(now)) {
+      casinoWindowStartMs = now;
+      casinoWindowNet = 0;
+    }
+    return casinoWindowNet < GameConstants.casinoDailyNetCap;
+  }
+
+  /// Bet [bet] DUST on the slots. Returns the spin (null if unaffordable or the
+  /// per-window cap already blocks play).
   SlotSpin? playSlots(int bet) {
     if (bet <= 0 || chips < bet) return null;
+    if (!_beginSweep()) return null;
     chips -= bet;
     final spin = _casino.spinSlots(bet, _casinoRng, luck: luckMultiplier);
     chips += spin.payout;
+    casinoWindowNet += spin.net;
     casinoSpins++;
     if (spin.isJackpot) casinoJackpots++;
     _soundService.playBuy();
@@ -178,16 +224,21 @@ class GameLogic with ChangeNotifier {
     return spin;
   }
 
-  /// Double-or-Nothing on [bet] chips. Returns true=win, false=loss, null=unaffordable.
+  /// Hash Flip (double-or-nothing) on [bet] DUST. true=win, false=loss,
+  /// null=unaffordable or capped.
   bool? playDoubleOrNothing(int bet) {
     if (bet <= 0 || chips < bet) return null;
+    if (!_beginSweep()) return null;
     chips -= bet;
     final win = _casino.flipWin(_casinoRng);
+    int payout = 0;
     if (win) {
       final lf = CasinoService.effectiveLuck(
           luckMultiplier, CasinoService.flipReturnToPlayer);
-      chips += (bet * 2 * lf).floor();
+      payout = (bet * 2 * lf).floor();
+      chips += payout;
     }
+    casinoWindowNet += payout - bet;
     casinoSpins++;
     _soundService.playBuy();
     _evaluateAchievements();
@@ -196,12 +247,15 @@ class GameLogic with ChangeNotifier {
     return win;
   }
 
-  /// Drop a Plinko chip for [bet] chips. Returns the drop (null if unaffordable).
+  /// Relay a packet for [bet] DUST. Returns the drop (null if unaffordable or the
+  /// per-window cap already blocks play).
   PlinkoDrop? playPlinko(int bet) {
     if (bet <= 0 || chips < bet) return null;
+    if (!_beginSweep()) return null;
     chips -= bet;
     final drop = _casino.dropPlinko(bet, _casinoRng, luck: luckMultiplier);
     chips += drop.payout;
+    casinoWindowNet += drop.net;
     casinoSpins++;
     if (drop.isJackpot) casinoJackpots++;
     _soundService.playBuy();
@@ -230,7 +284,7 @@ class GameLogic with ChangeNotifier {
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
 
   /// Aggregate Luck factor (>=1, softcapped) from all channel sources. Scales
-  /// crit chance and casino winnings (the latter clamped so casino RTP stays <1).
+  /// crit chance and SWEEP winnings (the latter clamped to the EV ceiling).
   double get luckMultiplier =>
       buildChannels().multiplier(Channel.luck, softStart: 1.5, power: 0.5);
 
@@ -362,6 +416,8 @@ class GameLogic with ChangeNotifier {
     cratesOpened = 0;
     casinoSpins = 0;
     casinoJackpots = 0;
+    casinoWindowNet = 0;
+    casinoWindowStartMs = 0;
     // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
     lifetimeEverSats = 0;
     hasWonGame = false;
@@ -1354,6 +1410,8 @@ class GameLogic with ChangeNotifier {
       cratesOpened: cratesOpened,
       casinoSpins: casinoSpins,
       casinoJackpots: casinoJackpots,
+      casinoWindowNet: casinoWindowNet,
+      casinoWindowStartMs: casinoWindowStartMs,
       currentClass: _classManager.current.name,
       mastery: _classManager.masteryJson(),
       lifetimeEverSats: lifetimeEverSats,
@@ -1444,6 +1502,8 @@ class GameLogic with ChangeNotifier {
       cratesOpened = _toInt(data['cratesOpened']);
       casinoSpins = _toInt(data['casinoSpins']);
       casinoJackpots = _toInt(data['casinoJackpots']);
+      casinoWindowNet = _toDouble(data['casinoWindowNet']);
+      casinoWindowStartMs = _toInt(data['casinoWindowStartMs']);
       if (data['achievements'] is List) {
         _achievements.load(
           (data['achievements'] as List).map((e) => e.toString()),

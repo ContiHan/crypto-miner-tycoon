@@ -161,6 +161,8 @@ class FakeGameRepository implements GameRepository {
     int cratesOpened = 0,
     int casinoSpins = 0,
     int casinoJackpots = 0,
+    double casinoWindowNet = 0,
+    int casinoWindowStartMs = 0,
     String currentClass = 'prospector',
     Map<String, dynamic> mastery = const {},
     double lifetimeEverSats = 0,
@@ -189,6 +191,8 @@ class FakeGameRepository implements GameRepository {
     data['cratesOpened'] = cratesOpened;
     data['casinoSpins'] = casinoSpins;
     data['casinoJackpots'] = casinoJackpots;
+    data['casinoWindowNet'] = casinoWindowNet;
+    data['casinoWindowStartMs'] = casinoWindowStartMs;
     data['currentClass'] = currentClass;
     data['mastery'] = mastery;
     data['lifetimeEverSats'] = lifetimeEverSats;

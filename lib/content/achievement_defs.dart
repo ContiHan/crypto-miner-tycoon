@@ -265,14 +265,14 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'chips_5',
     title: 'Bug Hunter',
-    description: 'Hold 5 Micro-Chips.',
+    description: 'Hold 5 DUST.',
     category: AchCategory.collection,
     condition: (s) => s.chips >= 5,
   ),
   Achievement(
     id: 'casino_25',
     title: 'Feeling Lucky',
-    description: 'Play the casino 25 times.',
+    description: 'Run 25 chain sweeps.',
     category: AchCategory.collection,
     condition: (s) => s.casinoSpins >= 25,
   ),
@@ -349,7 +349,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'casino_250',
     title: 'High Roller',
-    description: 'Play the casino 250 times.',
+    description: 'Run 250 chain sweeps.',
     category: AchCategory.collection,
     condition: (s) => s.casinoSpins >= 250,
   ),

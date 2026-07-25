@@ -109,7 +109,7 @@ const Map<BtcClass, ClassDef> kClasses = {
     tagline: 'Co-op collective',
     description:
         'Steady and low-variance. Far fewer/softer market crashes, better '
-        'casino odds, and reliable income — but no big spikes.',
+        'SWEEP odds, and reliable income — but no big spikes.',
     icon: Icons.groups,
     color: Colors.cyanAccent,
     channelBonuses: {

@@ -20,20 +20,21 @@ class _FixedRandom implements Random {
 }
 
 void main() {
-  group('Casino RTP stays < 1 even with huge Luck (compliance)', () {
+  group('SWEEP EV is player-favoured but bounded by the ceiling', () {
     final bases = <String, double>{
       'slots': CasinoService.slotsReturnToPlayer,
       'flip': CasinoService.flipReturnToPlayer,
       'plinko': CasinoService.plinkoReturnToPlayer,
     };
     bases.forEach((name, base) {
-      test('$name realized RTP is capped below 1', () {
+      test('$name base EV > 1, and realized EV is capped at the ceiling', () {
+        expect(base, greaterThan(1.0), reason: '$name is player-favoured');
         final lf = CasinoService.effectiveLuck(1000.0, base);
         expect(lf, greaterThanOrEqualTo(1.0),
             reason: 'luck must never reduce winnings');
-        expect(base * lf, lessThanOrEqualTo(GameConstants.casinoRtpCap + 1e-9),
-            reason: '$name RTP must stay <= cap (<1) with any luck');
-        expect(GameConstants.casinoRtpCap, lessThan(1.0));
+        expect(base * lf, lessThanOrEqualTo(GameConstants.casinoEvCeiling + 1e-9),
+            reason: '$name EV must stay <= the ceiling with any luck');
+        expect(base * lf, greaterThan(1.0), reason: 'still player-favoured');
       });
     });
 

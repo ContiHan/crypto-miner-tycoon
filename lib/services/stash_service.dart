@@ -9,7 +9,7 @@ enum BonusType {
   hashRate, // Global Hash Rate Multiplier
   rigCost, // Discount on Rigs
   clickPower, // Click Power Multiplier
-  luck, // Luck: crit chance + casino RTP (capped) + (later) crate/anomaly odds
+  luck, // Luck: crit chance + SWEEP winnings (capped) + crate/anomaly odds
   vcInterval, // legacy, unused
   criticalChance, // legacy, unused (superseded by luck)
 }
