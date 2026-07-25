@@ -103,10 +103,12 @@ class GameConstants {
   // is bounded by [casinoDailyNetCap], not by a sub-1 return.
   static const double casinoEvCeiling = 1.6;
 
-  // Anti-farm guardrail: the most NET DUST the player can gain from SWEEP within
-  // one real-time window ([casinoWindowHours]). Past it, sweeps are blocked until
-  // the window resets ("the mempool is congested"). Keeps a generous player edge
-  // from becoming an unbounded DUST faucet. [TUNE].
+  // Anti-farm guardrail: the net-DUST BLOCK THRESHOLD for SWEEP within one
+  // real-time window ([casinoWindowHours]). Once net gain reaches this, sweeps
+  // are blocked until the window resets ("the mempool is congested"). The sweep
+  // that CROSSES the threshold is still paid in full (a fair final win), so the
+  // realized per-window net can exceed this by up to one winning stake — the
+  // point is to bound farming, not to clamp an honest jackpot. [TUNE].
   static const double casinoDailyNetCap = 400;
   static const int casinoWindowHours = 24;
 

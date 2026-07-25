@@ -190,7 +190,8 @@ class GameLogic with ChangeNotifier {
   }
 
   /// Opens a fresh window (resetting the net) if none is open or the current one
-  /// has elapsed, then reports whether a sweep is allowed (cap not yet reached).
+  /// has elapsed, then reports whether a sweep is allowed (block threshold not
+  /// yet reached). The crossing sweep is still paid in full — see [casinoDailyNetCap].
   bool _beginSweep() {
     final now = DateTime.now().millisecondsSinceEpoch;
     if (_casinoWindowExpired(now)) {

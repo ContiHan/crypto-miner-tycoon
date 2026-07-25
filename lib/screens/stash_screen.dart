@@ -719,7 +719,12 @@ class _StashScreenState extends State<StashScreen>
     final flipPct =
         (GameConstants.casinoFlipWinChance * 100).toStringAsFixed(0);
 
-    return ListView(
+    // The three games share a FIXED body height so switching never jumps; clamp
+    // this tab's text scaling so large accessibility fonts can't overflow that
+    // fixed box (the balance/selectors above it still scroll in the ListView).
+    return MediaQuery.withClampedTextScaling(
+      maxScaleFactor: 1.3,
+      child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
         // DUST balance
@@ -833,6 +838,7 @@ class _StashScreenState extends State<StashScreen>
           },
         ),
       ],
+      ),
     );
   }
 
