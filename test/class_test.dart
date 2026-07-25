@@ -156,6 +156,33 @@ void main() {
       expect(game.pendingGenesis, 0);
     });
 
+    test('class is LOCKED after the first pick — no mid-chain switching', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      expect(game.currentClass, BtcClass.prospector);
+
+      // First pick (early, on the SKILL tab) works.
+      game.chooseClass(BtcClass.soloMiner);
+      expect(game.currentClass, BtcClass.soloMiner);
+
+      // A mid-chain switch is blocked — locked until the next New Blockchain.
+      game.chooseClass(BtcClass.corporation);
+      expect(game.currentClass, BtcClass.soloMiner,
+          reason: 'chooseClass is a no-op once a class is committed');
+
+      // A New Blockchain re-opens the choice via its own picker.
+      game.lifetimeEarnings = 260000 * 260000 * 5.0e8;
+      game.hardFork();
+      expect(game.pendingGenesis, greaterThan(0));
+      game.newBlockchain(chosenClass: BtcClass.btcOg);
+      expect(game.currentClass, BtcClass.btcOg, reason: 'New Blockchain re-picks');
+
+      // ...and the new class is locked again on the fresh chain.
+      game.chooseClass(BtcClass.poolMember);
+      expect(game.currentClass, BtcClass.btcOg,
+          reason: 're-locked after the New Blockchain pick');
+    });
+
     test('a full Wipe Save clears class + Mastery', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();

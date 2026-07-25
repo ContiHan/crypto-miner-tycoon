@@ -59,38 +59,62 @@ class PerksScreen extends StatelessWidget {
                 const Text('Tap a node to spend tokens. Drag to explore.',
                     style: TextStyle(color: Colors.white38, fontSize: 12)),
                 const SizedBox(height: 10),
-                // Class chooser — pickable HERE (early, ongoing), not only at a
-                // far-off New Blockchain.
-                OutlinedButton.icon(
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: game.hasChosenClass
-                        ? game.currentClassDef.color
-                        : AppTheme.accent,
-                    side: BorderSide(
-                        color: game.hasChosenClass
-                            ? game.currentClassDef.color
-                            : AppTheme.accent),
+                // Class: pickable HERE as the FIRST choice (early, right when
+                // SKILL unlocks). Once chosen you're LOCKED to it for the whole
+                // run — re-pick only at a New Blockchain — so after the first
+                // pick this becomes a locked readout, not a switch button.
+                if (game.hasChosenClass)
+                  Column(
+                    children: [
+                      Row(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          Icon(game.currentClassDef.icon,
+                              size: 16, color: game.currentClassDef.color),
+                          const SizedBox(width: 6),
+                          Text(
+                            'CLASS: ${game.currentClassDef.name}',
+                            style: TextStyle(
+                              color: game.currentClassDef.color,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1,
+                            ),
+                          ),
+                          const SizedBox(width: 6),
+                          const Icon(Icons.lock_outline,
+                              size: 13, color: Colors.white38),
+                        ],
+                      ),
+                      const SizedBox(height: 2),
+                      const Text(
+                        'Locked in until your next New Blockchain',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ],
+                  )
+                else
+                  OutlinedButton.icon(
+                    style: OutlinedButton.styleFrom(
+                      foregroundColor: AppTheme.accent,
+                      side: const BorderSide(color: AppTheme.accent),
+                    ),
+                    icon: const Icon(Icons.person_add_alt),
+                    label: const Text('CHOOSE YOUR CLASS'),
+                    onPressed: () => showClassPicker(
+                      context,
+                      game: game,
+                      title: 'CHOOSE YOUR CLASS',
+                      titleColor: AppTheme.accent,
+                      confirmLabel: 'CHOOSE',
+                      confirmColor: AppTheme.accent,
+                      headerLabel: 'PICK AN ARCHETYPE:',
+                      info: 'Your class reshapes the whole run (hash, cost, '
+                          'prestige, luck). You LOCK IN to it until your next '
+                          'New Blockchain, so choose deliberately — Mastery is '
+                          'earned per class and kept forever.',
+                      onConfirm: (c) => game.chooseClass(c),
+                    ),
                   ),
-                  icon: Icon(game.hasChosenClass
-                      ? game.currentClassDef.icon
-                      : Icons.person_add_alt),
-                  label: Text(game.hasChosenClass
-                      ? 'CLASS: ${game.currentClassDef.name}  ·  CHANGE'
-                      : 'CHOOSE YOUR CLASS'),
-                  onPressed: () => showClassPicker(
-                    context,
-                    game: game,
-                    title: game.hasChosenClass ? 'CHANGE CLASS' : 'CHOOSE YOUR CLASS',
-                    titleColor: AppTheme.accent,
-                    confirmLabel: game.hasChosenClass ? 'SWITCH' : 'CHOOSE',
-                    confirmColor: AppTheme.accent,
-                    headerLabel: 'PICK AN ARCHETYPE:',
-                    info: 'Your class reshapes the whole run (hash, cost, '
-                        'prestige, luck). Switch anytime — Mastery is earned per '
-                        'class and kept forever.',
-                    onConfirm: (c) => game.chooseClass(c),
-                  ),
-                ),
               ],
             ),
           ),
