@@ -1119,7 +1119,10 @@ class _StashScreenState extends State<StashScreen>
               borderRadius: BorderRadius.circular(4),
             ),
             child: Text(
-              'Total: +${(artifact.baseBonus * count * 100).toStringAsFixed(0)}%',
+              // rigCost is a DISCOUNT (stored positive) — show it as a minus so
+              // the badge matches the artifact's own "-X% Rig Cost" description.
+              'Total: ${artifact.bonusType == BonusType.rigCost ? '-' : '+'}'
+              '${(artifact.baseBonus * count * 100).toStringAsFixed(0)}%',
               style: TextStyle(
                 color: borderColor,
                 fontSize: 10,

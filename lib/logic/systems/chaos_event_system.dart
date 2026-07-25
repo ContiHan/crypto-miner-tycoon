@@ -137,7 +137,11 @@ class ChaosEventSystem {
         color: color,
       ),
     );
-    onEventSound(type != EventType.marketCrash && type != EventType.hack);
+    // Positive jingle only for the player-FAVOURABLE events; every debuff
+    // (marketCrash, hack, AND costSpike) plays the bad cue.
+    onEventSound(type == EventType.bullRun ||
+        type == EventType.airdrop ||
+        type == EventType.cheapEnergy);
   }
 
   /// Shows a ticker event and schedules its expiry. The identity guard means a
