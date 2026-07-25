@@ -743,6 +743,23 @@ class _StashScreenState extends State<StashScreen>
             ),
           ],
         ),
+        const SizedBox(height: 6),
+        // Luck readout — Luck boosts SWEEP PAYOUTS (not the shown win %). Surfaces
+        // the OG/Pool + stash luck stat so its casino effect is visible.
+        Center(
+          child: Text(
+            game.luckMultiplier > 1.001
+                ? 'LUCK ×${game.luckMultiplier.toStringAsFixed(2)}  ·  bigger payouts & jackpots'
+                : 'LUCK ×1.00  ·  raise Luck to boost payouts',
+            style: TextStyle(
+              color: game.luckMultiplier > 1.001
+                  ? Colors.amberAccent
+                  : Colors.white38,
+              fontSize: 11,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ),
         const SizedBox(height: 14),
 
         // Anti-farm: the per-window net cap blocks further sweeps.
