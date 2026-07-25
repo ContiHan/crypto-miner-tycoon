@@ -2,6 +2,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
+import '../logic/channels.dart';
 import '../logic/managers/perk_manager.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
@@ -106,6 +107,9 @@ class PerksScreen extends StatelessWidget {
                       onConfirm: (c) => game.chooseClass(c),
                     ),
                   ),
+                // Live overview: passive racials + bonuses from SKILL nodes
+                // bought this run + Mastery (so you can always see the class state).
+                if (game.hasChosenClass) _classOverview(context, game),
               ],
             ),
           ),
@@ -260,6 +264,89 @@ class PerksScreen extends StatelessWidget {
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing like TECH
       legend: const _PerkLegend(),
     );
+  }
+
+  /// Collapsible summary of the current class: passive racials + the bonuses the
+  /// player has actually bought in the tree this run + Mastery.
+  Widget _classOverview(BuildContext context, GameLogic game) {
+    final def = game.currentClassDef;
+    return Theme(
+      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
+      child: ExpansionTile(
+        tilePadding: EdgeInsets.zero,
+        childrenPadding: const EdgeInsets.only(bottom: 6),
+        iconColor: Colors.white54,
+        collapsedIconColor: Colors.white54,
+        title: const Text('CLASS BONUSES',
+            style: TextStyle(
+                color: Colors.white54, fontSize: 11, letterSpacing: 1.5)),
+        children: [
+          _bonusRow('PASSIVE (racial)', classEffectSummary(def), def.color),
+          const SizedBox(height: 8),
+          _bonusRow('FROM SKILLS', _activeSkillSummary(game), AppTheme.accent),
+          const SizedBox(height: 8),
+          _bonusRow(
+            'MASTERY',
+            game.totalMasteryLevel > 0
+                ? 'Lv ${game.currentClassMasteryLevel} this class · '
+                    '+${(game.totalMasteryLevel * 0.5).toStringAsFixed(1)}% hash & income (all classes)'
+                : 'None yet — earned from GovTokens minted as this class.',
+            Colors.greenAccent,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bonusRow(String label, String text, Color color) {
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label,
+            style: TextStyle(
+                color: color,
+                fontSize: 10,
+                fontWeight: FontWeight.bold,
+                letterSpacing: 1)),
+        Text(text,
+            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+      ],
+    );
+  }
+
+  /// One-line summary of the channel bonuses from the active class's bought SKILL
+  /// nodes (+ the universal flat-click node), in the same format as the racials.
+  String _activeSkillSummary(GameLogic game) {
+    final cls = game.currentClass;
+    final sums = <Channel, double>{};
+    int flatClick = 0;
+    game.perkDefs.forEach((id, def) {
+      final lvl = game.perks[id] ?? 0;
+      if (lvl <= 0) return;
+      if (def.channel == null) {
+        if (def.btcClass == null) flatClick += lvl * 2; // universal click node
+        return;
+      }
+      if (def.btcClass != cls) return;
+      double v = lvl * def.perLevel;
+      if (def.maxLevel > 0) v = v.clamp(0.0, def.maxLevel * def.perLevel);
+      sums[def.channel!] = (sums[def.channel!] ?? 0) + v;
+    });
+
+    final parts = <String>[];
+    void add(Channel ch, String label, {bool neg = false}) {
+      final v = sums[ch] ?? 0;
+      if (v == 0) return;
+      parts.add('${neg ? '-' : '+'}${(v * 100).toStringAsFixed(0)}% $label');
+    }
+
+    add(Channel.hash, 'hash');
+    add(Channel.income, 'income');
+    add(Channel.click, 'click');
+    add(Channel.rigCost, 'rig cost', neg: true);
+    add(Channel.luck, 'luck');
+    if (flatClick > 0) parts.add('+$flatClick click power');
+    return parts.isEmpty ? 'No skills bought yet.' : parts.join(' · ');
   }
 
   void _openPerkSheet(BuildContext context, GameLogic game, String id,
