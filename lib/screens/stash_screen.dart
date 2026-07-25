@@ -696,7 +696,8 @@ class _StashScreenState extends State<StashScreen>
           ),
         ),
         const SizedBox(height: 14),
-        _sweepButton(
+        _sweepControl(
+          game,
           label: _plinkoDropping ? 'RELAYING…' : 'RELAY ($_bet UTXO)',
           onPressed:
               (canBet && !_casinoBusy) ? () => _playPlinko(game) : null,
@@ -767,29 +768,10 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 14),
 
-        // Anti-farm: the per-window net cap blocks further sweeps.
-        if (game.casinoCapped)
-          Container(
-            width: double.infinity,
-            margin: const EdgeInsets.only(bottom: 12),
-            padding: const EdgeInsets.all(12),
-            decoration: BoxDecoration(
-              color: Colors.orangeAccent.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-              border:
-                  Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
-            ),
-            child: Text(
-              'MEMPOOL CONGESTED — the network flagged your sweeps. '
-              'Bounties reset in ${_resetCountdown(game.casinoWindowResetInMs)}.',
-              textAlign: TextAlign.center,
-              style: const TextStyle(
-                color: Colors.orangeAccent,
-                fontSize: 12,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
+        // NOTE: the cap ("MEMPOOL CONGESTED") is surfaced IN PLACE of the play
+        // button inside the fixed-height game body (see _sweepControl) — never as
+        // a banner above the scroll, which would shift the scrolled content and
+        // look like the screen jumping when the cap hits mid-play.
 
         // Stake selector (centered)
         const Center(
@@ -901,6 +883,39 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
+  /// The play button — OR, once the per-window cap is hit, a "MEMPOOL CONGESTED"
+  /// notice IN ITS PLACE (inside the fixed-height game body). Surfacing the cap
+  /// here (not as a banner above the scroll) means hitting the cap mid-play never
+  /// shifts the scrolled content, so the screen can't jump.
+  Widget _sweepControl(
+    GameLogic game, {
+    required String label,
+    required VoidCallback? onPressed,
+    Color color = AppTheme.accent,
+  }) {
+    if (game.casinoCapped) {
+      return Container(
+        width: double.infinity,
+        padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 10),
+        decoration: BoxDecoration(
+          color: Colors.orangeAccent.withValues(alpha: 0.12),
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
+        ),
+        child: Text(
+          'MEMPOOL CONGESTED\nresets in ${_resetCountdown(game.casinoWindowResetInMs)}',
+          textAlign: TextAlign.center,
+          style: const TextStyle(
+            color: Colors.orangeAccent,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+      );
+    }
+    return _sweepButton(label: label, onPressed: onPressed, color: color);
+  }
+
   Widget _gameChip(CasinoGame g, String label, IconData icon) {
     final selected = _selectedGame == g;
     return ChoiceChip(
@@ -936,7 +951,8 @@ class _StashScreenState extends State<StashScreen>
           ],
         ),
         const SizedBox(height: 14),
-        _sweepButton(
+        _sweepControl(
+          game,
           label: _slotSpinning ? 'SCANNING…' : 'SCAN ($_bet UTXO)',
           onPressed: (canBet && !_casinoBusy) ? () => _playSlots(game) : null,
         ),
@@ -954,7 +970,8 @@ class _StashScreenState extends State<StashScreen>
             textAlign: TextAlign.center,
             style: const TextStyle(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 18),
-        _sweepButton(
+        _sweepControl(
+          game,
           label: 'FLIP ($_bet UTXO)',
           color: Colors.purpleAccent,
           onPressed: (canBet && !_casinoBusy) ? () => _playFlip(game) : null,

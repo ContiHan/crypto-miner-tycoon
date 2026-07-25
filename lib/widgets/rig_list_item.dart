@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import '../models/rig.dart';
 import '../providers/game_logic.dart';
@@ -101,25 +102,26 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
 
   void _checkAnimation() {
     if (widget.rig.amount > 0) {
-      // Speed up progress bar based on amount.
-      double speedFactor = 1.0 + (widget.rig.amount * 0.05);
-      if (speedFactor > 5.0) speedFactor = 5.0; // Cap speed
-      
-      final newDuration = Duration(milliseconds: (2000 / speedFactor).round());
-      
+      // Slow "processing" pulse that speeds up GENTLY with the rig count on a LOG
+      // scale — so 1 / 10 / 100 / 1000 / 10000 rigs are each visibly different
+      // (the old linear formula hit its speed cap by ~80 rigs, so everything
+      // above looked identical). ~5s per cycle at 1 rig, floored so a huge farm
+      // never blurs into a solid bar.
+      final double speedFactor =
+          1.0 + math.log(widget.rig.amount + 1) * 0.25; // ~-20% per 10x
+      int ms = (5000 / speedFactor).round();
+      if (ms < 1200) ms = 1200; // never faster than ~1.2s per cycle
+      final newDuration = Duration(milliseconds: ms);
+
       if (_controller.duration != newDuration) {
         _controller.duration = newDuration;
-        if (_controller.isAnimating) {
-           _controller.repeat(); // Restart with new duration
-        } else {
-           _controller.repeat();
-        }
+        _controller.repeat(); // restart with the new duration
       } else if (!_controller.isAnimating) {
         _controller.repeat();
       }
     } else {
       _controller.stop();
-      _controller.value = 0.0; 
+      _controller.value = 0.0;
     }
   }
 
