@@ -40,6 +40,25 @@ void main() {
       expect(game.isAchievementUnlocked('meta_genesis_complete'), true);
     });
 
+    test('endgameProgress is log-scaled so the bar visibly climbs (not 0.00)',
+        () async {
+      // Linear progress vs the ~1e20 target reads a flat 0.00% for almost the
+      // whole game; the bar uses a log scale so it moves through the mid-game.
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.lifetimeEverSats = 1e9;
+      expect(game.endgameProgress, 0.0, reason: 'at/below the floor');
+      game.lifetimeEverSats = 1e14;
+      final mid = game.endgameProgress;
+      expect(mid, greaterThan(0.1),
+          reason: 'visibly climbing well before the target');
+      expect(mid, lessThan(1.0));
+      game.lifetimeEverSats = 1e18;
+      expect(game.endgameProgress, greaterThan(mid), reason: 'monotonic');
+      game.lifetimeEverSats = GameConstants.endgameTargetSats;
+      expect(game.endgameProgress, 1.0);
+    });
+
     test('a win crossing during offline catch-up is never surfaced before the '
         'offline amount (no ending-under-dialog stacking) — QA regression',
         () async {

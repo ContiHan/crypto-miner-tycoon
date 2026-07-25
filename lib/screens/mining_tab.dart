@@ -3,7 +3,6 @@ import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'dart:math';
 import '../providers/game_logic.dart';
-import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
@@ -387,10 +386,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                             child: LinearProgressIndicator(
-                                              value: (game.lifetimeEverSats /
-                                                      GameConstants
-                                                          .endgameTargetSats)
-                                                  .clamp(0.0, 1.0),
+                                              value: game.endgameProgress,
                                               backgroundColor: Colors.black54,
                                               color: AppTheme.accent
                                                   .withValues(alpha: 0.6),
@@ -398,7 +394,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                             ),
                                           ),
                                           Text(
-                                            'ALL BITCOIN: ${(game.lifetimeEverSats / GameConstants.endgameTargetSats * 100).clamp(0, 100).toStringAsFixed(2)}%',
+                                            'ALL BITCOIN: ${(game.endgameProgress * 100).toStringAsFixed(1)}%',
                                             style: GoogleFonts.orbitron(
                                               color: Colors.white,
                                               fontSize: 10,

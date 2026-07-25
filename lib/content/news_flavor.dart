@@ -74,12 +74,12 @@ class NewsFlavor {
       "Geothermal plant online — rigs run cheap.",
       "Off-peak rates: mine now, pay later.",
     ],
-    EventType.info: [
-      "Bitcoin adoption hits 90% globally!",
-      "Small nation adopts BTC as legal tender.",
-      "Grandma finally understands the blockchain.",
-      "New whitepaper drops; nobody reads it.",
-      "Lightning Network now faster than your ex's replies.",
+    EventType.airdrop: [
+      "AIRDROP! A forgotten wallet resurfaces in your name.",
+      "DUST SWEEP: stray UTXOs consolidate into your wallet.",
+      "Faucet glitch pays out — finders keepers.",
+      "Old cold wallet cracked open — jackpot in sats!",
+      "Someone fat-fingered a transfer. Straight to your address.",
     ],
   };
 }

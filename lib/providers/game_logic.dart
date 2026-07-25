@@ -690,6 +690,11 @@ class GameLogic with ChangeNotifier {
         wallet -= loss;
         return loss;
       },
+      onAirdropGain: () {
+        final gain = wallet * 0.15; // opposite of the hack
+        wallet += gain;
+        return gain;
+      },
       onEventSound: (good) =>
           good ? _soundService.playEventGood() : _soundService.playEventBad(),
       volatilityFactor: () => volatilityMultiplier,
@@ -971,6 +976,21 @@ class GameLogic with ChangeNotifier {
     _hapticHeavy();
     _saveGame();
     notifyListeners();
+  }
+
+  /// Progress (0..1) toward the "own all Bitcoin" ending, on a LOGARITHMIC scale.
+  /// The target ([endgameTargetSats] ≈ 2.1e20) is ~100,000× the 21M supply, so a
+  /// LINEAR bar reads a flat 0.00% for almost the whole game. Scaling by orders
+  /// of magnitude between a sensible floor and the target makes the bar visibly
+  /// climb as the player scales up (each ~10× of cumulative-ever fills a chunk).
+  double get endgameProgress {
+    const double base = 1e9; // ~where a going concern's cumulative-ever registers
+    final double target = GameConstants.endgameTargetSats;
+    if (lifetimeEverSats >= target) return 1.0;
+    if (lifetimeEverSats <= base) return 0.0;
+    final double p =
+        (log(lifetimeEverSats) - log(base)) / (log(target) - log(base));
+    return p.clamp(0.0, 1.0);
   }
 
   /// Drain the one-shot ending trigger after the UI has shown it.

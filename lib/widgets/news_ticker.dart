@@ -39,9 +39,11 @@ class NewsTicker extends StatelessWidget {
             case EventType.cheapEnergy:
               impact = "${news.value}% Rig Cost";
               break;
-            case EventType.info:
-              if (news.value != 0) impact = "Reward ${news.value}%";
+            case EventType.airdrop:
+              impact = "Found ${Formatter.formatBitcoin(news.value)}";
               break;
+            case EventType.info:
+              break; // neutral banner (e.g. halving) — no impact line
           }
 
           if (impact.isNotEmpty) {

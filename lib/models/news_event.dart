@@ -1,11 +1,12 @@
 import 'package:flutter/material.dart';
 
 enum EventType {
-  info,
+  airdrop, // +Wallet (opposite of hack)
   marketCrash, // -$$
   bullRun, // +$$
   hack, // -Wallet
-  cheapEnergy // -Cost
+  cheapEnergy, // -Cost
+  info, // neutral banner ONLY (e.g. halving) — never rolled as a random event
 }
 
 class NewsEvent {
