@@ -9,14 +9,13 @@ import '../widgets/tech_graph.dart';
 import '../widgets/graph_node_sheet.dart';
 
 /// TECH tree, rendered as a blockchain graph: research nodes are blocks laid out
-/// left→right by prerequisite depth, chained to their parents. Tapping a node
+/// top→down by prerequisite depth, chained to their parents. Tapping a node
 /// opens a detail sheet with the real BUY button.
 class ResearchTab extends StatelessWidget {
   const ResearchTab({super.key});
 
-  static const double _colW = 200;
-  static const double _rowH = 110;
-  static const double _canvasH = 1000;
+  static const double _levelH = 130; // vertical gap between prerequisite depths
+  static const double _nodeGap = 172; // horizontal gap between sibling nodes
 
   @override
   Widget build(BuildContext context) {
@@ -129,12 +128,18 @@ class ResearchTab extends StatelessWidget {
     final maxDepth =
         buckets.keys.isEmpty ? 0 : buckets.keys.reduce(math.max);
 
+    // Vertical layout: prereq depth → row (top-down); siblings within a depth →
+    // column (centred on the canvas). Reads better on a tall/narrow phone.
+    final maxBucket =
+        buckets.values.fold(1, (m, l) => math.max(m, l.length));
+    final canvasW = math.max(360.0, maxBucket * _nodeGap + 160);
+    final centerX = canvasW / 2;
     final pos = <String, Offset>{};
     buckets.forEach((d, list) {
       for (int s = 0; s < list.length; s++) {
-        final x = 100 + d * _colW;
-        final y = _canvasH / 2 + (s - (list.length - 1) / 2) * _rowH;
-        pos[list[s].id] = Offset(x.toDouble(), y);
+        final x = centerX + (s - (list.length - 1) / 2) * _nodeGap;
+        final y = 90 + d * _levelH;
+        pos[list[s].id] = Offset(x, y.toDouble());
       }
     });
 
@@ -181,10 +186,9 @@ class ResearchTab extends StatelessWidget {
     return BlockGraph(
       nodes: nodes,
       edges: edges,
-      graphSize: Size(100 + maxDepth * _colW + 200, _canvasH),
-      initialFocus: const Offset(100, _canvasH / 2), // centre on the root
+      graphSize: Size(canvasW, 90 + maxDepth * _levelH + 160),
+      initialFocus: Offset(centerX, 90), // centre on the root (top)
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing for the tree
-      legend: const _Legend(lockedHint: 'locked → research the prerequisite'),
     );
   }
 
@@ -228,41 +232,5 @@ class ResearchTab extends StatelessWidget {
             : 'Requires: $missing',
       );
     }
-  }
-}
-
-/// Small legend chip anchored bottom-left of a graph.
-class _Legend extends StatelessWidget {
-  final String lockedHint;
-  const _Legend({required this.lockedHint});
-
-  @override
-  Widget build(BuildContext context) {
-    Widget row(Color c, String t) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 1),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 10, height: 10, color: c),
-            const SizedBox(width: 6),
-            Text(t,
-                style: const TextStyle(color: Colors.white70, fontSize: 10)),
-          ]),
-        );
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          row(AppTheme.accent, 'owned / affordable'),
-          row(Colors.white38, 'need more'),
-          row(Colors.white24, lockedHint),
-        ],
-      ),
-    );
   }
 }

@@ -21,9 +21,8 @@ class PerksScreen extends StatelessWidget {
 
   const PerksScreen({super.key, this.isEmbedded = false});
 
-  static const double _colW = 200;
-  static const double _rowH = 110;
-  static const double _canvasH = 1000;
+  static const double _levelH = 130; // vertical gap between prerequisite depths
+  static const double _nodeGap = 172; // horizontal gap between sibling nodes
 
   @override
   Widget build(BuildContext context) {
@@ -204,12 +203,18 @@ class PerksScreen extends StatelessWidget {
     }
     final maxDepth = buckets.keys.isEmpty ? 0 : buckets.keys.reduce(math.max);
 
+    // Vertical layout: prereq depth → row (top-down); siblings within a depth →
+    // column (centred on the canvas). Reads better on a tall/narrow phone.
+    final maxBucket =
+        buckets.values.fold(1, (m, l) => math.max(m, l.length));
+    final canvasW = math.max(360.0, maxBucket * _nodeGap + 160);
+    final centerX = canvasW / 2;
     final pos = <String, Offset>{};
     buckets.forEach((d, list) {
       for (int s = 0; s < list.length; s++) {
-        final x = 100 + d * _colW;
-        final y = _canvasH / 2 + (s - (list.length - 1) / 2) * _rowH;
-        pos[list[s]] = Offset(x.toDouble(), y);
+        final x = centerX + (s - (list.length - 1) / 2) * _nodeGap;
+        final y = 90 + d * _levelH;
+        pos[list[s]] = Offset(x, y.toDouble());
       }
     });
 
@@ -260,10 +265,9 @@ class PerksScreen extends StatelessWidget {
     return BlockGraph(
       nodes: nodes,
       edges: edges,
-      graphSize: Size(100 + maxDepth * _colW + 200, _canvasH),
-      initialFocus: const Offset(100, _canvasH / 2), // centre on the roots
+      graphSize: Size(canvasW, 90 + maxDepth * _levelH + 160),
+      initialFocus: Offset(centerX, 90), // centre on the roots (top)
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing like TECH
-      legend: const _PerkLegend(),
     );
   }
 
@@ -504,39 +508,6 @@ class PerksScreen extends StatelessWidget {
       canAfford: canAfford,
       buyLabel: 'UPGRADE',
       onBuy: () => game.buyPerk(id),
-    );
-  }
-}
-
-class _PerkLegend extends StatelessWidget {
-  const _PerkLegend();
-  @override
-  Widget build(BuildContext context) {
-    Widget row(Color c, String t) => Padding(
-          padding: const EdgeInsets.symmetric(vertical: 1),
-          child: Row(mainAxisSize: MainAxisSize.min, children: [
-            Container(width: 10, height: 10, color: c),
-            const SizedBox(width: 6),
-            Text(t,
-                style: const TextStyle(color: Colors.white70, fontSize: 10)),
-          ]),
-        );
-    return Container(
-      padding: const EdgeInsets.all(8),
-      decoration: BoxDecoration(
-        color: Colors.black.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(6),
-        border: Border.all(color: Colors.white24),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          row(AppTheme.accent, 'owned / affordable'),
-          row(kMaxedGold, 'maxed'),
-          row(Colors.white24, 'locked → buy the prerequisite'),
-        ],
-      ),
     );
   }
 }

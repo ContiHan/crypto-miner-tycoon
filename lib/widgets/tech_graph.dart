@@ -58,7 +58,6 @@ class BlockGraph extends StatefulWidget {
   final List<GraphNode> nodes;
   final List<GraphEdge> edges;
   final Size graphSize;
-  final Widget? legend;
 
   /// Graph-space point to centre in the viewport on first open (e.g. the root /
   /// GENESIS node), so the player doesn't land on empty canvas.
@@ -72,7 +71,6 @@ class BlockGraph extends StatefulWidget {
     required this.nodes,
     required this.edges,
     required this.graphSize,
-    this.legend,
     this.initialFocus,
     this.edgeStyle = GraphEdgeStyle.straight,
   });
@@ -104,16 +102,17 @@ class _BlockGraphState extends State<BlockGraph> {
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        // Once we know the viewport, translate so initialFocus lands a little
-        // left-of/above centre (leaving room for the tree to extend).
+        // Once we know the viewport, translate so initialFocus (the root) lands
+        // horizontally centred and near the TOP — the tree grows downward, so
+        // this leaves the whole depth below it to scroll into.
         if (!_framed &&
             widget.initialFocus != null &&
             constraints.hasBoundedWidth &&
             constraints.hasBoundedHeight) {
           _framed = true;
           final f = widget.initialFocus!;
-          final dx = constraints.maxWidth * 0.4 - f.dx;
-          final dy = constraints.maxHeight * 0.45 - f.dy;
+          final dx = constraints.maxWidth * 0.5 - f.dx;
+          final dy = constraints.maxHeight * 0.2 - f.dy;
           _tc.value = Matrix4.translationValues(dx, dy, 0);
         }
         return Stack(
@@ -149,8 +148,6 @@ class _BlockGraphState extends State<BlockGraph> {
                 ),
               ),
             ),
-            if (widget.legend != null)
-              Positioned(left: 12, bottom: 12, child: widget.legend!),
           ],
         );
       },
@@ -359,9 +356,9 @@ class _ChainPainter extends CustomPainter {
 
       if (edgeStyle == GraphEdgeStyle.elbow) {
         _drawConduit(canvas, _elbowPath(a, b), base, earned);
-        // Connection pads at the parent output and child input edges.
-        _pad(canvas, Offset(a.dx + kNodeW / 2, a.dy), base, earned);
-        _pad(canvas, Offset(b.dx - kNodeW / 2, b.dy), base, earned);
+        // Connection pads at the parent output (bottom) and child input (top).
+        _pad(canvas, Offset(a.dx, a.dy + kNodeH / 2), base, earned);
+        _pad(canvas, Offset(b.dx, b.dy - kNodeH / 2), base, earned);
       } else {
         _drawConduit(
             canvas, Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy), base, earned);
@@ -369,27 +366,28 @@ class _ChainPainter extends CustomPainter {
     }
   }
 
-  /// Orthogonal parent→child route with rounded corners: out of the parent's
-  /// right edge, across to a mid-column, up/down to the child's row, then in.
+  /// Orthogonal parent→child route with rounded corners, VERTICAL (top-down):
+  /// out of the parent's bottom edge, down to a mid-row, across to the child's
+  /// column, then into the child's top edge.
   Path _elbowPath(Offset a, Offset b) {
-    final startX = a.dx + kNodeW / 2;
-    final endX = b.dx - kNodeW / 2;
-    final midX = (startX + endX) / 2;
-    final path = Path()..moveTo(startX, a.dy);
-    final dyAbs = (b.dy - a.dy).abs();
-    if (dyAbs < 1) {
-      path.lineTo(endX, b.dy); // same row → a straight run
+    final startY = a.dy + kNodeH / 2;
+    final endY = b.dy - kNodeH / 2;
+    final midY = (startY + endY) / 2;
+    final path = Path()..moveTo(a.dx, startY);
+    final dxAbs = (b.dx - a.dx).abs();
+    if (dxAbs < 1) {
+      path.lineTo(b.dx, endY); // same column → a straight run down
       return path;
     }
-    final dir = b.dy > a.dy ? 1.0 : -1.0;
+    final dir = b.dx > a.dx ? 1.0 : -1.0;
     final cr = math.max(
-        0.0, math.min(12.0, math.min((endX - startX).abs() / 2, dyAbs / 2)));
+        0.0, math.min(12.0, math.min((endY - startY).abs() / 2, dxAbs / 2)));
     path
-      ..lineTo(midX - cr, a.dy)
-      ..quadraticBezierTo(midX, a.dy, midX, a.dy + dir * cr)
-      ..lineTo(midX, b.dy - dir * cr)
-      ..quadraticBezierTo(midX, b.dy, midX + cr, b.dy)
-      ..lineTo(endX, b.dy);
+      ..lineTo(a.dx, midY - cr)
+      ..quadraticBezierTo(a.dx, midY, a.dx + dir * cr, midY)
+      ..lineTo(b.dx - dir * cr, midY)
+      ..quadraticBezierTo(b.dx, midY, b.dx, midY + cr)
+      ..lineTo(b.dx, endY);
     return path;
   }
 
