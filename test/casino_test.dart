@@ -9,13 +9,13 @@ import 'fakes.dart';
 import 'test_helper.dart';
 
 void main() {
-  group('CasinoService (compliance: EV < 1, disclosed odds)', () {
-    test('slots return-to-player is below 1 (a chip sink)', () {
-      expect(CasinoService.slotsReturnToPlayer, lessThan(1.0));
-      expect(CasinoService.slotsReturnToPlayer, closeTo(0.90, 0.01));
+  group('CasinoService (player-favoured EV > 1, bounded)', () {
+    test('slots return-to-player is above 1 (player edge)', () {
+      expect(CasinoService.slotsReturnToPlayer, greaterThan(1.0));
+      expect(CasinoService.slotsReturnToPlayer, closeTo(1.18, 0.02));
     });
 
-    test('empirical slots payout has a house edge over many spins', () {
+    test('empirical slots payout favours the player over many spins', () {
       final c = CasinoService();
       final rng = Random(42);
       int staked = 0, returned = 0;
@@ -24,11 +24,11 @@ void main() {
         returned += c.spinSlots(100, rng).payout;
       }
       final rtp = returned / staked;
-      expect(rtp, lessThan(1.0), reason: 'house always keeps an edge');
+      expect(rtp, greaterThan(1.0), reason: 'the player has the edge');
       expect(rtp, closeTo(CasinoService.slotsReturnToPlayer, 0.03));
     });
 
-    test('double-or-nothing win chance is sub-50% (house edge)', () {
+    test('hash flip win chance is above 50% (player edge)', () {
       final c = CasinoService();
       final rng = Random(7);
       int wins = 0;
@@ -37,7 +37,7 @@ void main() {
       }
       final rate = wins / 100000;
       expect(rate, closeTo(GameConstants.casinoFlipWinChance, 0.02));
-      expect(rate, lessThan(0.5));
+      expect(rate, greaterThan(0.5));
     });
 
     test('a 25x spin reads as a jackpot with correct payout', () {
@@ -47,9 +47,9 @@ void main() {
       expect(spin.net, 240);
     });
 
-    test('plinko return-to-player is below 1 (a chip sink)', () {
-      expect(CasinoService.plinkoReturnToPlayer, lessThan(1.0));
-      expect(CasinoService.plinkoReturnToPlayer, closeTo(0.90, 0.01));
+    test('relay return-to-player is above 1 (player edge)', () {
+      expect(CasinoService.plinkoReturnToPlayer, greaterThan(1.0));
+      expect(CasinoService.plinkoReturnToPlayer, closeTo(1.18, 0.02));
     });
 
     test('plinko slot probabilities are a valid distribution (sum to 1)', () {
@@ -87,7 +87,7 @@ void main() {
         returned += c.dropPlinko(100, rng).payout;
       }
       final rtp = returned / staked;
-      expect(rtp, lessThan(1.0), reason: 'house always keeps an edge');
+      expect(rtp, greaterThan(1.0), reason: 'the player has the edge');
       expect(rtp, closeTo(CasinoService.plinkoReturnToPlayer, 0.03));
     });
   });
@@ -246,6 +246,71 @@ void main() {
       }
       expect(game.casinoJackpots, greaterThan(0),
           reason: 'a 12x edge bucket registers as a jackpot');
+    });
+  });
+
+  group('SWEEP per-window net cap (anti-farm guardrail)', () {
+    test('play is blocked once the window net-gain cap is reached', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100000;
+      // Already netted the cap in an open window.
+      game.casinoWindowStartMs = DateTime.now().millisecondsSinceEpoch;
+      game.casinoWindowNet = GameConstants.casinoDailyNetCap;
+      expect(game.casinoCapped, true);
+
+      final before = game.chips;
+      expect(game.playSlots(10), isNull, reason: 'capped: slots blocked');
+      expect(game.playPlinko(10), isNull, reason: 'capped: relay blocked');
+      expect(game.playDoubleOrNothing(10), isNull, reason: 'capped: flip blocked');
+      expect(game.chips, before, reason: 'no DUST risked while capped');
+      expect(game.casinoSpins, 0, reason: 'no spin counted while capped');
+    });
+
+    test('the cap window resets after the real-time window elapses', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100000;
+      // A window opened just over the limit ago is expired.
+      game.casinoWindowStartMs = DateTime.now()
+          .subtract(const Duration(hours: GameConstants.casinoWindowHours + 1))
+          .millisecondsSinceEpoch;
+      game.casinoWindowNet = GameConstants.casinoDailyNetCap * 2; // was capped
+      expect(game.casinoCapped, false, reason: 'an expired window is not capped');
+
+      // A play opens a fresh window (net reset to 0) and succeeds.
+      expect(game.playSlots(1), isNotNull);
+      expect(game.casinoWindowNet, lessThan(GameConstants.casinoDailyNetCap),
+          reason: 'a fresh window started from 0 net, not the old 2x-cap value');
+    });
+
+    test('window net + start persist across a reload', () async {
+      final repo = FakeGameRepository();
+      GameLogic build() => GameLogic(
+            gameRepository: repo,
+            settingsRepository: FakeSettingsRepository(),
+            economyService: EconomyService(),
+            stashService: StashService(),
+            soundService: FakeSoundService(),
+            startTimers: false,
+            loadOnStart: false,
+            casinoRandom: Random(1),
+          );
+      final game = build();
+      await game.loadGame();
+      game.chips = 100000;
+      for (int i = 0; i < 50; i++) {
+        game.playSlots(10);
+      }
+      final net = game.casinoWindowNet;
+      final start = game.casinoWindowStartMs;
+      expect(start, greaterThan(0));
+
+      final game2 = build();
+      await game2.loadGame();
+      expect(game2.casinoWindowNet, net, reason: 'window net round-trips');
+      expect(game2.casinoWindowStartMs, start,
+          reason: 'window start round-trips');
     });
   });
 }

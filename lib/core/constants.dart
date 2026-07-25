@@ -77,11 +77,13 @@ class GameConstants {
   // by the fixed achievement count, so it can't run away.
   static const double perAchievementNotoriety = 0.01; // +1% income each
 
-  // Casino (SIMULATED gambling — in-game Micro-Chips only, no real value).
-  // Double-or-Nothing win chance < 50% gives the house edge (EV = 0.48*2 = 0.96).
-  // Slots have their own weighted paytable in CasinoService (EV ~0.90). Both
-  // odds are disclosed in-app for compliance.
-  static const double casinoFlipWinChance = 0.48;
+  // SWEEP minigame (simulated, in-game DUST only — no real money or value).
+  // Deliberately PLAYER-FAVOURED: every game returns >1 per stake on average, so
+  // sweeping the chain pays out. It is NOT an infinite faucet: net DUST gained is
+  // bounded per real-time window by [casinoDailyNetCap] (thematically, the
+  // network gets congested), which is the anti-farm guardrail.
+  // Hash Flip (double-or-nothing) win chance > 50% => EV = 0.58*2 = 1.16.
+  static const double casinoFlipWinChance = 0.58;
 
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.
@@ -96,10 +98,17 @@ class GameConstants {
   // main income source).
   static const double clickCritChanceCap = 0.25;
 
-  // Luck may nudge casino winnings up, but the realized return-to-player is
-  // clamped to this so every game stays a negative-EV chip sink (< 1) — the
-  // simulated casino must never become +EV (Google Play compliance).
-  static const double casinoRtpCap = 0.97;
+  // Luck scales SWEEP winnings up, but the realized average return per stake is
+  // clamped to this ceiling so even maxed Luck can't make it absurd. The economy
+  // is bounded by [casinoDailyNetCap], not by a sub-1 return.
+  static const double casinoEvCeiling = 1.6;
+
+  // Anti-farm guardrail: the most NET DUST the player can gain from SWEEP within
+  // one real-time window ([casinoWindowHours]). Past it, sweeps are blocked until
+  // the window resets ("the mempool is congested"). Keeps a generous player edge
+  // from becoming an unbounded DUST faucet. [TUNE].
+  static const double casinoDailyNetCap = 400;
+  static const int casinoWindowHours = 24;
 
   // RPG classes + Mastery (Phase 3). A class is picked at each New Blockchain
   // and reshapes the run via small additive channel weightings (softcapped like

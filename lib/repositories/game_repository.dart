@@ -68,6 +68,8 @@ class GameRepository {
     int cratesOpened = 0,
     int casinoSpins = 0,
     int casinoJackpots = 0,
+    double casinoWindowNet = 0,
+    int casinoWindowStartMs = 0,
     String currentClass = 'prospector',
     Map<String, dynamic> mastery = const {},
     double lifetimeEverSats = 0,
@@ -116,6 +118,8 @@ class GameRepository {
       'cratesOpened': cratesOpened,
       'casinoSpins': casinoSpins,
       'casinoJackpots': casinoJackpots,
+      'casinoWindowNet': fin(casinoWindowNet),
+      'casinoWindowStartMs': casinoWindowStartMs,
       'currentClass': currentClass,
       'mastery': mastery,
       'lifetimeEverSats': fin(lifetimeEverSats),
@@ -225,6 +229,8 @@ class GameRepository {
       'cratesOpened': asInt(m['cratesOpened'], 0),
       'casinoSpins': asInt(m['casinoSpins'], 0),
       'casinoJackpots': asInt(m['casinoJackpots'], 0),
+      'casinoWindowNet': asDouble(m['casinoWindowNet'], 0),
+      'casinoWindowStartMs': asInt(m['casinoWindowStartMs'], 0),
       // RPG class + Mastery (Phase 3). Class name is a plain string; ClassManager
       // maps unknown names back to Prospector. Mastery is a {className: xp} map.
       'currentClass':
