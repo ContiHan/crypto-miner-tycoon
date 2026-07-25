@@ -85,7 +85,7 @@ class GameLogic with ChangeNotifier {
   // once its unlock threshold (totalGovTokensEver) is reached.
   Map<String, PerkDef> get perkDefs => PerkManager.defs;
   bool isPerkUnlocked(String id) =>
-      _perkManager.isUnlocked(id, totalGovTokensEver);
+      _perkManager.isAvailable(id, _classManager.current);
   bool isPerkMaxed(String id) => _perkManager.isMaxed(id);
   String perkBonusText(String id) =>
       _perkManager.bonusText(id, _perkManager.getLevel(id));
@@ -784,7 +784,7 @@ class GameLogic with ChangeNotifier {
   Channels buildChannels() {
     final ch = Channels();
     _researchManager.contributeChannels(ch);
-    _perkManager.contributeChannels(ch);
+    _perkManager.contributeChannels(ch, _classManager.current);
     _stash.contributeChannels(ch);
     _classManager.contributeChannels(ch); // class weightings + permanent Mastery
     return ch;
@@ -1335,7 +1335,7 @@ class GameLogic with ChangeNotifier {
   double getRigCostInSats(Rig rig) => getRigCost(rig);
 
   void buyPerk(String perkId) {
-    int cost = _perkManager.tryBuy(perkId, govTokens);
+    int cost = _perkManager.tryBuy(perkId, govTokens, _classManager.current);
     if (cost > 0) {
       govTokens -= cost;
 

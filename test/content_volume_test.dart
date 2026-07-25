@@ -3,13 +3,15 @@ import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/perk_manager.dart';
 import 'package:crypto_miner_tycoon/logic/managers/research_manager.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/services/stash_service.dart';
 import 'test_helper.dart';
 
 void main() {
   group('Content volume', () {
     test('expected catalogue sizes', () {
-      expect(PerkManager.defs.length, 20, reason: 'perks');
+      expect(PerkManager.defs.length, 33,
+          reason: 'skill nodes: 1 universal + 4 class trees of 8');
       expect(ResearchManager().researchNodes.length, 32, reason: 'lab nodes');
       expect(StashService.allArtifacts.length, 78, reason: 'stash artifacts');
     });
@@ -78,29 +80,40 @@ void main() {
     });
   });
 
-  group('Progressive perk discovery', () {
-    test('only tier-0 perks are visible at the start', () async {
+  group('Class skill-tree gating', () {
+    test('a fresh Prospector sees only the universal node', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      final unlocked =
-          game.perkDefs.keys.where(game.isPerkUnlocked).length;
-      expect(unlocked, 3);
+      final unlocked = game.perkDefs.keys.where(game.isPerkUnlocked).length;
+      expect(unlocked, 1,
+          reason: 'only the universal click node before a class is chosen');
     });
 
-    test('perks reveal as totalGovTokensEver grows', () async {
+    test('a class reveals its root; buying it unlocks the children', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.govTokens = 1000;
 
-      // Mint 25 GovTokens via a real hard fork (feeds totalGovTokensEver).
-      game.lifetimeEarnings = 25.0 * 25.0 * 5.0e8; // sqrt(625) = 25
-      expect(game.pendingGovTokens, 25);
-      game.hardFork();
-      expect(game.totalGovTokensEver, 25);
-
-      // Perks with unlockAtTokensEver <= 25 are now revealed (3 tier-0 + 4).
-      final unlocked =
+      int available() =>
           game.perkDefs.keys.where(game.isPerkUnlocked).length;
-      expect(unlocked, 7);
+
+      // Universal click node + the Solo root are available; children are locked.
+      expect(available(), 2, reason: 'click_power + solo_scrounger root');
+
+      // Buying the root unlocks its two direct children.
+      game.buyPerk('solo_scrounger');
+      expect(available(), 4,
+          reason: 'root bought → solo_caffeine + solo_multimeter unlock');
+    });
+
+    test('a node from another class is never buyable', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.govTokens = 1000;
+      game.buyPerk('corp_serverfarm'); // wrong class
+      expect(game.perks['corp_serverfarm'], 0, reason: 'cross-class buy blocked');
     });
   });
 
@@ -194,14 +207,16 @@ void main() {
     });
 
     test('perk & lab channel effects only use consumed channels', () {
-      // hash/rigCost/income/click are consumed by the economy; prestige/special
-      // are NOT. A null channel is an explicitly-handled special (flat click
-      // perk, Chip Fab, AI Manager).
+      // hash/rigCost/income/click/luck are consumed by the economy (luck via
+      // luckMultiplier → crit + SWEEP + anomaly/crate odds); prestige/volatility
+      // are NOT used by nodes. A null channel is an explicitly-handled special
+      // (flat click perk, Chip Fab, AI Manager).
       const consumed = {
         Channel.hash,
         Channel.rigCost,
         Channel.income,
         Channel.click,
+        Channel.luck,
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {

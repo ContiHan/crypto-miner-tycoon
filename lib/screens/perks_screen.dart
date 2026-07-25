@@ -2,7 +2,6 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
-import '../logic/channels.dart';
 import '../logic/managers/perk_manager.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
@@ -10,27 +9,19 @@ import '../widgets/tech_graph.dart';
 import '../widgets/graph_node_sheet.dart';
 import '../widgets/class_picker.dart';
 
-/// TALENTS (perks), rendered as a radial "spider" around a central GENESIS hub —
-/// one branch per channel (click / hash / income / rigCost / special), perks
-/// chained outward in unlock order. Perks have no real prerequisites, so the
-/// edges are synthetic progression links. Tap a node to open its upgrade sheet.
+/// SKILL — the active class's BESPOKE skill tree, rendered as a left→right depth
+/// tree (elbow edges, same clean look as TECH). Each class has its own tailored
+/// nodes; a node unlocks once its prerequisites are bought. Before a class is
+/// chosen (Prospector) the tab prompts the player to pick one. Tap a node to open
+/// its upgrade sheet (bought with GovTokens; resets each New Blockchain).
 class PerksScreen extends StatelessWidget {
   final bool isEmbedded;
 
   const PerksScreen({super.key, this.isEmbedded = false});
 
-  static const double _r = 190;
-  static const Offset _center = Offset(1200, 1200);
-  static const double _canvas = 2400;
-
-  // Branch angle per channel (clockwise from straight up). null = special spur.
-  static const Map<Channel?, double> _branchDeg = {
-    Channel.click: 0,
-    Channel.hash: 72,
-    Channel.income: 144,
-    Channel.rigCost: 216,
-    null: 288, // special (flat click-power perk)
-  };
+  static const double _colW = 200;
+  static const double _rowH = 110;
+  static const double _canvasH = 1000;
 
   @override
   Widget build(BuildContext context) {
@@ -122,7 +113,9 @@ class PerksScreen extends StatelessWidget {
         Expanded(
           child: Selector<GameLogic, String>(
             selector: (_, g) {
-              final sb = StringBuffer();
+              final sb = StringBuffer()
+                ..write(g.currentClass.name)
+                ..write('|');
               for (final id in g.perkDefs.keys) {
                 if (!g.isPerkUnlocked(id)) {
                   sb.write('.');
@@ -152,86 +145,119 @@ class PerksScreen extends StatelessWidget {
   }
 
   Widget _graph(BuildContext context, GameLogic game) {
-    // Bucket perks by channel, ordered by unlock threshold.
-    final buckets = <Channel?, List<MapEntry<String, PerkDef>>>{};
-    for (final e in game.perkDefs.entries) {
-      buckets.putIfAbsent(e.value.channel, () => []).add(e);
-    }
-    for (final list in buckets.values) {
-      list.sort(
-          (a, b) => a.value.unlockAtTokensEver.compareTo(b.value.unlockAtTokensEver));
+    // Before a class is chosen there is no tree — prompt the player to pick one
+    // (the chooser lives in the header above).
+    if (!game.hasChosenClass) {
+      return const Center(
+        child: Padding(
+          padding: EdgeInsets.all(32),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(Icons.account_tree, size: 48, color: Colors.white24),
+              SizedBox(height: 12),
+              Text(
+                'Choose your class above to unlock its skill tree.',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.white54, fontSize: 14),
+              ),
+            ],
+          ),
+        ),
+      );
     }
 
-    final nodes = <GraphNode>[
-      GraphNode(
-        id: 'genesis',
-        x: _center.dx,
-        y: _center.dy,
-        label: 'GENESIS',
-        sublabel: Formatter.formatNumber(game.govTokens.toDouble()),
-        icon: Icons.hub,
-        state: GraphNodeState.owned,
-        isGenesis: true,
-      ),
-    ];
+    // The active class's nodes (+ universal) laid out left→right by prereq depth.
+    final cls = game.currentClass;
+    final visible = <String, PerkDef>{
+      for (final e in game.perkDefs.entries)
+        if (e.value.btcClass == null || e.value.btcClass == cls) e.key: e.value,
+    };
+
+    // Depth = longest prerequisite chain (memoized; order-independent, no cycles).
+    final depth = <String, int>{};
+    int computeDepth(String id) {
+      final cached = depth[id];
+      if (cached != null) return cached;
+      final def = visible[id];
+      if (def == null || def.requires.isEmpty) return depth[id] = 0;
+      var d = 0;
+      for (final r in def.requires) {
+        if (visible.containsKey(r)) d = math.max(d, computeDepth(r) + 1);
+      }
+      return depth[id] = d;
+    }
+
+    for (final id in visible.keys) {
+      computeDepth(id);
+    }
+
+    // Bucket by depth (universal node shares column 0 with the class roots).
+    final buckets = <int, List<String>>{};
+    for (final id in visible.keys) {
+      buckets.putIfAbsent(depth[id] ?? 0, () => []).add(id);
+    }
+    final maxDepth = buckets.keys.isEmpty ? 0 : buckets.keys.reduce(math.max);
+
+    final pos = <String, Offset>{};
+    buckets.forEach((d, list) {
+      for (int s = 0; s < list.length; s++) {
+        final x = 100 + d * _colW;
+        final y = _canvasH / 2 + (s - (list.length - 1) / 2) * _rowH;
+        pos[list[s]] = Offset(x.toDouble(), y);
+      }
+    });
+
+    final nodes = <GraphNode>[];
     final edges = <GraphEdge>[];
+    visible.forEach((id, def) {
+      final p = pos[id]!;
+      final unlocked = game.isPerkUnlocked(id);
+      final maxed = game.isPerkMaxed(id);
+      final level = game.perks[id] ?? 0;
+      final cost = game.perkCosts[id] ?? def.baseCost;
+      final canAfford = unlocked && !maxed && game.govTokens >= cost;
 
-    buckets.forEach((channel, list) {
-      final deg = _branchDeg[channel] ?? 0;
-      final theta = deg * math.pi / 180;
-      String? prevId;
-      for (int i = 0; i < list.length; i++) {
-        final id = list[i].key;
-        final def = list[i].value;
-        final dist = (i + 1) * _r;
-        final x = _center.dx + dist * math.sin(theta);
-        final y = _center.dy - dist * math.cos(theta);
+      GraphNodeState state;
+      String sublabel;
+      if (maxed) {
+        state = GraphNodeState.maxed;
+        sublabel = 'MAX';
+      } else if (level > 0) {
+        state = GraphNodeState.owned;
+        sublabel = 'Lv $level';
+      } else if (unlocked) {
+        state = GraphNodeState.available;
+        sublabel = '${Formatter.formatNumber(cost.toDouble())} GT';
+      } else {
+        state = GraphNodeState.teaser;
+        sublabel = '';
+      }
 
-        final unlocked = game.isPerkUnlocked(id);
-        final maxed = game.isPerkMaxed(id);
-        final level = game.perks[id] ?? 0;
-        final cost = game.perkCosts[id] ?? def.baseCost;
-        final canAfford = unlocked && !maxed && game.govTokens >= cost;
-
-        GraphNodeState state;
-        String sublabel;
-        if (!unlocked) {
-          state = GraphNodeState.teaser;
-          sublabel = '';
-        } else if (maxed) {
-          state = GraphNodeState.maxed;
-          sublabel = 'MAX';
-        } else if (level > 0) {
-          state = GraphNodeState.owned;
-          sublabel = 'Lv $level';
-        } else {
-          state = GraphNodeState.available;
-          sublabel = '${Formatter.formatNumber(cost.toDouble())} GT';
-        }
-
-        nodes.add(GraphNode(
-          id: id,
-          x: x,
-          y: y,
-          label: def.name,
-          sublabel: sublabel,
-          icon: def.icon,
-          state: state,
-          canAfford: canAfford,
-          onTap: () =>
-              _openPerkSheet(context, game, id, def, cost, canAfford, state),
-        ));
-
-        edges.add(GraphEdge(prevId ?? 'genesis', id));
-        prevId = id;
+      nodes.add(GraphNode(
+        id: id,
+        x: p.dx,
+        y: p.dy,
+        label: def.name,
+        sublabel: sublabel,
+        icon: def.icon,
+        state: state,
+        canAfford: canAfford,
+        isGenesis: def.requires.isEmpty,
+        onTap: () =>
+            _openPerkSheet(context, game, id, def, cost, canAfford, state),
+      ));
+      for (final r in def.requires) {
+        if (pos.containsKey(r)) edges.add(GraphEdge(r, id));
       }
     });
 
     return BlockGraph(
       nodes: nodes,
       edges: edges,
-      graphSize: const Size(_canvas, _canvas),
-      initialFocus: _center, // centre on the GENESIS hub
+      graphSize: Size(100 + maxDepth * _colW + 200, _canvasH),
+      initialFocus: const Offset(100, _canvasH / 2), // centre on the roots
+      edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing like TECH
       legend: const _PerkLegend(),
     );
   }
@@ -239,12 +265,17 @@ class PerksScreen extends StatelessWidget {
   void _openPerkSheet(BuildContext context, GameLogic game, String id,
       PerkDef def, int cost, bool canAfford, GraphNodeState state) {
     if (state == GraphNodeState.teaser) {
+      final missing = def.requires
+          .where((r) => (game.perks[r] ?? 0) < 1)
+          .map((r) => game.perkDefs[r]?.name ?? r)
+          .join(', ');
       showGraphNodeSheet(
         context,
         title: '???',
-        description: 'A locked talent.',
-        lockedHint:
-            'Unlocks at ${Formatter.formatNumber(def.unlockAtTokensEver)} GovTokens earned.',
+        description: 'A locked skill node.',
+        lockedHint: missing.isEmpty
+            ? 'Locked.'
+            : 'Requires: $missing',
       );
       return;
     }
@@ -297,7 +328,7 @@ class _PerkLegend extends StatelessWidget {
         children: [
           row(AppTheme.accent, 'owned / affordable'),
           row(Colors.greenAccent, 'maxed'),
-          row(Colors.white24, 'locked → earn GovTokens'),
+          row(Colors.white24, 'locked → buy the prerequisite'),
         ],
       ),
     );
