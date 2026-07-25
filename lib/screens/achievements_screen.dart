@@ -258,17 +258,18 @@ class _AchievementCard extends StatelessWidget {
 
   Widget _trailing() {
     if (claimable) {
+      // Single-line, bold, black-on-colour — consistent with the BUY buttons.
+      // (The +1% Notoriety per claim is shown in the header readout.)
       return ElevatedButton(
         key: const ValueKey('claim'),
         onPressed: onClaim,
         style: ElevatedButton.styleFrom(
           backgroundColor: color,
           foregroundColor: Colors.black,
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
+          padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+          textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
         ),
-        child: Text(achievement.secret ? 'CLAIM' : 'CLAIM\n+1%',
-            textAlign: TextAlign.center),
+        child: const Text('CLAIM'),
       );
     }
     if (claimed) {

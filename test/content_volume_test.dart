@@ -44,6 +44,20 @@ void main() {
             reason: '${a.id} exceeds its ${a.rarity} ceiling');
       }
     });
+
+    test('every artifact description % matches its actual baseBonus (drop text '
+        'is truthful)', () {
+      final re = RegExp(r'([0-9]+(?:\.[0-9]+)?)%');
+      for (final a in StashService.allArtifacts) {
+        final m = re.firstMatch(a.description);
+        expect(m, isNotNull,
+            reason: '${a.id}: description "${a.description}" has no % value');
+        final pct = double.parse(m!.group(1)!);
+        expect(pct / 100.0, closeTo(a.baseBonus, 1e-9),
+            reason: '${a.id}: "${a.description}" says $pct% but baseBonus is '
+                '${a.baseBonus} (${a.baseBonus * 100}%)');
+      }
+    });
   });
 
   group('No math collision (channel sums bounded when everything is owned)', () {

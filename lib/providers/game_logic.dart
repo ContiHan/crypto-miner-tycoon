@@ -150,6 +150,7 @@ class GameLogic with ChangeNotifier {
   bool unlockedTech = false; // after the first rig
   bool unlockedStash = false; // after some earnings / a chip / a crate
   bool unlockedSkill = false; // after the first Hard Fork (first GovTokens)
+  bool unlockedGoal = false; // after the first achievement is earned
   /// Tab names newly unlocked this session, drained by the UI for a toast.
   final List<String> pendingTabUnlockToasts = [];
   void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
@@ -428,6 +429,7 @@ class GameLogic with ChangeNotifier {
     unlockedTech = false;
     unlockedStash = false;
     unlockedSkill = false;
+    unlockedGoal = false;
     pendingTabUnlockToasts.clear();
     pendingAchievementToasts.clear();
 
@@ -513,7 +515,7 @@ class GameLogic with ChangeNotifier {
   void debugSelectClass(BtcClass c) => _classManager.select(c);
   @visibleForTesting
   void debugUnlockAllTabs() {
-    unlockedTech = unlockedStash = unlockedSkill = true;
+    unlockedTech = unlockedStash = unlockedSkill = unlockedGoal = true;
     notifyListeners();
   }
   @visibleForTesting
@@ -1038,6 +1040,11 @@ class GameLogic with ChangeNotifier {
       changed = true;
       newly.add('SKILL');
     }
+    if (!unlockedGoal && achievementsUnlocked >= 1) {
+      unlockedGoal = true;
+      changed = true;
+      newly.add('GOAL');
+    }
     if (!changed) return;
     if (!silent) {
       pendingTabUnlockToasts.addAll(newly);
@@ -1441,6 +1448,7 @@ class GameLogic with ChangeNotifier {
       unlockedTech: unlockedTech,
       unlockedStash: unlockedStash,
       unlockedSkill: unlockedSkill,
+      unlockedGoal: unlockedGoal,
     );
   }
 
@@ -1514,6 +1522,7 @@ class GameLogic with ChangeNotifier {
       unlockedTech = data['unlockedTech'] == true;
       unlockedStash = data['unlockedStash'] == true;
       unlockedSkill = data['unlockedSkill'] == true;
+      unlockedGoal = data['unlockedGoal'] == true;
 
       // Achievements + action counters (persist across all prestige tiers).
       hardForkCount = _toInt(data['hardForkCount']);

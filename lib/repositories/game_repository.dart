@@ -79,6 +79,7 @@ class GameRepository {
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
+    bool unlockedGoal = false,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -129,6 +130,7 @@ class GameRepository {
       'unlockedTech': unlockedTech,
       'unlockedStash': unlockedStash,
       'unlockedSkill': unlockedSkill,
+      'unlockedGoal': unlockedGoal,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -254,6 +256,7 @@ class GameRepository {
       'unlockedTech': m['unlockedTech'] == true,
       'unlockedStash': m['unlockedStash'] == true,
       'unlockedSkill': m['unlockedSkill'] == true,
+      'unlockedGoal': m['unlockedGoal'] == true,
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

@@ -284,6 +284,32 @@ void main() {
           reason: 'a fresh window started from 0 net, not the old 2x-cap value');
     });
 
+    test('spinning until the cap is hit blocks the very next play (live, same '
+        'session — no tab re-entry needed)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 1000000;
+      // Accumulate real net from real spins until the window cap is reached —
+      // no manual state poking, no leaving the tab.
+      var guard = 0;
+      while (!game.casinoCapped && guard++ < 100000) {
+        game.playSlots(100);
+      }
+      expect(game.casinoCapped, true,
+          reason: 'the cap is reached by real winning spins');
+
+      // The NEXT play is refused immediately (casinoCapped is a live getter the
+      // SWEEP tab reads on every rebuild — no re-entry required).
+      final chipsBefore = game.chips;
+      final spinsBefore = game.casinoSpins;
+      expect(game.playSlots(100), isNull, reason: 'capped: next slots refused');
+      expect(game.playPlinko(100), isNull, reason: 'capped: next relay refused');
+      expect(game.playDoubleOrNothing(100), isNull,
+          reason: 'capped: next flip refused');
+      expect(game.chips, chipsBefore, reason: 'no chips risked once capped');
+      expect(game.casinoSpins, spinsBefore, reason: 'no further spins counted');
+    });
+
     test('window net + start persist across a reload', () async {
       final repo = FakeGameRepository();
       GameLogic build() => GameLogic(

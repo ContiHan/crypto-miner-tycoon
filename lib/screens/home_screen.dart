@@ -22,7 +22,7 @@ class HomeScreen extends StatefulWidget {
 }
 
 class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
-  int _currentIndex = 3; // Start at Mine (Index 3)
+  int _currentIndex = 2; // Start at MINE (centre tab)
   late GameLogic _gameLogic;
   // Guards the "WELCOME BACK" dialog so a background/resume cycle (which sets a
   // fresh offlineEarningsAmount + notifies) can't stack a second dialog over an
@@ -102,8 +102,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // never render a locked tab's body under a padlocked nav item.
     final onLocked = (_currentIndex == 0 && !game.unlockedSkill) ||
         (_currentIndex == 1 && !game.unlockedTech) ||
-        (_currentIndex == 2 && !game.unlockedStash);
-    if (onLocked && mounted) setState(() => _currentIndex = 3);
+        (_currentIndex == 3 && !game.unlockedStash) ||
+        (_currentIndex == 4 && !game.unlockedGoal);
+    if (onLocked && mounted) setState(() => _currentIndex = 2); // fall back to MINE
     _maybeShowEnding(game);
   }
 
@@ -119,7 +120,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // earn_1m); clearing would swallow the achievement's claim nudge. Let this
     // one queue after it instead.
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text('🔓  $label'),
+        content: Row(
+          children: [
+            const Icon(Icons.lock_open_outlined, color: Colors.black, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(label,
+                  style: const TextStyle(
+                      color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
         duration: const Duration(seconds: 3),
         backgroundColor: AppTheme.accent,
         behavior: SnackBarBehavior.floating,
@@ -154,7 +165,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
-        content: Text('🏆  $label  ·  tap to claim'),
+        content: Row(
+          children: [
+            const Icon(Icons.emoji_events_outlined,
+                color: Colors.black, size: 18),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text('$label  ·  tap to claim',
+                  style: const TextStyle(
+                      color: Colors.black, fontWeight: FontWeight.bold)),
+            ),
+          ],
+        ),
         duration: const Duration(seconds: 4),
         backgroundColor: AppTheme.accent,
         behavior: SnackBarBehavior.floating,
@@ -173,11 +195,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     // Pages for the navigation
     final List<Widget> pages = [
-      const PerksScreen(isEmbedded: true), // Index 0: PERKS
-      const ResearchTab(), // Index 1: LAB
-      const StashScreen(), // Index 2: STASH
+      const PerksScreen(isEmbedded: true), // Index 0: SKILL
+      const ResearchTab(), // Index 1: TECH
       MiningTab(
-        // Index 3: MINE
+        // Index 2: MINE (centre)
         onHardFork: () => _showHardForkDialog(
           context,
           Provider.of<GameLogic>(context, listen: false),
@@ -188,7 +209,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
         onBuyRig: (cost) {},
       ),
-      const AchievementsScreen(), // Index 4: GOALS
+      const StashScreen(), // Index 3: STASH
+      const AchievementsScreen(), // Index 4: GOAL
     ];
 
     return Scaffold(
@@ -218,13 +240,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // (sticky). The Selector rebuilds the bar only when an unlock flips.
       bottomNavigationBar: Selector<GameLogic, String>(
         selector: (_, g) =>
-            '${g.unlockedSkill}|${g.unlockedTech}|${g.unlockedStash}',
+            '${g.unlockedSkill}|${g.unlockedTech}|${g.unlockedStash}|${g.unlockedGoal}',
         builder: (context, _, _) {
           final g = context.read<GameLogic>();
           final locked = <int, bool>{
             0: !g.unlockedSkill,
             1: !g.unlockedTech,
-            2: !g.unlockedStash,
+            3: !g.unlockedStash,
+            4: !g.unlockedGoal,
           };
           return Theme(
             data: Theme.of(context).copyWith(
@@ -246,23 +269,27 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               items: [
                 _navItem(0, Icons.auto_graph, 'SKILL', locked),
                 _navItem(1, Icons.science, 'TECH', locked),
-                _navItem(2, Icons.inventory_2, 'STASH', locked),
                 const BottomNavigationBarItem(
                     icon: Icon(Icons.dashboard), label: 'MINE'),
-                BottomNavigationBarItem(
-                  // Unread badge so newly-unlocked achievements aren't missed.
-                  icon: Selector<GameLogic, int>(
-                    selector: (_, g) => g.unclaimedAchievements,
-                    builder: (_, count, _) => count > 0
-                        ? Badge.count(
-                            count: count,
-                            backgroundColor: Colors.redAccent,
-                            child: const Icon(Icons.emoji_events),
-                          )
-                        : const Icon(Icons.emoji_events),
+                _navItem(3, Icons.inventory_2, 'STASH', locked),
+                // GOAL — an anonymous padlock until the first achievement lands;
+                // once unlocked, the trophy + unread-claims badge.
+                if (locked[4] == true)
+                  _navItem(4, Icons.emoji_events, 'GOAL', locked)
+                else
+                  BottomNavigationBarItem(
+                    icon: Selector<GameLogic, int>(
+                      selector: (_, g) => g.unclaimedAchievements,
+                      builder: (_, count, _) => count > 0
+                          ? Badge.count(
+                              count: count,
+                              backgroundColor: Colors.redAccent,
+                              child: const Icon(Icons.emoji_events),
+                            )
+                          : const Icon(Icons.emoji_events),
+                    ),
+                    label: 'GOAL',
                   ),
-                  label: 'GOAL',
-                ),
               ],
             ),
           );
