@@ -436,10 +436,14 @@ class GameLogic with ChangeNotifier {
   int get currentClassMasteryLevel =>
       _classManager.masteryLevel(_classManager.current);
 
-  /// Choose / switch the active class from the SKILL tab (available as soon as
-  /// SKILL unlocks at the first Hard Fork), so the player doesn't have to wait
-  /// for a far-off New Blockchain to pick a class.
+  /// Pick the active class from the SKILL tab. Available as the FIRST choice as
+  /// soon as SKILL unlocks (the first Hard Fork), so the player doesn't wait for
+  /// a far-off New Blockchain. But the choice is a COMMITMENT: once a real class
+  /// is picked you are LOCKED to it for the whole run and can only re-pick at a
+  /// New Blockchain (through that flow's class picker). So this is a no-op after
+  /// the first real choice — mid-chain switching is deliberately not allowed.
   void chooseClass(BtcClass c) {
+    if (hasChosenClass) return; // locked until the next New Blockchain
     if (_classManager.current == c) return;
     _classManager.select(c);
     _evaluateAchievements(); // may satisfy class_first once a class is played
