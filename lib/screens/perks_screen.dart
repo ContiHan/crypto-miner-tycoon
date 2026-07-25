@@ -1,5 +1,6 @@
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../logic/channels.dart';
@@ -268,55 +269,162 @@ class PerksScreen extends StatelessWidget {
 
   /// Collapsible summary of the current class: passive racials + the bonuses the
   /// player has actually bought in the tree this run + Mastery.
+  /// Tappable summary row that opens the CLASS BONUSES modal (replaces the old
+  /// squished accordion — the modal lays each stat out as its own bullet line).
   Widget _classOverview(BuildContext context, GameLogic game) {
     final def = game.currentClassDef;
-    return Theme(
-      data: Theme.of(context).copyWith(dividerColor: Colors.transparent),
-      child: ExpansionTile(
-        tilePadding: EdgeInsets.zero,
-        childrenPadding: const EdgeInsets.only(bottom: 6),
-        iconColor: Colors.white54,
-        collapsedIconColor: Colors.white54,
-        title: const Text('CLASS BONUSES',
-            style: TextStyle(
-                color: Colors.white54, fontSize: 11, letterSpacing: 1.5)),
-        children: [
-          _bonusRow('PASSIVE (racial)', classEffectSummary(def), def.color),
-          const SizedBox(height: 8),
-          _bonusRow('FROM SKILLS', _activeSkillSummary(game), AppTheme.accent),
-          const SizedBox(height: 8),
-          _bonusRow(
-            'MASTERY',
-            game.totalMasteryLevel > 0
-                ? 'Lv ${game.currentClassMasteryLevel} this class · '
-                    '+${(game.totalMasteryLevel * 0.5).toStringAsFixed(1)}% hash & income (all classes)'
-                : 'None yet — earned from GovTokens minted as this class.',
-            Colors.greenAccent,
-          ),
-        ],
+    return InkWell(
+      onTap: () => _showClassBonusModal(context, game),
+      borderRadius: BorderRadius.circular(10),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        decoration: BoxDecoration(
+          color: Colors.black26,
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(color: def.color.withValues(alpha: 0.35)),
+        ),
+        child: Row(
+          children: [
+            Icon(def.icon, color: def.color, size: 18),
+            const SizedBox(width: 10),
+            const Expanded(
+              child: Text('CLASS BONUSES',
+                  style: TextStyle(
+                      color: Colors.white70,
+                      fontSize: 11,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1.5)),
+            ),
+            Text('VIEW',
+                style: TextStyle(
+                    color: AppTheme.accent,
+                    fontSize: 10,
+                    fontWeight: FontWeight.bold,
+                    letterSpacing: 1)),
+            const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+          ],
+        ),
       ),
     );
   }
 
-  Widget _bonusRow(String label, String text, Color color) {
+  void _showClassBonusModal(BuildContext context, GameLogic game) {
+    final def = game.currentClassDef;
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.surface,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 28, vertical: 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: def.color.withValues(alpha: 0.5)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 420),
+          child: SingleChildScrollView(
+            padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Icon(def.icon, color: def.color, size: 26),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Text(
+                        def.name.toUpperCase(),
+                        style: GoogleFonts.orbitron(
+                          color: def.color,
+                          fontSize: 17,
+                          fontWeight: FontWeight.bold,
+                          letterSpacing: 0.5,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 2),
+                const Text('CLASS BONUSES',
+                    style: TextStyle(
+                        color: Colors.white38,
+                        fontSize: 10,
+                        letterSpacing: 2)),
+                const SizedBox(height: 18),
+                _bonusGroup('RACIALS', classEffectBullets(def), def.color),
+                const SizedBox(height: 16),
+                _bonusGroup('SKILLS', _activeSkillBullets(game), AppTheme.accent),
+                const SizedBox(height: 16),
+                _bonusGroup('MASTERY', _masteryBullets(game), Colors.greenAccent),
+                const SizedBox(height: 6),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: TextButton(
+                    onPressed: () => Navigator.pop(ctx),
+                    child: Text('CLOSE',
+                        style: TextStyle(
+                            color: AppTheme.accent,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1)),
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// A heading over a vertical bullet list of individual stat lines. Empty lists
+  /// render a single muted "—" so the group never collapses to nothing.
+  Widget _bonusGroup(String heading, List<String> bullets, Color color) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        Text(label,
+        Text(heading,
             style: TextStyle(
                 color: color,
-                fontSize: 10,
+                fontSize: 12,
                 fontWeight: FontWeight.bold,
-                letterSpacing: 1)),
-        Text(text,
-            style: const TextStyle(color: Colors.white70, fontSize: 12)),
+                letterSpacing: 1.5)),
+        const SizedBox(height: 8),
+        if (bullets.isEmpty)
+          const Padding(
+            padding: EdgeInsets.only(left: 4),
+            child: Text('—',
+                style: TextStyle(color: Colors.white38, fontSize: 13)),
+          )
+        else
+          ...bullets.map((b) => Padding(
+                padding: const EdgeInsets.only(left: 2, bottom: 5),
+                child: Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Container(
+                      margin: const EdgeInsets.only(top: 6, right: 10),
+                      width: 5,
+                      height: 5,
+                      decoration:
+                          BoxDecoration(color: color, shape: BoxShape.circle),
+                    ),
+                    Expanded(
+                      child: Text(b,
+                          style: const TextStyle(
+                              color: Colors.white,
+                              fontSize: 13.5,
+                              height: 1.3)),
+                    ),
+                  ],
+                ),
+              )),
       ],
     );
   }
 
-  /// One-line summary of the channel bonuses from the active class's bought SKILL
-  /// nodes (+ the universal flat-click node), in the same format as the racials.
-  String _activeSkillSummary(GameLogic game) {
+  /// The channel bonuses from the active class's bought SKILL nodes (+ the
+  /// universal flat-click node), one stat per bullet line.
+  List<String> _activeSkillBullets(GameLogic game) {
     final cls = game.currentClass;
     final sums = <Channel, double>{};
     int flatClick = 0;
@@ -346,7 +454,18 @@ class PerksScreen extends StatelessWidget {
     add(Channel.rigCost, 'rig cost', neg: true);
     add(Channel.luck, 'luck');
     if (flatClick > 0) parts.add('+$flatClick click power');
-    return parts.isEmpty ? 'No skills bought yet.' : parts.join(' · ');
+    return parts; // empty => modal shows "—" / "no skills bought yet"
+  }
+
+  /// Mastery status as bullet lines (or a single hint line when none earned yet).
+  List<String> _masteryBullets(GameLogic game) {
+    if (game.totalMasteryLevel <= 0) {
+      return const ['None yet — earned from GovTokens minted as this class'];
+    }
+    return [
+      'Lv ${game.currentClassMasteryLevel} — this class',
+      '+${(game.totalMasteryLevel * 0.5).toStringAsFixed(1)}% hash & income (all classes)',
+    ];
   }
 
   void _openPerkSheet(BuildContext context, GameLogic game, String id,

@@ -16,27 +16,6 @@ void main() {
       expect(game.stashService.ownedArtifacts, isEmpty);
     });
 
-    test('Trading Tokens for Chips', () {
-      // Grant tokens
-      game.govTokens = 10000;
-
-      // Buy 1 Chip (Cost 5000)
-      game.buyChipsWithTokens();
-
-      expect(game.chips, 1);
-      expect(game.govTokens, 5000);
-      expect(game.spentGovTokens, 5000);
-
-      // Buy another (Cost 5000)
-      game.buyChipsWithTokens();
-      expect(game.chips, 2);
-      expect(game.govTokens, 0);
-
-      // Try buying with insufficient funds
-      game.buyChipsWithTokens();
-      expect(game.chips, 2); // Should not change
-    });
-
     test('Opening Crates', () {
       // Grant Chips
       game.chips = 60;

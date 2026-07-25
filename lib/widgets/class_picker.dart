@@ -5,7 +5,10 @@ import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 
 /// Compact one-line effect summary for a class card.
-String classEffectSummary(ClassDef def) {
+/// The class's passive racial bonuses as individual bullet lines (one stat each),
+/// shared by the picker card (joined into one line) and the CLASS BONUSES modal
+/// (rendered as a vertical bullet list).
+List<String> classEffectBullets(ClassDef def) {
   final parts = <String>[];
   void pct(double v, String label) {
     if (v == 0) return;
@@ -20,8 +23,8 @@ String classEffectSummary(ClassDef def) {
   if (rig != 0) parts.add('-${(rig * 100).toStringAsFixed(0)}% rig cost');
   pct(def.channelBonuses[Channel.luck] ?? 0, 'luck');
   final vol = def.channelBonuses[Channel.volatility] ?? 0;
-  if (vol > 0) parts.add('louder chaos');
-  if (vol < 0) parts.add('calmer markets');
+  if (vol > 0) parts.add('louder chaos (+volatility)');
+  if (vol < 0) parts.add('calmer markets (-volatility)');
   if (def.prestigeGainMult > 1) {
     parts.add(
         '+${((def.prestigeGainMult - 1) * 100).toStringAsFixed(0)}% prestige gain');
@@ -29,8 +32,11 @@ String classEffectSummary(ClassDef def) {
     parts.add(
         '-${((1 - def.prestigeGainMult) * 100).toStringAsFixed(0)}% prestige gain');
   }
-  return parts.join(' · ');
+  return parts;
 }
+
+/// One-line join of [classEffectBullets] for the compact picker cards.
+String classEffectSummary(ClassDef def) => classEffectBullets(def).join(' · ');
 
 /// Shared class-selection dialog, reused by the SKILL tab (early, ongoing pick),
 /// New Blockchain, and New Genesis. Confirm is disabled until a class is chosen;

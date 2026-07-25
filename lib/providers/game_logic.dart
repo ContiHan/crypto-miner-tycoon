@@ -225,27 +225,27 @@ class GameLogic with ChangeNotifier {
     return spin;
   }
 
-  /// Hash Flip (double-or-nothing) on [bet] UTXO. true=win, false=loss,
-  /// null=unaffordable or capped.
-  bool? playDoubleOrNothing(int bet) {
+  /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30×
+  /// jackpot). Returns the tiered [FlipResult], or null if unaffordable or capped.
+  FlipResult? playDoubleOrNothing(int bet) {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    final win = _casino.flipWin(_casinoRng);
-    int payout = 0;
-    if (win) {
-      final lf = CasinoService.effectiveLuck(
-          luckMultiplier, CasinoService.flipReturnToPlayer);
-      payout = (bet * 2 * lf).floor();
-      chips += payout;
-    }
-    casinoWindowNet += payout - bet;
+    final result = _casino.flip(bet, _casinoRng, luck: luckMultiplier);
+    chips += result.payout;
+    casinoWindowNet += result.net;
     casinoSpins++;
+    if (result.isJackpot) casinoJackpots++;
     _soundService.playBuy();
+    if (result.isJackpot) {
+      _hapticHeavy();
+    } else if (result.isWin) {
+      _hapticLight();
+    }
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
-    return win;
+    return result;
   }
 
   /// Relay a packet for [bet] UTXO. Returns the drop (null if unaffordable or the
@@ -336,6 +336,10 @@ class GameLogic with ChangeNotifier {
   bool hapticsEnabled = true; // Vibration feedback toggle (see _haptic)
   bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
   bool onboardingComplete = false; // first-run coach marks shown once
+  // Per-screen first-visit tips already dismissed (e.g. 'tab_skill'). Persisted
+  // in settings like [onboardingComplete] so each screen's intro shows only once.
+  final Set<String> _seenTips = {};
+  bool hasSeenTip(String id) => _seenTips.contains(id);
 
   // Offline Earnings (UI Display)
   double? offlineEarningsAmount;
@@ -373,12 +377,20 @@ class GameLogic with ChangeNotifier {
         hapticsEnabled: hapticsEnabled,
         showFiatPrices: showFiatPrices,
         onboardingComplete: onboardingComplete,
+        seenTips: _seenTips.toList(),
       );
 
   /// Marks the first-run onboarding as seen so it never shows again.
   Future<void> completeOnboarding() async {
     if (onboardingComplete) return;
     onboardingComplete = true;
+    await _persistSettings();
+    notifyListeners();
+  }
+
+  /// Marks a per-screen first-visit tip [id] as seen so it never shows again.
+  Future<void> markTipSeen(String id) async {
+    if (!_seenTips.add(id)) return; // already seen — no write, no rebuild
     await _persistSettings();
     notifyListeners();
   }
@@ -1374,19 +1386,6 @@ class GameLogic with ChangeNotifier {
     }
   }
 
-  void buyChipsWithTokens() {
-    const int cost = 5000;
-    if (govTokens >= cost) {
-      govTokens -= cost;
-      spentGovTokens += cost;
-      chips += 1;
-      _soundService.playBuy();
-      _evaluateAchievements();
-      notifyListeners();
-      _saveGame();
-    }
-  }
-
   /// Opens a crate and returns the artifact won (null if unaffordable), so the
   /// UI can show a reveal of exactly what dropped.
   Artifact? buyCrate(bool isPremium) {
@@ -1459,6 +1458,10 @@ class GameLogic with ChangeNotifier {
       hapticsEnabled = settings['haptics_enabled'] ?? true;
       showFiatPrices = settings['show_fiat_prices'] ?? false;
       onboardingComplete = settings['onboarding_complete'] ?? false;
+      _seenTips
+        ..clear()
+        ..addAll(
+            (settings['seen_tips'] as List?)?.cast<String>() ?? const []);
       _soundService.setMuted(!soundEnabled);
 
       final data = await _gameRepo.loadGameState();

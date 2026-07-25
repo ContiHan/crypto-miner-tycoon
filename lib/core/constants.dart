@@ -81,10 +81,9 @@ class GameConstants {
   // Deliberately PLAYER-FAVOURED: every game returns >1 per stake on average, so
   // sweeping the chain pays out. It is NOT an infinite faucet: net UTXO gained is
   // bounded per real-time window by [casinoDailyNetCap] (thematically, the
-  // network gets congested), which is the anti-farm guardrail.
-  // Hash Flip (double-or-nothing) win chance > 50% => EV = 0.68*2 = 1.36. The
-  // risky game: you win most flips, but a miss still loses the whole stake.
-  static const double casinoFlipWinChance = 0.68;
+  // network gets congested), which is the anti-farm guardrail. Each game's
+  // paytable/EV lives in casino_service.dart (Hash Flip is the high-variance one:
+  // mostly busts, rare 30× jackpot, EV ~1.5 matched to the others).
 
   // Cosmetic only: the "fiat / astronomical" price toggle multiplies sats by
   // this to show a big USD-style number. Purely visual, no mechanics.

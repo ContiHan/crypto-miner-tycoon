@@ -47,6 +47,34 @@ class PlinkoDrop {
   bool get isJackpot => multiplier >= 10;
 }
 
+/// One weighted Hash Flip outcome — [zeros] leading zeros hit on the flipped
+/// nonce, paying [multiplier]× the stake (0 = a stale share / bust).
+class FlipOutcome {
+  final int zeros;
+  final double multiplier;
+  final int weight;
+  const FlipOutcome(this.zeros, this.multiplier, this.weight);
+}
+
+/// Result of a single Hash Flip (the HIGH-VARIANCE game): flip the nonce and
+/// count the leading zeros of the resulting hash. Usually nothing (a stale
+/// share, you lose the stake), but a rare multi-zero hit "mines a block" for a
+/// big payout — up to 30×. EV matches the other games (~1.5); flip just trades
+/// safety for swing.
+class FlipResult {
+  final int zeros;
+  final double multiplier;
+  final int bet;
+  final double luckFactor; // >= 1, scales winnings; bounded by the EV ceiling
+  const FlipResult(this.zeros, this.multiplier, this.bet,
+      {this.luckFactor = 1.0});
+
+  int get payout => (bet * multiplier * luckFactor).floor();
+  int get net => payout - bet;
+  bool get isWin => payout > 0;
+  bool get isJackpot => multiplier >= 30;
+}
+
 class CasinoService {
   // Weighted paytable — strongly PLAYER-favoured, tuned so the player mostly
   // RAISES (the per-window net cap is the only brake, not the odds).
@@ -81,9 +109,27 @@ class CasinoService {
   static double get slotsReturnToPlayer =>
       slotTable.fold(0.0, (s, o) => s + o.weight * o.multiplier) / totalWeight;
 
-  /// Hash Flip (double-or-nothing) base return: 68% chance to win 2x => 1.36.
+  // Hash Flip — the HIGH-VARIANCE game. Flip the nonce, count the resulting
+  // hash's leading zeros: mostly a stale share (0×, the stake is lost), but the
+  // rare multi-zero hit "mines a block" for a big payout. Integer multipliers so
+  // a bet of 1 still pays cleanly (floor never eats a win).
+  //   EV = (0*76 + 2*15 + 5*6 + 30*3) / 100 = 150/100 = 1.50 — matched to the
+  //   other games (~1.5), so flip is not weaker in EV, only swingier: ~24% pay
+  //   something and a 30× "block found" jackpot lands 3% of the time.
+  static const List<FlipOutcome> flipTable = [
+    FlipOutcome(0, 0.0, 76), // no leading zero — stale share (bust)
+    FlipOutcome(1, 2.0, 15), // one leading zero
+    FlipOutcome(2, 5.0, 6), // two leading zeros
+    FlipOutcome(3, 30.0, 3), // three leading zeros — BLOCK FOUND (jackpot)
+  ];
+
+  static final int flipTotalWeight =
+      flipTable.fold(0, (sum, o) => sum + o.weight);
+
+  /// Average return per chip staked on Hash Flip (for the disclosed odds ≈ 1.5).
   static double get flipReturnToPlayer =>
-      GameConstants.casinoFlipWinChance * 2;
+      flipTable.fold(0.0, (s, o) => s + o.weight * o.multiplier) /
+      flipTotalWeight;
 
   /// Luck multiplier actually applied to winnings, clamped so the realized
   /// average return (baseEv * factor) never exceeds [GameConstants.casinoEvCeiling].
@@ -111,10 +157,21 @@ class CasinoService {
     return SlotSpin(last.symbols, last.multiplier, bet, luckFactor: lf);
   }
 
-  /// Hash Flip (double-or-nothing): true = win (pays 2x). The >50% win chance is
-  /// the player's edge (the risky game — you still lose the whole stake on a miss).
-  bool flipWin(Random rng) =>
-      rng.nextDouble() < GameConstants.casinoFlipWinChance;
+  /// Flip the nonce for [bet] UTXO using [rng]. Returns the tiered outcome (0×
+  /// bust up to a 30× jackpot). [luck] (>=1) scales winnings, clamped so the
+  /// average return stays below the EV ceiling. The risky game: most flips bust.
+  FlipResult flip(int bet, Random rng, {double luck = 1.0}) {
+    final double lf = effectiveLuck(luck, flipReturnToPlayer);
+    int roll = rng.nextInt(flipTotalWeight);
+    for (final o in flipTable) {
+      if (roll < o.weight) {
+        return FlipResult(o.zeros, o.multiplier, bet, luckFactor: lf);
+      }
+      roll -= o.weight;
+    }
+    final last = flipTable.last;
+    return FlipResult(last.zeros, last.multiplier, bet, luckFactor: lf);
+  }
 
   // ---- Relay (SIMULATED — UTXO only, strongly player-favoured) --------------
   // A packet relays through [plinkoRows] rows of nodes, going left/right 50/50 at

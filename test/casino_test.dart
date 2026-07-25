@@ -28,16 +28,26 @@ void main() {
       expect(rtp, closeTo(CasinoService.slotsReturnToPlayer, 0.03));
     });
 
-    test('hash flip win chance is above 50% (player edge)', () {
+    test('hash flip is player-favoured (EV ~1.5) and high-variance', () {
+      // EV matched to the other games so flip is not weaker, just swingier.
+      expect(CasinoService.flipReturnToPlayer, closeTo(1.5, 1e-9));
+
       final c = CasinoService();
       final rng = Random(7);
-      int wins = 0;
-      for (int i = 0; i < 100000; i++) {
-        if (c.flipWin(rng)) wins++;
+      int staked = 0, returned = 0, wins = 0, jackpots = 0;
+      for (int i = 0; i < 200000; i++) {
+        staked += 100;
+        final r = c.flip(100, rng);
+        returned += r.payout;
+        if (r.isWin) wins++;
+        if (r.isJackpot) jackpots++;
       }
-      final rate = wins / 100000;
-      expect(rate, closeTo(GameConstants.casinoFlipWinChance, 0.02));
-      expect(rate, greaterThan(0.5));
+      final rtp = returned / staked;
+      expect(rtp, greaterThan(1.0), reason: 'the player has the edge');
+      expect(rtp, closeTo(CasinoService.flipReturnToPlayer, 0.05));
+      // High variance: most flips bust (~76%), ~24% pay, ~3% hit the 30× block.
+      expect(wins / 200000, closeTo(0.24, 0.02));
+      expect(jackpots / 200000, closeTo(0.03, 0.01));
     });
 
     test('a 25x spin reads as a jackpot with correct payout', () {
@@ -113,13 +123,14 @@ void main() {
       expect(game.casinoSpins, 0);
     });
 
-    test('double-or-nothing deducts and never goes negative', () async {
+    test('hash flip deducts and never goes negative', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.chips = 50;
-      final win = game.playDoubleOrNothing(10);
-      expect(win, isNotNull);
-      expect(game.chips, win! ? 50 - 10 + 20 : 50 - 10);
+      final result = game.playDoubleOrNothing(10);
+      expect(result, isNotNull);
+      // chips = balance - stake + tiered payout (0× bust up to 30×).
+      expect(game.chips, 50 - 10 + result!.payout);
       expect(game.chips, greaterThanOrEqualTo(0));
       expect(game.casinoSpins, 1);
     });

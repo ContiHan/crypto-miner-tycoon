@@ -83,16 +83,40 @@ class _OnboardingCoachState extends State<OnboardingCoach> {
     final step = widget.steps[_index];
     final isLast = _index == widget.steps.length - 1;
 
-    // Put the callout in the half of the screen away from the spotlight so it
-    // never covers the thing it's pointing at.
-    Alignment calloutAlign;
+    final screenH = (context.findRenderObject() as RenderBox?)?.size.height ??
+        MediaQuery.of(context).size.height;
+
+    // Place the callout in the LARGER free gap beside the spotlight (above vs
+    // below the target) and cap its height to that gap, so it can never cover
+    // the thing it points at — the old "pick a half by target-centre" logic let
+    // a tall callout sit on top of a mid-screen target (e.g. the first rig).
+    Widget positionedCallout;
     if (_rect == null) {
-      calloutAlign = Alignment.center;
+      positionedCallout = Align(
+        alignment: Alignment.center,
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: _callout(step, isLast, screenH * 0.8),
+        ),
+      );
     } else {
-      final size = (context.findRenderObject() as RenderBox?)?.size;
-      final mid = (size?.height ?? 0) / 2;
-      calloutAlign =
-          _rect!.center.dy < mid ? const Alignment(0, 0.55) : const Alignment(0, -0.45);
+      const gap = 16.0; // clearance between the spotlight and the callout
+      const margin = 20.0; // outer screen margin
+      final spot = _rect!.inflate(8); // matches the painted spotlight halo
+      final spaceAbove = spot.top - margin - gap;
+      final spaceBelow = screenH - spot.bottom - margin - gap;
+      final below = spaceBelow >= spaceAbove;
+      final maxH = (below ? spaceBelow : spaceAbove).clamp(140.0, screenH * 0.8);
+      positionedCallout = Positioned(
+        left: margin,
+        right: margin,
+        top: below ? spot.bottom + gap : null,
+        bottom: below ? null : (screenH - spot.top + gap),
+        child: Align(
+          alignment: below ? Alignment.topCenter : Alignment.bottomCenter,
+          child: _callout(step, isLast, maxH),
+        ),
+      );
     }
 
     return Stack(
@@ -105,21 +129,14 @@ class _OnboardingCoachState extends State<OnboardingCoach> {
             child: CustomPaint(painter: _SpotlightPainter(_rect)),
           ),
         ),
-        Align(
-          alignment: calloutAlign,
-          child: Padding(
-            padding: const EdgeInsets.all(24),
-            child: _callout(step, isLast),
-          ),
-        ),
+        positionedCallout,
       ],
     );
   }
 
-  Widget _callout(CoachStep step, bool isLast) {
+  Widget _callout(CoachStep step, bool isLast, double maxH) {
     // Bounded height + scroll so long body text, a large accessibility font
     // scale, or a short/landscape screen scrolls instead of overflowing.
-    final maxH = MediaQuery.of(context).size.height * 0.8;
     return Container(
       constraints: BoxConstraints(maxWidth: 340, maxHeight: maxH),
       padding: const EdgeInsets.all(18),

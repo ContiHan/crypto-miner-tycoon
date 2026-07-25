@@ -76,6 +76,8 @@ class FakeSettingsRepository implements SettingsRepository {
     // Default to DONE so widget tests aren't covered by the first-run coach;
     // the onboarding test flips this to false explicitly.
     'onboarding_complete': true,
+    // Pre-dismiss every per-screen first-visit tip so they don't overlay tests.
+    'seen_tips': const ['tab_skill', 'tab_tech', 'tab_stash', 'tab_goal'],
   };
 
   @override
@@ -89,11 +91,13 @@ class FakeSettingsRepository implements SettingsRepository {
     required bool showFiatPrices,
     bool hapticsEnabled = true,
     bool onboardingComplete = false,
+    List<String> seenTips = const [],
   }) async {
     data['sound_enabled'] = soundEnabled;
     data['haptics_enabled'] = hapticsEnabled;
     data['show_fiat_prices'] = showFiatPrices;
     data['onboarding_complete'] = onboardingComplete;
+    data['seen_tips'] = seenTips;
   }
 }
 

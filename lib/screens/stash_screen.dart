@@ -3,14 +3,12 @@ import 'dart:math';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
-import '../core/constants.dart';
 import '../providers/game_logic.dart';
 import '../services/stash_service.dart';
 import '../services/casino_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
-import '../widgets/pulse_button.dart';
 
 class StashScreen extends StatefulWidget {
   const StashScreen({super.key});
@@ -30,6 +28,11 @@ class _StashScreenState extends State<StashScreen>
   // Casino local UI state.
   int _bet = 1;
   CasinoGame _selectedGame = CasinoGame.slots; // slots = the polished default
+  // Drives the SWEEP game body. The three games live in a PageView with swipe
+  // DISABLED (the parent STASH TabBarView already owns the horizontal swipe) —
+  // the SegmentedButton animates between "windows" instead, giving the slide
+  // feel without a gesture conflict.
+  late PageController _gamePageController;
   String? _casinoMessage;
   Color _casinoMessageColor = Colors.white70;
 
@@ -71,6 +74,7 @@ class _StashScreenState extends State<StashScreen>
   void initState() {
     super.initState();
     _tabController = TabController(length: 3, vsync: this);
+    _gamePageController = PageController(initialPage: _selectedGame.index);
     _plinkoController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1400));
   }
@@ -81,6 +85,7 @@ class _StashScreenState extends State<StashScreen>
     // leaked a TabController (and its ticker) per visit and could assert in
     // debug when leaving mid tab-animation.
     _tabController.dispose();
+    _gamePageController.dispose();
     _spinTimer?.cancel();
     _plinkoController.dispose();
     super.dispose();
@@ -205,7 +210,7 @@ class _StashScreenState extends State<StashScreen>
         title: FittedBox(
           fit: BoxFit.scaleDown,
           child: Text(
-            'STASH & BLACK MARKET',
+            'STASH',
             maxLines: 1,
             style: GoogleFonts.orbitron(
               fontWeight: FontWeight.bold,
@@ -222,9 +227,9 @@ class _StashScreenState extends State<StashScreen>
           unselectedLabelColor: Colors.white54,
           isScrollable: true,
           tabs: const [
+            Tab(icon: Icon(Icons.casino), text: "SWEEP"),
             Tab(icon: Icon(Icons.inventory_2), text: "CRATES"),
             Tab(icon: Icon(Icons.grid_view), text: "COLLECTION"),
-            Tab(icon: Icon(Icons.terminal), text: "SWEEP"),
           ],
         ),
       ),
@@ -233,9 +238,9 @@ class _StashScreenState extends State<StashScreen>
           return TabBarView(
             controller: _tabController,
             children: [
+              _buildCasinoTab(context, game),
               _buildMarketTab(context, game),
               _buildCollectionTab(context, game),
-              _buildCasinoTab(context, game),
             ],
           );
         },
@@ -314,45 +319,6 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 24),
 
-        const Text(
-          'BLACK MARKET EXCHANGE',
-          style: TextStyle(
-            color: AppTheme.accent,
-            fontWeight: FontWeight.bold,
-            letterSpacing: 1.5,
-          ),
-        ),
-        const SizedBox(height: 8),
-        StylizedCard(
-          color: const Color(0xFF1E1E24),
-          child: ListTile(
-            leading: const Icon(
-              Icons.currency_exchange,
-              color: Colors.purpleAccent,
-              size: 32,
-            ),
-            title: const Text(
-              'Buy 1 UTXO',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            subtitle: const Text(
-              'Cost: 5,000 Gov Tokens',
-              style: TextStyle(color: Colors.white54),
-            ),
-            trailing: PulseButton(
-              animate: false,
-              onPressed: game.govTokens >= 5000
-                  ? () => game.buyChipsWithTokens()
-                  : null,
-              child: const Text('EXCHANGE'),
-            ),
-          ),
-        ),
-
-        const SizedBox(height: 24),
         const Text(
           'SUPPLY CRATES',
           style: TextStyle(
@@ -617,16 +583,21 @@ class _StashScreenState extends State<StashScreen>
 
   void _playFlip(GameLogic game) {
     if (_casinoBusy) return;
-    final chipsBefore = game.chips;
-    final win = game.playDoubleOrNothing(_bet);
-    if (win == null) return;
-    // Use the real balance delta so the toast matches the header (a Luck-boosted
-    // win credits a bit more than the raw bet).
-    final delta = game.chips - chipsBefore;
+    final result = game.playDoubleOrNothing(_bet);
+    if (result == null) return;
     setState(() {
-      _casinoMessage =
-          win ? 'DOUBLED! +$delta UTXO' : 'Nothing. $delta UTXO';
-      _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
+      if (result.isJackpot) {
+        _casinoMessage = 'BLOCK FOUND!  +${result.net} UTXO';
+        _casinoMessageColor = Colors.amberAccent;
+      } else if (result.net > 0) {
+        final z = result.zeros;
+        _casinoMessage =
+            '$z leading zero${z == 1 ? '' : 's'}  ·  +${result.net} UTXO';
+        _casinoMessageColor = Colors.greenAccent;
+      } else {
+        _casinoMessage = 'Stale share.  ${result.net} UTXO';
+        _casinoMessageColor = Colors.redAccent;
+      }
     });
   }
 
@@ -722,8 +693,6 @@ class _StashScreenState extends State<StashScreen>
 
   Widget _buildCasinoTab(BuildContext context, GameLogic game) {
     final canBet = _canSweep(game);
-    final flipPct =
-        (GameConstants.casinoFlipWinChance * 100).toStringAsFixed(0);
 
     // The three games share a FIXED body height so switching never jumps; clamp
     // this tab's text scaling so large accessibility fonts can't overflow that
@@ -801,18 +770,10 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 14),
 
-        // Script selector (centered) — one focused game at a time.
-        Center(
-          child: Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 8,
-            children: [
-              _gameChip(CasinoGame.slots, 'BLOCK SCAN', Icons.grid_on),
-              _gameChip(CasinoGame.plinko, 'RELAY', Icons.account_tree),
-              _gameChip(CasinoGame.flip, 'HASH FLIP', Icons.bolt),
-            ],
-          ),
-        ),
+        // Game switcher — a single connected control (not three loose chips).
+        // Tapping a segment slides the body to that game's "window" via the
+        // PageView below (swipe stays disabled so the parent tab keeps it).
+        Center(child: _gameSelector()),
         const SizedBox(height: 12),
 
         // Shared result line (fixed slot so the layout never jumps).
@@ -832,14 +793,24 @@ class _StashScreenState extends State<StashScreen>
                 ),
         ),
 
-        // The selected game — FIXED height so switching scripts never jumps.
+        // The games — FIXED height so switching never jumps. A PageView gives the
+        // "slide to another window" feel, but user swipe is DISABLED so it can't
+        // fight the parent STASH TabBarView; the segmented control pages it.
         SizedBox(
           height: _kGameBodyHeight,
-          child: switch (_selectedGame) {
-            CasinoGame.slots => _buildSlots(game, canBet),
-            CasinoGame.plinko => _buildPlinko(game, canBet),
-            CasinoGame.flip => _buildFlip(game, canBet, flipPct),
-          },
+          child: PageView(
+            controller: _gamePageController,
+            physics: const NeverScrollableScrollPhysics(),
+            onPageChanged: (i) => setState(() {
+              _selectedGame = CasinoGame.values[i];
+              _casinoMessage = null;
+            }),
+            children: [
+              _buildSlots(game, canBet),
+              _buildPlinko(game, canBet),
+              _buildFlip(game, canBet),
+            ],
+          ),
         ),
       ],
       ),
@@ -916,27 +887,48 @@ class _StashScreenState extends State<StashScreen>
     return _sweepButton(label: label, onPressed: onPressed, color: color);
   }
 
-  Widget _gameChip(CasinoGame g, String label, IconData icon) {
-    final selected = _selectedGame == g;
-    return ChoiceChip(
-      avatar: Icon(icon,
-          size: 16, color: selected ? Colors.black : Colors.white70),
-      label: Text(label),
-      selected: selected,
-      // Locked mid-animation so switching can't strand an in-flight spin/drop
-      // on a hidden game; clear the shared result message on switch.
-      onSelected: _casinoBusy
-          ? null
-          : (_) => setState(() {
-                _selectedGame = g;
-                _casinoMessage = null;
-              }),
-      selectedColor: AppTheme.accent,
-      labelStyle: TextStyle(
-        color: selected ? Colors.black : Colors.white,
-        fontWeight: FontWeight.bold,
+  /// The connected SWEEP game switcher (Material 3 SegmentedButton). Disabled
+  /// mid-animation so a switch can't strand an in-flight spin/drop on a hidden
+  /// game. Selecting a segment pages the body (see `_switchGame`).
+  Widget _gameSelector() {
+    return SegmentedButton<CasinoGame>(
+      segments: const [
+        ButtonSegment(
+            value: CasinoGame.slots,
+            label: Text('SCAN'),
+            icon: Icon(Icons.grid_on, size: 16)),
+        ButtonSegment(
+            value: CasinoGame.plinko,
+            label: Text('RELAY'),
+            icon: Icon(Icons.account_tree, size: 16)),
+        ButtonSegment(
+            value: CasinoGame.flip,
+            label: Text('FLIP'),
+            icon: Icon(Icons.bolt, size: 16)),
+      ],
+      selected: {_selectedGame},
+      showSelectedIcon: false,
+      onSelectionChanged:
+          _casinoBusy ? null : (sel) => _switchGame(sel.first),
+      style: SegmentedButton.styleFrom(
+        backgroundColor: Colors.black45,
+        foregroundColor: Colors.white70,
+        selectedBackgroundColor: AppTheme.accent,
+        selectedForegroundColor: Colors.black,
+        side: const BorderSide(color: Colors.white24),
+        textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 12),
       ),
-      backgroundColor: Colors.black45,
+    );
+  }
+
+  /// Slide the body to [g]'s window. `onPageChanged` syncs `_selectedGame` and
+  /// clears the shared result line once the page settles.
+  void _switchGame(CasinoGame g) {
+    if (g == _selectedGame) return;
+    _gamePageController.animateToPage(
+      g.index,
+      duration: const Duration(milliseconds: 280),
+      curve: Curves.easeOutCubic,
     );
   }
 
@@ -962,13 +954,18 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  Widget _buildFlip(GameLogic game, bool canBet, String flipPct) {
+  Widget _buildFlip(GameLogic game, bool canBet) {
     return _sweepCard(
       title: 'HASH FLIP',
       children: [
-        Text('$flipPct% to call the nonce parity — pays 2×',
-            textAlign: TextAlign.center,
-            style: const TextStyle(color: Colors.white54, fontSize: 12)),
+        const Text(
+          'Flip the nonce — the more leading zeros in the hash,\n'
+          'the bigger the block. High risk, high reward.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white54, fontSize: 12),
+        ),
+        const SizedBox(height: 16),
+        _flipPaytable(),
         const SizedBox(height: 18),
         _sweepControl(
           game,
@@ -976,6 +973,66 @@ class _StashScreenState extends State<StashScreen>
           color: Colors.purpleAccent,
           onPressed: (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
         ),
+      ],
+    );
+  }
+
+  /// Disclosed Hash Flip odds — one row per winning tier (zeros hit, chance, pay).
+  Widget _flipPaytable() {
+    Color tierColor(double mult) {
+      if (mult >= 30) return Colors.amberAccent; // jackpot
+      if (mult >= 5) return Colors.cyanAccent;
+      return Colors.greenAccent;
+    }
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text('PAYTABLE',
+            style: TextStyle(
+                color: Colors.white38, fontSize: 10, letterSpacing: 1)),
+        const SizedBox(height: 4),
+        ...CasinoService.flipTable.where((o) => o.multiplier > 0).map((o) {
+          final color = tierColor(o.multiplier);
+          final pct = (o.weight / CasinoService.flipTotalWeight * 100)
+              .toStringAsFixed(0);
+          return Padding(
+            padding: const EdgeInsets.symmetric(vertical: 2),
+            child: Row(
+              children: [
+                Expanded(
+                  child: Row(
+                    children: [
+                      Icon(Icons.filter_none, size: 14, color: color),
+                      const SizedBox(width: 6),
+                      Text(
+                        '${o.zeros} zero${o.zeros == 1 ? '' : 's'}'
+                        '${o.multiplier >= 30 ? '  · BLOCK' : ''}',
+                        style: TextStyle(color: color, fontSize: 12),
+                      ),
+                    ],
+                  ),
+                ),
+                Text('$pct%',
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 11)),
+                const SizedBox(width: 16),
+                SizedBox(
+                  width: 44,
+                  child: Text(
+                    '${o.multiplier.toStringAsFixed(0)}×',
+                    textAlign: TextAlign.right,
+                    style: const TextStyle(
+                        color: Colors.white70,
+                        fontSize: 12,
+                        fontWeight: FontWeight.bold),
+                  ),
+                ),
+              ],
+            ),
+          );
+        }),
       ],
     );
   }

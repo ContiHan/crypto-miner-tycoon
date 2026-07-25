@@ -4,6 +4,7 @@ import '../providers/game_logic.dart';
 import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/class_picker.dart';
+import '../widgets/first_visit_tip.dart';
 import 'ending_overlay.dart';
 import '../widgets/news_ticker.dart';
 import 'perks_screen.dart';
@@ -191,6 +192,49 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
+  /// The first-visit coach card for [index], or nothing for MINE (index 2 has
+  /// its own spotlight coach). Shows once per screen, then persists as dismissed.
+  Widget _tipForTab(int index) {
+    switch (index) {
+      case 0:
+        return const FirstVisitTip(
+          tipId: 'tab_skill',
+          icon: Icons.workspace_premium,
+          title: 'SKILL',
+          body: "Your class's skill tree. Pick a class at your first Hard "
+              'Fork, then spend GovTokens on its nodes. Tap CLASS BONUSES to '
+              'see every stat you have active right now.',
+        );
+      case 1:
+        return const FirstVisitTip(
+          tipId: 'tab_tech',
+          icon: Icons.memory,
+          title: 'TECH',
+          body: 'Shared research, bought with BTC. One-shot upgrades that '
+              'reset each fork — so grab the cheap early wins again every run.',
+        );
+      case 3:
+        return const FirstVisitTip(
+          tipId: 'tab_stash',
+          icon: Icons.casino,
+          title: 'STASH',
+          body: 'SWEEP mini-games win UTXO, crates turn UTXO into permanent '
+              'artifacts, and COLLECTION tracks what you own. Payouts are '
+              'simulated — no real money or value.',
+        );
+      case 4:
+        return const FirstVisitTip(
+          tipId: 'tab_goal',
+          icon: Icons.emoji_events,
+          title: 'GOALS',
+          body: 'Achievements. Each one you CLAIM adds permanent income '
+              '(Notoriety), so check back and claim them as they unlock.',
+        );
+      default:
+        return const SizedBox.shrink(); // MINE — handled by OnboardingCoach
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     // Pages for the navigation
@@ -233,7 +277,16 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           // Isolated: the ticker repaints every frame (~60fps); RepaintBoundary
           // keeps those repaints from invalidating the rest of the screen.
           const RepaintBoundary(child: NewsTicker()),
-          Expanded(child: pages[_currentIndex]),
+          Expanded(
+            // A first-visit coach card overlays each newly-opened tab once
+            // (MINE has its own spotlight coach, so it gets none here).
+            child: Stack(
+              children: [
+                pages[_currentIndex],
+                _tipForTab(_currentIndex),
+              ],
+            ),
+          ),
         ],
       ),
       // Progressive disclosure: SKILL/TECH/STASH reveal as the player progresses

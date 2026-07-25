@@ -14,7 +14,7 @@ All numeric values are the `[TUNE]` defaults in `lib/core/constants.dart` /
 | **GovTokens** (`govTokens`) | Hard Fork (`floor(sqrt(lifetimeSats / 5e8))` × class/trophy/genesis gain) | SKILL nodes; drives `prestigeMultiplier` | New Blockchain |
 | **Consensus / CX** | Soft Fork (`floor(cbrt(eraSats / 2e9) …)`) | always-on income bonus | Hard Fork |
 | **Genesis Blocks / GB** | New Blockchain (`floor(sqrt(chainGovTokens / 65000))`) | multiplies CX+GT **gain** (not raw income) | never (permanent) |
-| **UTXO** (`chips`, internal) | anomaly pop-ups (+1), the 5000-GT exchange, SWEEP wins | crates; SWEEP stakes | New Blockchain |
+| **UTXO** (`chips`, internal) | anomaly pop-ups (+1), SWEEP wins | crates; SWEEP stakes | New Blockchain |
 | **Trophies** (`winCount`) | reaching the ending / NG+ | permanent prestige-gain bonus | never |
 | **Mastery XP** (per class) | GovTokens minted **while playing that class** | permanent all-class bonus | full wipe only |
 
@@ -104,14 +104,14 @@ Luck is a single stat (`luckMultiplier`, soft-capped) fed by the **luck channel*
 1. **Crit taps** — raises the manual-tap crit chance (base 6%, hard cap 25%). A
    crit pays 5× that tap.
 2. **SWEEP (casino) winnings** — multiplies your **payout** via `effectiveLuck`,
-   bounded by `casinoEvCeiling = 2.5×`. ⚠️ It does **not** change the win *chance*
-   shown (e.g. Hash Flip's 68% is the base win rate) — it makes the amounts you
-   win bigger. The casino tab now shows your live `LUCK ×N` so the boost is visible.
+   bounded by `casinoEvCeiling = 2.5×`. ⚠️ It does **not** change the win *odds*
+   (e.g. Hash Flip's tier weights are fixed) — it makes the amounts you win
+   bigger. The casino tab shows your live `LUCK ×N` so the boost is visible.
 3. **Anomaly spawn rate** — how often a UTXO pops up on MINE (base 5%/tick, cap 30%).
 4. **Crate / anomaly odds** — luckier rare finds.
 
-So with BTC OG + luck SKILL nodes, your Hash Flip still reads 68% (that's the
-odds), but each win pays more, jackpots hit more often, and UTXOs surface faster.
+So with BTC OG + luck SKILL nodes, your Hash Flip tier odds are unchanged, but
+each win pays more, jackpots hit more often, and UTXOs surface faster.
 
 ---
 
@@ -124,7 +124,7 @@ In-game **UTXO** only — no real money or value. Deliberately **player-favoured
 |---|---|---|
 | **Block Scanner** (slots) | ~1.65× | ~80% don't lose (47% win / 32% refund / 20% bust); 25× jackpot |
 | **Packet Relay** (plinko) | ~1.55× | the SAFE game — worst bucket refunds the stake; 20× edges |
-| **Hash Flip** (double-or-nothing) | ~1.36× (68% win) | the RISKY game — a miss loses the whole stake |
+| **Hash Flip** (leading-zeros lottery) | ~1.50× | the HIGH-VARIANCE game — ~76% bust, ~24% pay (2×/5×), rare **30×** "block found" (3%). Same EV as the others, just swingier |
 
 - **Luck** boosts payouts up to `casinoEvCeiling = 2.5×`.
 - **Anti-farm cap:** once net gain reaches `casinoDailyNetCap = 400` UTXO within a
