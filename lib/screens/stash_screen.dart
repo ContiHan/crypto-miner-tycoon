@@ -21,7 +21,7 @@ class StashScreen extends StatefulWidget {
 enum CasinoGame { slots, plinko, flip }
 
 class _StashScreenState extends State<StashScreen>
-    with TickerProviderStateMixin {
+    with TickerProviderStateMixin, WidgetsBindingObserver {
   late TabController _tabController;
   bool _isErrorShowing = false;
 
@@ -42,7 +42,14 @@ class _StashScreenState extends State<StashScreen>
   final List<String> _reels = ['coin', 'rocket', 'diamond'];
   List<bool> _reelSettled = [true, true, true];
   Timer? _spinTimer;
-  int? _chipOverride; // shown while spinning so the header can't spoil the win
+
+  // A RESOLVED-but-not-yet-committed sweep outcome: its stake is already deducted
+  // (so the header naturally shows the bet gone, payout hidden), but the payout /
+  // net cap / achievements are committed only when the animation lands — via
+  // [_finishSweep], which also runs on dispose so leaving mid-flight never loses
+  // the stake. This is what stops a win/achievement/cap from flashing at tap time.
+  SweepOutcome? _pendingSweep;
+  GameLogic? _pendingGame;
 
   // Plinko animation state.
   bool _plinkoDropping = false;
@@ -50,9 +57,17 @@ class _StashScreenState extends State<StashScreen>
   List<bool>? _plinkoPath; // the drop being animated (null = idle)
   int _plinkoLandedSlot = -1; // landed bucket, highlighted after settle
 
-  // The three casino games share _chipOverride and _casinoMessage, so only one
-  // may animate at a time — otherwise a second game clobbers the first's state.
-  bool get _casinoBusy => _slotSpinning || _plinkoDropping;
+  // Hash Flip animation state. While hashing, the hex string scrambles ("mining"
+  // a nonce); on reveal it settles to a hash with `_flipReveal.zeros` glowing
+  // leading zeros (the tier that was hit).
+  bool _flipHashing = false;
+  String _flipHashText = '0x00000000';
+  FlipResult? _flipReveal; // the settled result (null while hashing / idle)
+  Timer? _flipTimer;
+
+  // The three SWEEP games share _casinoMessage / the pending-sweep slot, so only
+  // one may animate at a time — otherwise a second game clobbers the first.
+  bool get _casinoBusy => _slotSpinning || _plinkoDropping || _flipHashing;
 
   // Real outline icons (no emoji) for the slot symbol keys.
   static const Map<String, IconData> _slotIcons = {
@@ -77,6 +92,20 @@ class _StashScreenState extends State<StashScreen>
     _gamePageController = PageController(initialPage: _selectedGame.index);
     _plinkoController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1400));
+    WidgetsBinding.instance.addObserver(this);
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // If the app backgrounds mid-animation, settle the in-flight sweep NOW (a
+    // silent commit that saves) so a process-kill can't strand a deducted stake
+    // with no payout. A no-op when nothing is pending. The animation, if the app
+    // resumes, finishes into an already-committed (idempotent) _finishSweep.
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.hidden ||
+        state == AppLifecycleState.detached) {
+      _finishSweep(silent: true);
+    }
   }
 
   @override
@@ -84,10 +113,17 @@ class _StashScreenState extends State<StashScreen>
     // The screen is rebuilt on every bottom-nav switch, so a missing dispose
     // leaked a TabController (and its ticker) per visit and could assert in
     // debug when leaving mid tab-animation.
+    WidgetsBinding.instance.removeObserver(this);
     _tabController.dispose();
     _gamePageController.dispose();
     _spinTimer?.cancel();
+    _flipTimer?.cancel();
     _plinkoController.dispose();
+    // If the player left mid-animation, still commit the resolved outcome so the
+    // stake isn't silently lost. SILENT: no notifyListeners during dispose (it
+    // would markNeedsBuild on the locked tree and assert in debug); it still
+    // credits + saves, so the payout lands into their balance for later.
+    _finishSweep(silent: true);
     super.dispose();
   }
 
@@ -521,18 +557,34 @@ class _StashScreenState extends State<StashScreen>
 
   // ---- SWEEP minigame (SIMULATED — in-game UTXO only) --------------------
 
+  /// Commit the pending sweep outcome exactly once — credits the payout, advances
+  /// the net cap, and evaluates achievements. Called when an animation lands, and
+  /// as a safety net from dispose / app-pause (with [silent] = true, which skips
+  /// the reveal feedback + notify but still credits and saves). Idempotent: it
+  /// nulls the pending slot first, so a second call is a no-op.
+  void _finishSweep({bool silent = false}) {
+    final outcome = _pendingSweep;
+    final game = _pendingGame;
+    _pendingSweep = null;
+    _pendingGame = null;
+    if (outcome != null && game != null) {
+      game.commitSweep(outcome, silent: silent);
+    }
+  }
+
   void _playSlots(GameLogic game) {
     if (_casinoBusy) return;
-    final spin = game.playSlots(_bet); // resolves the outcome up front
+    // Resolve now (stake deducted, reels will show the real symbols) but DEFER the
+    // commit until the reels settle, so the payout can't spoil the header early.
+    final spin = game.resolveSlots(_bet);
     if (spin == null) return;
+    _pendingSweep = spin;
+    _pendingGame = game;
 
     setState(() {
       _slotSpinning = true;
       _casinoMessage = null;
       _reelSettled = [false, false, false];
-      // Show the bet as already deducted, but hide the payout until reels settle
-      // (otherwise the balance header spoils the win/loss).
-      _chipOverride = game.chips - spin.payout;
     });
 
     // Spin the reels: each cycles random symbols, then settles left-to-right.
@@ -559,9 +611,9 @@ class _StashScreenState extends State<StashScreen>
       });
       if (_reelSettled.every((s) => s)) {
         t.cancel();
+        _finishSweep(); // reels settled → NOW credit payout / cap / achievements
         setState(() {
           _slotSpinning = false;
-          _chipOverride = null; // reveal the real balance now
           if (spin.isJackpot) {
             _casinoMessage = 'JACKPOT!  +${spin.net} UTXO';
             _casinoMessageColor = Colors.amberAccent;
@@ -581,38 +633,98 @@ class _StashScreenState extends State<StashScreen>
     });
   }
 
+  static const String _hexChars = '0123456789abcdef';
+
+  String _randomHash({int len = 8}) {
+    final b = StringBuffer('0x');
+    for (int i = 0; i < len; i++) {
+      b.write(_hexChars[_rng.nextInt(16)]);
+    }
+    return b.toString();
+  }
+
+  // A hash with EXACTLY [zeros] leading zeros (the char after them is forced
+  // non-zero), so the reveal visibly matches the resolved tier.
+  String _hashWithLeadingZeros(int zeros, {int len = 8}) {
+    final b = StringBuffer('0x');
+    for (int i = 0; i < len; i++) {
+      if (i < zeros) {
+        b.write('0');
+      } else if (i == zeros) {
+        b.write(_hexChars[1 + _rng.nextInt(15)]); // first non-zero nibble
+      } else {
+        b.write(_hexChars[_rng.nextInt(16)]);
+      }
+    }
+    return b.toString();
+  }
+
   void _playFlip(GameLogic game) {
     if (_casinoBusy) return;
-    final result = game.playDoubleOrNothing(_bet);
+    // Resolve now (the hash scramble will settle on the REAL tier), but DEFER the
+    // commit until the reveal — so payout / achievement / cap don't flash early.
+    final result = game.resolveFlip(_bet);
     if (result == null) return;
+    _pendingSweep = result;
+    _pendingGame = game;
+
     setState(() {
-      if (result.isJackpot) {
-        _casinoMessage = 'BLOCK FOUND!  +${result.net} UTXO';
-        _casinoMessageColor = Colors.amberAccent;
-      } else if (result.net > 0) {
-        final z = result.zeros;
-        _casinoMessage =
-            '$z leading zero${z == 1 ? '' : 's'}  ·  +${result.net} UTXO';
-        _casinoMessageColor = Colors.greenAccent;
-      } else {
-        _casinoMessage = 'Stale share.  ${result.net} UTXO';
-        _casinoMessageColor = Colors.redAccent;
+      _flipHashing = true;
+      _flipReveal = null;
+      _casinoMessage = null;
+      _flipHashText = _randomHash();
+    });
+
+    int tick = 0;
+    const totalTicks = 18; // ~1s of "mining" at 55ms/tick
+    _flipTimer?.cancel();
+    _flipTimer = Timer.periodic(const Duration(milliseconds: 55), (t) {
+      if (!mounted) {
+        t.cancel();
+        return;
       }
+      tick++;
+      if (tick < totalTicks) {
+        setState(() => _flipHashText = _randomHash());
+        return;
+      }
+      t.cancel();
+      _finishSweep(); // nonce settled → NOW credit payout / cap / achievements
+      setState(() {
+        _flipHashing = false;
+        _flipReveal = result;
+        _flipHashText = _hashWithLeadingZeros(result.zeros);
+        if (result.isJackpot) {
+          _casinoMessage = 'BLOCK FOUND!  +${result.net} UTXO';
+          _casinoMessageColor = Colors.amberAccent;
+        } else if (result.net > 0) {
+          final z = result.zeros;
+          _casinoMessage =
+              '$z leading zero${z == 1 ? '' : 's'}  ·  +${result.net} UTXO';
+          _casinoMessageColor = Colors.greenAccent;
+        } else {
+          _casinoMessage = 'Stale share.  ${result.net} UTXO';
+          _casinoMessageColor = Colors.redAccent;
+        }
+      });
     });
   }
 
   void _playPlinko(GameLogic game) {
     if (_casinoBusy) return;
-    final drop = game.playPlinko(_bet); // resolves the outcome up front
+    // Resolve now (stake deducted, ball will land in the REAL bucket) but DEFER
+    // the commit until the ball lands — so the payout, an achievement toast, or
+    // the MEMPOOL CONGESTED cap never appear before the ball settles.
+    final drop = game.resolvePlinko(_bet);
     if (drop == null) return;
+    _pendingSweep = drop;
+    _pendingGame = game;
 
     setState(() {
       _plinkoDropping = true;
       _casinoMessage = null;
       _plinkoPath = drop.path;
       _plinkoLandedSlot = -1;
-      // Hide the payout until the ball lands (else the header spoils the win).
-      _chipOverride = game.chips - drop.payout;
     });
 
     // Smooth cosmetic drop: the controller animates the ball down the already
@@ -621,10 +733,10 @@ class _StashScreenState extends State<StashScreen>
       ..reset()
       ..forward().whenComplete(() {
         if (!mounted) return;
+        _finishSweep(); // ball landed → NOW credit payout / cap / achievements
         setState(() {
           _plinkoDropping = false;
           _plinkoLandedSlot = drop.slotIndex;
-          _chipOverride = null; // reveal the real balance now
           if (drop.isJackpot) {
             _casinoMessage = 'JACKPOT!  +${drop.net} UTXO';
             _casinoMessageColor = Colors.amberAccent;
@@ -709,7 +821,7 @@ class _StashScreenState extends State<StashScreen>
             const Icon(Icons.token, color: Colors.cyanAccent, size: 24),
             const SizedBox(width: 8),
             Text(
-              '${_chipOverride ?? game.chips} UTXO',
+              '${game.chips} UTXO',
               style: GoogleFonts.orbitron(
                 fontSize: 24,
                 color: Colors.cyanAccent,
@@ -964,16 +1076,93 @@ class _StashScreenState extends State<StashScreen>
           textAlign: TextAlign.center,
           style: TextStyle(color: Colors.white54, fontSize: 12),
         ),
-        const SizedBox(height: 16),
+        const SizedBox(height: 14),
+        _flipHashDisplay(),
+        const SizedBox(height: 14),
         _flipPaytable(),
-        const SizedBox(height: 18),
+        const SizedBox(height: 16),
         _sweepControl(
           game,
-          label: 'FLIP ($_bet UTXO)',
+          label: _flipHashing ? 'HASHING…' : 'FLIP ($_bet UTXO)',
           color: Colors.purpleAccent,
           onPressed: (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
         ),
       ],
+    );
+  }
+
+  /// The nonce/hash readout: a scrambling hex string while "mining", settling to
+  /// a hash whose `_flipReveal.zeros` leading zeros glow (the tier that hit).
+  Widget _flipHashDisplay() {
+    final revealed = _flipReveal;
+    final zeros = revealed?.zeros ?? 0;
+    final body = _flipHashText.startsWith('0x')
+        ? _flipHashText.substring(2)
+        : _flipHashText;
+
+    final spans = <TextSpan>[
+      const TextSpan(text: '0x', style: TextStyle(color: Colors.white30)),
+    ];
+    for (int i = 0; i < body.length; i++) {
+      final isFoundZero = revealed != null && i < zeros;
+      final Color c = _flipHashing
+          ? Colors.cyanAccent
+          : (isFoundZero ? Colors.amberAccent : Colors.white38);
+      spans.add(TextSpan(
+        text: body[i],
+        style: TextStyle(
+          color: c,
+          fontWeight: isFoundZero ? FontWeight.bold : FontWeight.normal,
+        ),
+      ));
+    }
+
+    final String label;
+    final Color labelColor;
+    if (_flipHashing) {
+      label = 'HASHING NONCE…';
+      labelColor = Colors.cyanAccent;
+    } else if (revealed == null) {
+      label = 'READY';
+      labelColor = Colors.white38;
+    } else if (zeros == 0) {
+      label = 'NO LEADING ZERO — STALE SHARE';
+      labelColor = Colors.redAccent;
+    } else {
+      label = '$zeros LEADING ZERO${zeros == 1 ? '' : 'S'}'
+          '${revealed.isJackpot ? ' — BLOCK FOUND!' : ''}';
+      labelColor = revealed.isJackpot ? Colors.amberAccent : Colors.greenAccent;
+    }
+
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.symmetric(vertical: 14, horizontal: 12),
+      decoration: BoxDecoration(
+        color: Colors.black38,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: labelColor.withValues(alpha: 0.4)),
+      ),
+      child: Column(
+        children: [
+          Text(label,
+              style: TextStyle(
+                  color: labelColor,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                  letterSpacing: 1.5)),
+          const SizedBox(height: 8),
+          RichText(
+            text: TextSpan(
+              style: const TextStyle(
+                fontFamily: 'monospace',
+                fontSize: 20,
+                letterSpacing: 2,
+              ),
+              children: spans,
+            ),
+          ),
+        ],
+      ),
     );
   }
 

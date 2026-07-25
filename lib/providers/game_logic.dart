@@ -202,73 +202,92 @@ class GameLogic with ChangeNotifier {
     return casinoWindowNet < GameConstants.casinoDailyNetCap;
   }
 
-  /// Bet [bet] UTXO on the slots. Returns the spin (null if unaffordable or the
-  /// per-window cap already blocks play).
+  // --- SWEEP: resolve/commit split -----------------------------------------
+  // Each game splits into RESOLVE (gate on the cap + deduct the stake + roll the
+  // RNG outcome) and COMMIT (credit the payout, advance the net cap, count the
+  // spin, play feedback, evaluate achievements, notify + save). The animated UI
+  // resolves at the tap so the reels/ball/nonce show the REAL outcome, then calls
+  // commitSweep only once the animation lands — otherwise a win, an achievement
+  // toast, or the "MEMPOOL CONGESTED" cap would flash at tap time, before the
+  // animation finishes. The one-shot play* wrappers (resolve+commit) stay for
+  // tests and any non-animated path.
+
+  /// Bet [bet] UTXO on the slots (one-shot). Null if unaffordable or capped.
   SlotSpin? playSlots(int bet) {
-    if (bet <= 0 || chips < bet) return null;
-    if (!_beginSweep()) return null;
-    chips -= bet;
-    final spin = _casino.spinSlots(bet, _casinoRng, luck: luckMultiplier);
-    chips += spin.payout;
-    casinoWindowNet += spin.net;
-    casinoSpins++;
-    if (spin.isJackpot) casinoJackpots++;
-    _soundService.playBuy();
-    if (spin.isJackpot) {
-      _hapticHeavy();
-    } else if (spin.isWin) {
-      _hapticLight();
-    }
-    _evaluateAchievements();
-    notifyListeners();
-    _saveGame();
+    final spin = resolveSlots(bet);
+    if (spin != null) commitSweep(spin);
     return spin;
   }
 
-  /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30×
-  /// jackpot). Returns the tiered [FlipResult], or null if unaffordable or capped.
-  FlipResult? playDoubleOrNothing(int bet) {
+  /// Deduct the stake and roll a slots spin WITHOUT committing it (see
+  /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
+  SlotSpin? resolveSlots(int bet) {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    final result = _casino.flip(bet, _casinoRng, luck: luckMultiplier);
-    chips += result.payout;
-    casinoWindowNet += result.net;
-    casinoSpins++;
-    if (result.isJackpot) casinoJackpots++;
-    _soundService.playBuy();
-    if (result.isJackpot) {
-      _hapticHeavy();
-    } else if (result.isWin) {
-      _hapticLight();
-    }
-    _evaluateAchievements();
-    notifyListeners();
-    _saveGame();
+    return _casino.spinSlots(bet, _casinoRng, luck: luckMultiplier);
+  }
+
+  /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30×
+  /// jackpot), one-shot. Null if unaffordable or capped.
+  FlipResult? playDoubleOrNothing(int bet) {
+    final result = resolveFlip(bet);
+    if (result != null) commitSweep(result);
     return result;
   }
 
-  /// Relay a packet for [bet] UTXO. Returns the drop (null if unaffordable or the
-  /// per-window cap already blocks play).
-  PlinkoDrop? playPlinko(int bet) {
+  /// Deduct the stake and roll a Hash Flip WITHOUT committing it (see
+  /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
+  FlipResult? resolveFlip(int bet) {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    final drop = _casino.dropPlinko(bet, _casinoRng, luck: luckMultiplier);
-    chips += drop.payout;
-    casinoWindowNet += drop.net;
+    return _casino.flip(bet, _casinoRng, luck: luckMultiplier);
+  }
+
+  /// Relay a packet for [bet] UTXO (one-shot). Null if unaffordable or capped.
+  PlinkoDrop? playPlinko(int bet) {
+    final drop = resolvePlinko(bet);
+    if (drop != null) commitSweep(drop);
+    return drop;
+  }
+
+  /// Deduct the stake and roll a relay drop WITHOUT committing it (see
+  /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
+  PlinkoDrop? resolvePlinko(int bet) {
+    if (bet <= 0 || chips < bet) return null;
+    if (!_beginSweep()) return null;
+    chips -= bet;
+    return _casino.dropPlinko(bet, _casinoRng, luck: luckMultiplier);
+  }
+
+  /// Commit a RESOLVED sweep outcome (the stake was already deducted by the
+  /// matching resolve*): credit the payout, advance the per-window net (which can
+  /// trip the cap), count the spin/jackpot, evaluate achievements, and always
+  /// SAVE (so a background/kill can't lose the staked UTXO).
+  ///
+  /// When [silent] (the animation never got to land — the screen is being
+  /// disposed or the app is backgrounding), skip the reveal feedback: no sound,
+  /// no haptic, and NO notifyListeners — the latter would call markNeedsBuild
+  /// during the framework's locked teardown and assert in debug. The currency is
+  /// still committed exactly once and persisted; the UI reflects it on its next
+  /// natural rebuild.
+  void commitSweep(SweepOutcome outcome, {bool silent = false}) {
+    chips += outcome.payout;
+    casinoWindowNet += outcome.net;
     casinoSpins++;
-    if (drop.isJackpot) casinoJackpots++;
-    _soundService.playBuy();
-    if (drop.isJackpot) {
-      _hapticHeavy();
-    } else if (drop.isWin) {
-      _hapticLight();
+    if (outcome.isJackpot) casinoJackpots++;
+    if (!silent) {
+      _soundService.playBuy();
+      if (outcome.isJackpot) {
+        _hapticHeavy();
+      } else if (outcome.isWin) {
+        _hapticLight();
+      }
     }
     _evaluateAchievements();
-    notifyListeners();
+    if (!silent) notifyListeners();
     _saveGame();
-    return drop;
   }
 
   // Achievements + Notoriety (permanent income bonus). Persists across all

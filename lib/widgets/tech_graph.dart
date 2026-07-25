@@ -158,94 +158,170 @@ class _BlockGraphState extends State<BlockGraph> {
   }
 }
 
+/// Gold used for maxed nodes (distinct from the amber accent used for owned).
+/// Public so screens' legends can match the node colour.
+const Color kMaxedGold = Color(0xFFFFCC46);
+
 class _BlockNode extends StatelessWidget {
   final GraphNode node;
   const _BlockNode({required this.node});
 
   @override
   Widget build(BuildContext context) {
-    Color border;
-    Color fill;
-    List<BoxShadow> shadow = const [];
+    final isTeaser = node.state == GraphNodeState.teaser;
+    final owned = node.state == GraphNodeState.owned;
+    final maxed = node.state == GraphNodeState.maxed;
+    final available = node.state == GraphNodeState.available;
+    final affordable = available && node.canAfford;
+    final earned = owned || maxed;
+
+    // Per-state accent (border/icon/sublabel) and card gradient (top → bottom).
+    final Color accent;
+    final List<Color> grad;
     switch (node.state) {
       case GraphNodeState.owned:
-        border = AppTheme.accent;
-        fill = AppTheme.accent.withValues(alpha: 0.18);
+        accent = AppTheme.accent;
+        grad = [
+          AppTheme.accent.withValues(alpha: 0.34),
+          AppTheme.accent.withValues(alpha: 0.10),
+        ];
         break;
       case GraphNodeState.maxed:
-        border = Colors.greenAccent;
-        fill = Colors.greenAccent.withValues(alpha: 0.16);
+        accent = kMaxedGold;
+        grad = [
+          kMaxedGold.withValues(alpha: 0.30),
+          kMaxedGold.withValues(alpha: 0.08),
+        ];
         break;
       case GraphNodeState.available:
-        if (node.canAfford) {
-          border = AppTheme.accent;
-          fill = AppTheme.surface;
-          shadow = [
-            BoxShadow(
-                color: AppTheme.accent.withValues(alpha: 0.55), blurRadius: 12),
-          ];
-        } else {
-          border = Colors.white38;
-          fill = Colors.black26;
-        }
+        accent = affordable ? AppTheme.accent : Colors.white54;
+        grad = const [Color(0xFF23262E), Color(0xFF141519)];
         break;
       case GraphNodeState.teaser:
-        border = Colors.white24;
-        fill = Colors.black26;
+        accent = Colors.white24;
+        grad = const [Color(0xFF16171B), Color(0xFF101114)];
         break;
     }
-    final isTeaser = node.state == GraphNodeState.teaser;
+
+    final borderColor = isTeaser
+        ? Colors.white12
+        : accent.withValues(alpha: earned || affordable ? 0.95 : 0.5);
+    final borderWidth = node.isGenesis ? 2.6 : (earned || affordable ? 1.8 : 1.2);
 
     return GestureDetector(
       onTap: node.onTap,
       child: Container(
         decoration: BoxDecoration(
-          color: fill,
-          border: Border.all(color: border, width: node.isGenesis ? 3 : 2),
-          borderRadius: BorderRadius.circular(6),
-          boxShadow: shadow,
+          gradient: LinearGradient(
+            begin: Alignment.topCenter,
+            end: Alignment.bottomCenter,
+            colors: grad,
+          ),
+          border: Border.all(color: borderColor, width: borderWidth),
+          borderRadius: BorderRadius.circular(11),
+          boxShadow: [
+            const BoxShadow(
+                color: Colors.black54, blurRadius: 7, offset: Offset(0, 3)),
+            if (affordable)
+              BoxShadow(
+                  color: accent.withValues(alpha: 0.45),
+                  blurRadius: 15,
+                  spreadRadius: 0.5),
+            if (maxed)
+              BoxShadow(color: accent.withValues(alpha: 0.35), blurRadius: 12),
+          ],
         ),
-        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
-        child: Row(
+        child: Stack(
           children: [
-            Icon(
-              isTeaser
-                  ? Icons.lock_outline
-                  : (node.isGenesis ? Icons.hub : node.icon),
-              size: 20,
-              color: isTeaser ? Colors.white38 : border,
+            // Glassy top highlight for a little depth.
+            Positioned(
+              left: 1,
+              right: 1,
+              top: 1,
+              height: kNodeH * 0.4,
+              child: DecoratedBox(
+                decoration: BoxDecoration(
+                  borderRadius:
+                      const BorderRadius.vertical(top: Radius.circular(10)),
+                  gradient: LinearGradient(
+                    begin: Alignment.topCenter,
+                    end: Alignment.bottomCenter,
+                    colors: [
+                      Colors.white.withValues(alpha: isTeaser ? 0.03 : 0.07),
+                      Colors.transparent,
+                    ],
+                  ),
+                ),
+              ),
             ),
-            const SizedBox(width: 5),
-            Expanded(
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
-                crossAxisAlignment: CrossAxisAlignment.start,
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+              child: Row(
                 children: [
-                  Text(
-                    isTeaser ? '???' : node.label,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: GoogleFonts.orbitron(
-                      fontSize: 9,
-                      fontWeight: FontWeight.bold,
-                      color: isTeaser ? Colors.white54 : Colors.white,
-                      letterSpacing: 0.5,
+                  // Icon chip.
+                  Container(
+                    width: 30,
+                    height: 30,
+                    alignment: Alignment.center,
+                    decoration: BoxDecoration(
+                      color: isTeaser
+                          ? Colors.white10
+                          : accent.withValues(alpha: earned ? 0.22 : 0.14),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                          color: accent.withValues(alpha: 0.4), width: 1),
+                    ),
+                    child: Icon(
+                      isTeaser
+                          ? Icons.lock_outline
+                          : (node.isGenesis ? Icons.hub : node.icon),
+                      size: 16,
+                      color: isTeaser ? Colors.white38 : accent,
                     ),
                   ),
-                  if (node.sublabel.isNotEmpty)
-                    FittedBox(
-                      fit: BoxFit.scaleDown,
-                      alignment: Alignment.centerLeft,
-                      child: Text(
-                        node.sublabel,
-                        style: TextStyle(
-                          fontSize: 10,
-                          fontWeight: FontWeight.w900,
-                          color: node.state == GraphNodeState.owned ||
-                                  node.state == GraphNodeState.maxed
-                              ? border
-                              : Colors.white70,
+                  const SizedBox(width: 7),
+                  Expanded(
+                    child: Column(
+                      mainAxisAlignment: MainAxisAlignment.center,
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          isTeaser ? '???' : node.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: GoogleFonts.orbitron(
+                            fontSize: 9,
+                            fontWeight: FontWeight.bold,
+                            color: isTeaser ? Colors.white54 : Colors.white,
+                            letterSpacing: 0.3,
+                          ),
                         ),
+                        if (node.sublabel.isNotEmpty) ...[
+                          const SizedBox(height: 2),
+                          FittedBox(
+                            fit: BoxFit.scaleDown,
+                            alignment: Alignment.centerLeft,
+                            child: Text(
+                              node.sublabel,
+                              style: TextStyle(
+                                fontSize: 10,
+                                fontWeight: FontWeight.w800,
+                                color: earned ? accent : Colors.white70,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ],
+                    ),
+                  ),
+                  // A small state pip: check when owned, star when maxed.
+                  if (earned)
+                    Padding(
+                      padding: const EdgeInsets.only(left: 2),
+                      child: Icon(
+                        maxed ? Icons.star_rounded : Icons.check_circle,
+                        size: 13,
+                        color: accent,
                       ),
                     ),
                 ],
@@ -258,8 +334,11 @@ class _BlockNode extends StatelessWidget {
   }
 }
 
-/// Draws glowing amber "chain" segments between node centers, brightening the
-/// links whose child node is already earned.
+/// Draws the connectors between nodes as clean glowing "conduits" — a soft blur
+/// underlay + a crisp core line, with small pads where they meet a node. Earned
+/// links (child owned/maxed) glow in the accent; the rest stay faint. Elbow edges
+/// route orthogonally with ROUNDED corners (reads as a tidy circuit, not the old
+/// fanned diagonals studded with little chain rectangles).
 class _ChainPainter extends CustomPainter {
   final Map<String, Offset> centers;
   final List<GraphEdge> edges;
@@ -276,70 +355,74 @@ class _ChainPainter extends CustomPainter {
       final childState = states[e.toId];
       final earned = childState == GraphNodeState.owned ||
           childState == GraphNodeState.maxed;
-      final base = earned ? AppTheme.accent : Colors.white24;
+      final base = earned ? AppTheme.accent : Colors.white;
 
       if (edgeStyle == GraphEdgeStyle.elbow) {
-        // Orthogonal circuit routing: out of the parent's right edge, across to
-        // a mid-column, down/up to the child's row, then into the child. Reads
-        // as a clean tech-tree instead of fanned diagonals.
-        final startX = a.dx + kNodeW / 2;
-        final endX = b.dx - kNodeW / 2;
-        final midX = (startX + endX) / 2;
-        final p1 = Offset(startX, a.dy);
-        final p2 = Offset(midX, a.dy);
-        final p3 = Offset(midX, b.dy);
-        final p4 = Offset(endX, b.dy);
-        _seg(canvas, p1, p2, base, earned, links: true);
-        _seg(canvas, p2, p3, base, earned, links: false);
-        _seg(canvas, p3, p4, base, earned, links: true);
+        _drawConduit(canvas, _elbowPath(a, b), base, earned);
+        // Connection pads at the parent output and child input edges.
+        _pad(canvas, Offset(a.dx + kNodeW / 2, a.dy), base, earned);
+        _pad(canvas, Offset(b.dx - kNodeW / 2, b.dy), base, earned);
       } else {
-        _seg(canvas, a, b, base, earned, links: true);
+        _drawConduit(
+            canvas, Path()..moveTo(a.dx, a.dy)..lineTo(b.dx, b.dy), base, earned);
       }
     }
   }
 
-  /// Draws one segment: wide glow + thin bright line + a few chain-link rects.
-  void _seg(Canvas canvas, Offset a, Offset b, Color base, bool earned,
-      {required bool links}) {
-    canvas.drawLine(
-      a,
-      b,
-      Paint()
-        ..color = base.withValues(alpha: earned ? 0.22 : 0.10)
-        ..strokeWidth = 6
-        ..strokeCap = StrokeCap.round,
-    );
-    canvas.drawLine(
-      a,
-      b,
-      Paint()
-        ..color = base.withValues(alpha: earned ? 0.9 : 0.4)
-        ..strokeWidth = 2,
-    );
-    if (!links) return;
-    final dx = b.dx - a.dx, dy = b.dy - a.dy;
-    final len = math.sqrt(dx * dx + dy * dy);
-    if (len < 24) return; // too short to bother
-    final angle = math.atan2(dy, dx);
-    final count = (len / 40).clamp(1, 5).floor();
-    final linkPaint = Paint()
-      ..color = base.withValues(alpha: earned ? 0.8 : 0.35)
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = 1.5;
-    for (int i = 1; i <= count; i++) {
-      final t = i / (count + 1);
-      canvas.save();
-      canvas.translate(a.dx + dx * t, a.dy + dy * t);
-      canvas.rotate(angle);
-      canvas.drawRRect(
-        RRect.fromRectAndRadius(
-          const Rect.fromLTWH(-6, -3.5, 12, 7),
-          const Radius.circular(3),
-        ),
-        linkPaint,
-      );
-      canvas.restore();
+  /// Orthogonal parent→child route with rounded corners: out of the parent's
+  /// right edge, across to a mid-column, up/down to the child's row, then in.
+  Path _elbowPath(Offset a, Offset b) {
+    final startX = a.dx + kNodeW / 2;
+    final endX = b.dx - kNodeW / 2;
+    final midX = (startX + endX) / 2;
+    final path = Path()..moveTo(startX, a.dy);
+    final dyAbs = (b.dy - a.dy).abs();
+    if (dyAbs < 1) {
+      path.lineTo(endX, b.dy); // same row → a straight run
+      return path;
     }
+    final dir = b.dy > a.dy ? 1.0 : -1.0;
+    final cr = math.max(
+        0.0, math.min(12.0, math.min((endX - startX).abs() / 2, dyAbs / 2)));
+    path
+      ..lineTo(midX - cr, a.dy)
+      ..quadraticBezierTo(midX, a.dy, midX, a.dy + dir * cr)
+      ..lineTo(midX, b.dy - dir * cr)
+      ..quadraticBezierTo(midX, b.dy, midX + cr, b.dy)
+      ..lineTo(endX, b.dy);
+    return path;
+  }
+
+  void _drawConduit(Canvas canvas, Path path, Color base, bool earned) {
+    // Soft glow underlay.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = base.withValues(alpha: earned ? 0.20 : 0.06)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = 7
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round
+        ..maskFilter = const MaskFilter.blur(BlurStyle.normal, 3),
+    );
+    // Crisp core.
+    canvas.drawPath(
+      path,
+      Paint()
+        ..color = base.withValues(alpha: earned ? 0.95 : 0.32)
+        ..style = PaintingStyle.stroke
+        ..strokeWidth = earned ? 2.4 : 1.6
+        ..strokeCap = StrokeCap.round
+        ..strokeJoin = StrokeJoin.round,
+    );
+  }
+
+  void _pad(Canvas canvas, Offset c, Color base, bool earned) {
+    canvas.drawCircle(
+      c,
+      3.2,
+      Paint()..color = base.withValues(alpha: earned ? 0.95 : 0.45),
+    );
   }
 
   @override

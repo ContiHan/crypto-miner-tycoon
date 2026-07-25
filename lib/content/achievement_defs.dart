@@ -76,7 +76,7 @@ enum AchCategory { earnings, rigs, tech, prestige, collection, meta, secret }
 
 /// A single achievement. [secret] ones are hidden ("???") until earned and grant
 /// NO Notoriety (cosmetic only); normal ones each grant Notoriety (a small
-/// permanent income bonus, its own lane away from the perk/lab power budget).
+/// permanent income bonus, its own lane away from the SKILL/TECH power budget).
 class Achievement {
   final String id;
   final String title;
@@ -159,11 +159,11 @@ final List<Achievement> kAchievements = [
     condition: (s) => s.rigTypesOwned >= s.rigTypesTotal,
   ),
 
-  // --- Tech (LAB / perks) ---
+  // --- Tech (tech tree / SKILL) ---
   Achievement(
     id: 'lab_5',
     title: 'Overclocked',
-    description: 'Complete 5 lab researches.',
+    description: 'Complete 5 tech researches.',
     category: AchCategory.tech,
     condition: (s) => s.researchCompleted >= 5,
   ),
@@ -177,7 +177,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'perks_10',
     title: 'Well Invested',
-    description: 'Buy 10 perk levels.',
+    description: 'Buy 10 Skill levels.',
     category: AchCategory.tech,
     condition: (s) => s.perkLevels >= 10,
   ),
@@ -233,7 +233,7 @@ final List<Achievement> kAchievements = [
     condition: (s) => s.genesisBlocks >= 5,
   ),
 
-  // --- Collection (stash / crates / chips) ---
+  // --- Collection (stash / crates / UTXO) ---
   Achievement(
     id: 'stash_10',
     title: 'Collector',
@@ -307,7 +307,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'perks_50',
     title: 'Fully Upgraded',
-    description: 'Buy 50 perk levels.',
+    description: 'Buy 50 Skill levels.',
     category: AchCategory.tech,
     condition: (s) => s.perkLevels >= 50,
   ),
@@ -364,7 +364,7 @@ final List<Achievement> kAchievements = [
     id: 'meta_genesis_complete',
     title: 'Genesis Complete',
     // The true ending: mine more Bitcoin than will ever exist — a cumulative
-    // total, across every chain, of ~100x the entire 21M supply.
+    // total, across every chain, of ~100,000x the entire 21M supply.
     description: 'Mine more BTC than will ever exist — the true ending.',
     category: AchCategory.meta,
     condition: (s) => s.lifetimeEverSats >= GameConstants.endgameTargetSats,
@@ -491,7 +491,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'secret_jackpot',
     title: 'Jackpot!',
-    description: 'Hit the slots jackpot. Against all odds.',
+    description: 'Hit a jackpot in the SWEEP.',
     category: AchCategory.secret,
     secret: true,
     condition: (s) => s.casinoJackpots >= 1,

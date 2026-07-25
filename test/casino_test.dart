@@ -135,6 +135,58 @@ void main() {
       expect(game.casinoSpins, 1);
     });
 
+    test(
+        'resolve deducts the stake but DEFERS payout / net / spin until commit '
+        '(so the animated UI can reveal only when the ball lands)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100;
+
+      final drop = game.resolvePlinko(10);
+      expect(drop, isNotNull);
+      // The stake leaves immediately (the header shows it gone)...
+      expect(game.chips, 90);
+      // ...but nothing that could "spoil" the animation has committed yet: no
+      // payout, the per-window net (and thus the cap) is untouched, no spin
+      // counted, and achievements haven't been re-evaluated.
+      expect(game.casinoSpins, 0, reason: 'spin counted only on commit');
+      expect(game.casinoWindowNet, 0, reason: 'net/cap advanced only on commit');
+
+      game.commitSweep(drop!);
+      expect(game.chips, 90 + drop.payout, reason: 'payout credited on commit');
+      expect(game.casinoSpins, 1);
+      expect(game.casinoWindowNet, drop.net);
+    });
+
+    test('the one-shot play* wrappers equal resolve + commit (stake + payout)',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 1000;
+      final spin = game.playSlots(10);
+      expect(spin, isNotNull);
+      expect(game.chips, 1000 - 10 + spin!.payout);
+      expect(game.casinoSpins, 1);
+    });
+
+    test('a SILENT commit (dispose / app-pause safety net) still credits the '
+        'payout and counts the spin — only the reveal feedback is skipped',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.chips = 100;
+      final drop = game.resolvePlinko(10);
+      expect(drop, isNotNull);
+      expect(game.chips, 90);
+
+      game.commitSweep(drop!, silent: true);
+      // Currency is committed exactly as a normal commit — the stake is never
+      // lost when the screen tears down or the app backgrounds mid-animation.
+      expect(game.chips, 90 + drop.payout);
+      expect(game.casinoSpins, 1);
+      expect(game.casinoWindowNet, drop.net);
+    });
+
     test('rejects zero or negative bets (no chip printing exploit)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();

@@ -533,7 +533,7 @@ class _PerkLegend extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           row(AppTheme.accent, 'owned / affordable'),
-          row(Colors.greenAccent, 'maxed'),
+          row(kMaxedGold, 'maxed'),
           row(Colors.white24, 'locked → buy the prerequisite'),
         ],
       ),

@@ -7,6 +7,17 @@ import '../core/constants.dart';
 /// the chain pays out — and the outcome is decided purely by [Random] here, never
 /// by any animation. It is bounded, not by a house edge, but by GameLogic's
 /// per-window net-gain cap (the anti-farm guardrail).
+/// The shared shape of every SWEEP result (slots / relay / flip). Lets GameLogic
+/// commit an outcome uniformly, and lets the UI hold a RESOLVED-but-not-yet-
+/// committed outcome while its animation plays, then commit it on landing (so a
+/// payout / achievement / the net-cap never reveal before the animation ends).
+abstract class SweepOutcome {
+  int get payout;
+  int get net;
+  bool get isWin;
+  bool get isJackpot;
+}
+
 class SlotOutcome {
   final String name;
   final List<String> symbols; // three reel symbol KEYS (mapped to icons in UI)
@@ -15,7 +26,7 @@ class SlotOutcome {
   const SlotOutcome(this.name, this.symbols, this.multiplier, this.weight);
 }
 
-class SlotSpin {
+class SlotSpin implements SweepOutcome {
   final List<String> symbols;
   final double multiplier;
   final int bet;
@@ -23,16 +34,20 @@ class SlotSpin {
   const SlotSpin(this.symbols, this.multiplier, this.bet,
       {this.luckFactor = 1.0});
 
+  @override
   int get payout => (bet * multiplier * luckFactor).floor();
+  @override
   int get net => payout - bet;
+  @override
   bool get isWin => payout > 0;
+  @override
   bool get isJackpot => multiplier >= 25;
 }
 
 /// Result of a single Plinko drop. [path] is one L/R decision per peg row
 /// (true = right); [slotIndex] is the landing bucket (== number of rights);
 /// [multiplier] is that bucket's payout per chip staked.
-class PlinkoDrop {
+class PlinkoDrop implements SweepOutcome {
   final List<bool> path;
   final int slotIndex;
   final double multiplier;
@@ -41,9 +56,13 @@ class PlinkoDrop {
   const PlinkoDrop(this.path, this.slotIndex, this.multiplier, this.bet,
       {this.luckFactor = 1.0});
 
+  @override
   int get payout => (bet * multiplier * luckFactor).floor();
+  @override
   int get net => payout - bet;
+  @override
   bool get isWin => payout > 0;
+  @override
   bool get isJackpot => multiplier >= 10;
 }
 
@@ -61,7 +80,7 @@ class FlipOutcome {
 /// share, you lose the stake), but a rare multi-zero hit "mines a block" for a
 /// big payout — up to 30×. EV matches the other games (~1.5); flip just trades
 /// safety for swing.
-class FlipResult {
+class FlipResult implements SweepOutcome {
   final int zeros;
   final double multiplier;
   final int bet;
@@ -69,9 +88,13 @@ class FlipResult {
   const FlipResult(this.zeros, this.multiplier, this.bet,
       {this.luckFactor = 1.0});
 
+  @override
   int get payout => (bet * multiplier * luckFactor).floor();
+  @override
   int get net => payout - bet;
+  @override
   bool get isWin => payout > 0;
+  @override
   bool get isJackpot => multiplier >= 30;
 }
 
