@@ -98,8 +98,6 @@ class _EndingScreen extends StatelessWidget {
                 _StatRow(label: 'GENESIS BLOCKS', value: '${game.genesisBlocks}'),
                 _StatRow(label: 'BLOCKCHAINS FORGED', value: '${game.newChainCount}'),
                 _StatRow(label: 'TOTAL MASTERY', value: '${game.totalMasteryLevel}'),
-                if (game.winCount > 0)
-                  _StatRow(label: 'ENDINGS REACHED', value: '${game.winCount + 1}'),
                 const SizedBox(height: 28),
                 const Text(
                   'The 21 million was never the limit. What now?',

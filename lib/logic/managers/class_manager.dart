@@ -5,10 +5,11 @@ import '../channels.dart';
 
 /// The Bitcoin "class" you play a chain as (RPG Phase 3).
 ///
-/// [prospector] is the class-less early game before the first New Blockchain —
-/// no bonuses, no Mastery. From the first New Blockchain onward the player picks
-/// one of the four real archetypes and is locked to it for the whole chain
-/// (re-pick only at the next New Blockchain).
+/// [prospector] is the class-less early game before a class is picked — no
+/// bonuses, no Mastery. Once SKILL unlocks (first Hard Fork) the player picks one
+/// of the four real archetypes and may switch freely thereafter; Mastery XP is
+/// credited per GovToken at MINT time to whichever class was active then, so a
+/// mid-run switch splits credit honestly and can't be farmed retroactively.
 enum BtcClass { prospector, soloMiner, corporation, btcOg, poolMember }
 
 /// Static definition of a class: its identity + how it reshapes the run.
@@ -170,8 +171,9 @@ class ClassManager {
     return masteryLevel(c);
   }
 
-  /// Credit [govTokensMinted] of Mastery XP to the class a just-finished chain
-  /// was played as. Prospector earns nothing (it isn't a real class).
+  /// Credit [govTokensMinted] of Mastery XP to the class that was active when
+  /// those GovTokens were minted (called per Hard Fork). Prospector earns
+  /// nothing (it isn't a real class).
   void creditMastery(BtcClass playedAs, double govTokensMinted) {
     if (playedAs == BtcClass.prospector || govTokensMinted <= 0) return;
     masteryXp[playedAs] = (masteryXp[playedAs] ?? 0) + govTokensMinted;
