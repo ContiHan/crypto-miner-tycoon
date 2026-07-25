@@ -363,30 +363,35 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 8),
 
-        Row(
-          children: [
-            Expanded(
-              child: _buildCrateCard(
-                context,
-                "STANDARD",
-                10,
-                Colors.blueGrey,
-                () => _showCrateOpening(context, false, game),
-                "Mostly Common / Uncommon · 12% Rare, rare Epic+.",
+        // IntrinsicHeight keeps the two cards equal height and lets them GROW to
+        // fit their text (no fixed-height clipping / overflow).
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(
+                child: _buildCrateCard(
+                  context,
+                  "STANDARD",
+                  10,
+                  Colors.blueGrey,
+                  () => _showCrateOpening(context, false, game),
+                  "Common / Uncommon · 12% Rare, rare Epic+",
+                ),
               ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: _buildCrateCard(
-                context,
-                "PREMIUM",
-                50,
-                Colors.amber,
-                () => _showCrateOpening(context, true, game),
-                "Rare floor · Epic ~31%, Legendary 14%, Mythic 5%.",
+              const SizedBox(width: 12),
+              Expanded(
+                child: _buildCrateCard(
+                  context,
+                  "PREMIUM",
+                  50,
+                  Colors.amber,
+                  () => _showCrateOpening(context, true, game),
+                  "Rare floor · Epic 31% · Leg 14% · Myth 5%",
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ],
     );
@@ -403,7 +408,7 @@ class _StashScreenState extends State<StashScreen>
     return GestureDetector(
       onTap: onTap,
       child: Container(
-        height: 180,
+        constraints: const BoxConstraints(minHeight: 170),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.1),
           borderRadius: BorderRadius.circular(12),
