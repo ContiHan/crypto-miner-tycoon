@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 
 enum EventType {
-  airdrop, // +Wallet (opposite of hack)
-  marketCrash, // -$$
-  bullRun, // +$$
-  hack, // -Wallet
-  cheapEnergy, // -Cost
+  // Three buff/debuff pairs + one neutral banner. Each pair = a temp buff and a
+  // debuff on the same axis:
+  bullRun, // income +   (pair: income)
+  marketCrash, // income -
+  airdrop, // wallet +   (pair: wallet, one-shot)
+  hack, // wallet -
+  cheapEnergy, // rig cost -   (pair: cost)
+  costSpike, // rig cost +
   info, // neutral banner ONLY (e.g. halving) — never rolled as a random event
 }
 

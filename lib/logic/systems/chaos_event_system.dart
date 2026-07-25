@@ -69,11 +69,12 @@ class ChaosEventSystem {
   // The random-event pool. EventType.info is EXCLUDED — it's a neutral banner
   // type used only for manual notices (e.g. the halving), never a rolled event.
   static const List<EventType> _randomTypes = [
-    EventType.airdrop,
-    EventType.marketCrash,
     EventType.bullRun,
+    EventType.marketCrash,
+    EventType.airdrop,
     EventType.hack,
     EventType.cheapEnergy,
+    EventType.costSpike,
   ];
 
   void triggerRandom() {
@@ -107,9 +108,15 @@ class ChaosEventSystem {
         duration = 45;
         break;
       case EventType.cheapEnergy:
-        cost = 0.7;
+        cost = 0.7; // rigs 30% cheaper
         value = -30;
         color = Colors.cyanAccent;
+        duration = 120;
+        break;
+      case EventType.costSpike:
+        cost = 1.5; // rigs 50% pricier (opposite of cheap energy)
+        value = 50;
+        color = Colors.deepOrangeAccent;
         duration = 120;
         break;
       case EventType.info:

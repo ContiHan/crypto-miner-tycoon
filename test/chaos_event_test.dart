@@ -2,8 +2,19 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/logic/systems/chaos_event_system.dart';
 import 'package:crypto_miner_tycoon/models/news_event.dart';
+import 'package:crypto_miner_tycoon/content/news_flavor.dart';
 
 void main() {
+  test('every rolled event type has flavour lines (byType is complete)', () {
+    // triggerRandom does byType[type]! — a random effect type with no pool would
+    // crash. info is the only type excluded from the random roll.
+    for (final t in EventType.values) {
+      if (t == EventType.info) continue;
+      expect(NewsFlavor.byType[t], isNotNull, reason: '$t has no flavour lines');
+      expect(NewsFlavor.byType[t]!, isNotEmpty, reason: '$t flavour pool is empty');
+    }
+  });
+
   test('stop() clears the banner and resets multipliers (no stale news)', () {
     final sys = ChaosEventSystem(
       onChanged: () {},

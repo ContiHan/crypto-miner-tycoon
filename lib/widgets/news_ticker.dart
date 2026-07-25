@@ -39,6 +39,9 @@ class NewsTicker extends StatelessWidget {
             case EventType.cheapEnergy:
               impact = "${news.value}% Rig Cost";
               break;
+            case EventType.costSpike:
+              impact = "+${news.value}% Rig Cost";
+              break;
             case EventType.airdrop:
               impact = "Found ${Formatter.formatBitcoin(news.value)}";
               break;

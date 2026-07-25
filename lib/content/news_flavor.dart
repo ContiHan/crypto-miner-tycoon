@@ -42,6 +42,8 @@ class NewsFlavor {
     "Local maxi explains Bitcoin at dinner, uninvited next year.",
     "Cold wallet lost in a landfill; search continues.",
     "Bull market vibes: unconfirmed but strongly felt.",
+    "Small nation adopts BTC as legal tender.",
+    "Lightning Network now faster than your ex's replies.",
   ];
 
   /// Message variants per event type — triggerRandom picks one at random.
@@ -73,6 +75,13 @@ class NewsFlavor {
       "Government briefly subsidizes miners.",
       "Geothermal plant online — rigs run cheap.",
       "Off-peak rates: mine now, pay later.",
+    ],
+    EventType.costSpike: [
+      "ENERGY CRISIS: grid prices spike — rigs cost a fortune.",
+      "Heatwave: cooling bills through the roof.",
+      "Chip shortage — hardware markups everywhere.",
+      "Grid operator hikes rates; miners groan.",
+      "Peak demand: every watt now premium-priced.",
     ],
     EventType.airdrop: [
       "AIRDROP! A forgotten wallet resurfaces in your name.",
