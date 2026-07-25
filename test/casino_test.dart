@@ -12,7 +12,7 @@ void main() {
   group('CasinoService (player-favoured EV > 1, bounded)', () {
     test('slots return-to-player is above 1 (player edge)', () {
       expect(CasinoService.slotsReturnToPlayer, greaterThan(1.0));
-      expect(CasinoService.slotsReturnToPlayer, closeTo(1.18, 0.02));
+      expect(CasinoService.slotsReturnToPlayer, closeTo(1.65, 0.03));
     });
 
     test('empirical slots payout favours the player over many spins', () {
@@ -49,7 +49,7 @@ void main() {
 
     test('relay return-to-player is above 1 (player edge)', () {
       expect(CasinoService.plinkoReturnToPlayer, greaterThan(1.0));
-      expect(CasinoService.plinkoReturnToPlayer, closeTo(1.18, 0.02));
+      expect(CasinoService.plinkoReturnToPlayer, closeTo(1.55, 0.03));
     });
 
     test('plinko slot probabilities are a valid distribution (sum to 1)', () {

@@ -265,7 +265,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'chips_5',
     title: 'Bug Hunter',
-    description: 'Hold 5 DUST.',
+    description: 'Hold 5 UTXO.',
     category: AchCategory.collection,
     condition: (s) => s.chips >= 5,
   ),

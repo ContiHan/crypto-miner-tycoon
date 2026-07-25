@@ -3,7 +3,7 @@ import '../core/constants.dart';
 
 /// SIMULATED "SWEEP" minigame logic — pure, deterministic given a [Random]. No
 /// real money or value is ever involved: the only stake and prize is the in-game
-/// DUST currency. Every game is deliberately PLAYER-FAVOURED (EV > 1) — sweeping
+/// UTXO currency. Every game is deliberately PLAYER-FAVOURED (EV > 1) — sweeping
 /// the chain pays out — and the outcome is decided purely by [Random] here, never
 /// by any animation. It is bounded, not by a house edge, but by GameLogic's
 /// per-window net-gain cap (the anti-farm guardrail).
@@ -48,19 +48,21 @@ class PlinkoDrop {
 }
 
 class CasinoService {
-  // Weighted paytable. EV = sum(weight*multiplier)/sum(weight)
-  //   = (1*25 + 4*10 + 10*5 + 28*3 + 120*2 + 210*0) / 373 = 439/373 ≈ 1.18.
-  // Player-favoured: a sweep returns ~+18% per stake on average, with a big
-  // jackpot thrill. (The economy is bounded by GameLogic's per-window net cap.)
-  // Symbol keys ('moon'/'rocket'/'diamond'/'coin'/'bolt') are mapped to real
-  // outline icons in the UI (no emoji).
+  // Weighted paytable — strongly PLAYER-favoured, tuned so the player mostly
+  // RAISES (the per-window net cap is the only brake, not the odds).
+  //   EV = (1*25 + 4*10 + 10*5 + 28*3 + 95*2 + 95*1 + 60*0) / 293 = 484/293 ≈ 1.65.
+  //   ~80% of spins DON'T lose the stake: ~47% win (mult>=2), ~32% refund (1x,
+  //   break-even), only ~20% bust (0x). Multipliers are INTEGERS so a bet of 1
+  //   still pays a real win (floor never eats it). Symbol keys
+  //   ('moon'/'rocket'/'diamond'/'coin'/'bolt') map to outline icons in the UI.
   static const List<SlotOutcome> slotTable = [
     SlotOutcome('JACKPOT', ['moon', 'moon', 'moon'], 25.0, 1),
     SlotOutcome('Rockets', ['rocket', 'rocket', 'rocket'], 10.0, 4),
     SlotOutcome('Diamonds', ['diamond', 'diamond', 'diamond'], 5.0, 10),
     SlotOutcome('Coins', ['coin', 'coin', 'coin'], 3.0, 28),
-    SlotOutcome('Pair', ['bolt', 'bolt', 'coin'], 2.0, 120),
-    SlotOutcome('Bust', ['bolt', 'coin', 'diamond'], 0.0, 210),
+    SlotOutcome('Pair', ['bolt', 'bolt', 'coin'], 2.0, 95),
+    SlotOutcome('Refund', ['coin', 'bolt', 'rocket'], 1.0, 95),
+    SlotOutcome('Bust', ['bolt', 'coin', 'diamond'], 0.0, 60),
   ];
 
   /// All distinct reel symbol keys (for the spin animation).
@@ -79,7 +81,7 @@ class CasinoService {
   static double get slotsReturnToPlayer =>
       slotTable.fold(0.0, (s, o) => s + o.weight * o.multiplier) / totalWeight;
 
-  /// Hash Flip (double-or-nothing) base return: 58% chance to win 2x => 1.16.
+  /// Hash Flip (double-or-nothing) base return: 68% chance to win 2x => 1.36.
   static double get flipReturnToPlayer =>
       GameConstants.casinoFlipWinChance * 2;
 
@@ -94,7 +96,7 @@ class CasinoService {
     return luck < maxFactor ? luck : maxFactor;
   }
 
-  /// Spin the slots for [bet] DUST using [rng]. [luck] (>=1) scales winnings,
+  /// Spin the slots for [bet] UTXO using [rng]. [luck] (>=1) scales winnings,
   /// clamped so the average return stays below the EV ceiling.
   SlotSpin spinSlots(int bet, Random rng, {double luck = 1.0}) {
     final double lf = effectiveLuck(luck, slotsReturnToPlayer);
@@ -109,20 +111,20 @@ class CasinoService {
     return SlotSpin(last.symbols, last.multiplier, bet, luckFactor: lf);
   }
 
-  /// Double-or-Nothing: true = win (pays 2x). The sub-50% chance is the edge.
+  /// Hash Flip (double-or-nothing): true = win (pays 2x). The >50% win chance is
+  /// the player's edge (the risky game — you still lose the whole stake on a miss).
   bool flipWin(Random rng) =>
       rng.nextDouble() < GameConstants.casinoFlipWinChance;
 
-  // ---- Relay (SIMULATED — DUST only, player-favoured EV > 1) ----------------
+  // ---- Relay (SIMULATED — UTXO only, strongly player-favoured) --------------
   // A packet relays through [plinkoRows] rows of nodes, going left/right 50/50 at
-  // each, and lands in one of (rows + 1) buckets. The landing bucket == the
-  // number of "rights", so the distribution is binomial: the centre is common
-  // (low payout) and the edges are rare (jackpot). The multipliers are symmetric
-  // and tuned so the weighted average (EV) is ~1.18 — the same player edge as the
-  // slots, with an edge-jackpot thrill.
+  // each, and lands in one of (rows + 1) binomial buckets. This is the SAFE game:
+  // the worst bucket refunds the stake (1x, never a total loss), the sides win,
+  // and the rare edges pay a 20x jackpot. EV ≈ 398/256 ≈ 1.55. Integer multipliers
+  // so a bet of 1 still pays cleanly.
   static const int plinkoRows = 8;
   static const List<double> plinkoMultipliers = [
-    15.0, 3.0, 1.5, 1.0, 0.4, 1.0, 1.5, 3.0, 15.0,
+    20.0, 4.0, 2.0, 1.0, 1.0, 1.0, 2.0, 4.0, 20.0,
   ];
 
   /// n-choose-k (small n; used for the binomial slot probabilities).
@@ -148,7 +150,7 @@ class CasinoService {
     return ev;
   }
 
-  /// Relay a packet through the nodes for [bet] DUST using [rng]. [luck] (>=1)
+  /// Relay a packet through the nodes for [bet] UTXO using [rng]. [luck] (>=1)
   /// scales winnings, clamped so the average return stays below the EV ceiling.
   PlinkoDrop dropPlinko(int bet, Random rng, {double luck = 1.0}) {
     final double lf = effectiveLuck(luck, plinkoReturnToPlayer);

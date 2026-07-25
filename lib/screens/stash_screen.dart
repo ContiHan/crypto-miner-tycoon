@@ -94,7 +94,7 @@ class _StashScreenState extends State<StashScreen>
       ScaffoldMessenger.of(context)
           .showSnackBar(
             const SnackBar(
-              content: Text('Not enough DUST!'),
+              content: Text('Not enough UTXO!'),
               backgroundColor: Colors.red,
             ),
           )
@@ -262,7 +262,7 @@ class _StashScreenState extends State<StashScreen>
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'DUST COLLECTED',
+                    'UTXO COLLECTED',
                     style: TextStyle(
                       color: Colors.white54,
                       fontSize: 10,
@@ -272,7 +272,7 @@ class _StashScreenState extends State<StashScreen>
                   Row(
                     children: [
                       const Icon(
-                        Icons.memory,
+                        Icons.token,
                         color: Colors.cyanAccent,
                         size: 24,
                       ),
@@ -332,7 +332,7 @@ class _StashScreenState extends State<StashScreen>
               size: 32,
             ),
             title: const Text(
-              'Buy 1 DUST',
+              'Buy 1 UTXO',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -425,7 +425,7 @@ class _StashScreenState extends State<StashScreen>
             ),
             const SizedBox(height: 4),
             Text(
-              '$cost DUST',
+              '$cost UTXO',
               style: TextStyle(
                 color: Colors.white,
                 fontWeight: FontWeight.bold,
@@ -548,7 +548,7 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  // ---- SWEEP minigame (SIMULATED — in-game DUST only) --------------------
+  // ---- SWEEP minigame (SIMULATED — in-game UTXO only) --------------------
 
   void _playSlots(GameLogic game) {
     if (_casinoBusy) return;
@@ -592,17 +592,17 @@ class _StashScreenState extends State<StashScreen>
           _slotSpinning = false;
           _chipOverride = null; // reveal the real balance now
           if (spin.isJackpot) {
-            _casinoMessage = 'JACKPOT!  +${spin.net} DUST';
+            _casinoMessage = 'JACKPOT!  +${spin.net} UTXO';
             _casinoMessageColor = Colors.amberAccent;
           } else if (spin.net > 0) {
-            _casinoMessage = 'SWEEP  +${spin.net} DUST';
+            _casinoMessage = 'SWEEP  +${spin.net} UTXO';
             _casinoMessageColor = Colors.greenAccent;
           } else if (spin.net == 0) {
             _casinoMessage = 'Push — broke even';
             _casinoMessageColor = Colors.white70;
           } else {
             // Use the staked amount from the resolved spin, not the live _bet.
-            _casinoMessage = 'Junk block.  -${spin.bet} DUST';
+            _casinoMessage = 'Junk block.  -${spin.bet} UTXO';
             _casinoMessageColor = Colors.redAccent;
           }
         });
@@ -620,7 +620,7 @@ class _StashScreenState extends State<StashScreen>
     final delta = game.chips - chipsBefore;
     setState(() {
       _casinoMessage =
-          win ? 'DOUBLED! +$delta DUST' : 'Nothing. $delta DUST';
+          win ? 'DOUBLED! +$delta UTXO' : 'Nothing. $delta UTXO';
       _casinoMessageColor = win ? Colors.greenAccent : Colors.redAccent;
     });
   }
@@ -650,16 +650,16 @@ class _StashScreenState extends State<StashScreen>
           _plinkoLandedSlot = drop.slotIndex;
           _chipOverride = null; // reveal the real balance now
           if (drop.isJackpot) {
-            _casinoMessage = 'JACKPOT!  +${drop.net} DUST';
+            _casinoMessage = 'JACKPOT!  +${drop.net} UTXO';
             _casinoMessageColor = Colors.amberAccent;
           } else if (drop.net > 0) {
-            _casinoMessage = 'RELAYED  +${drop.net} DUST';
+            _casinoMessage = 'RELAYED  +${drop.net} UTXO';
             _casinoMessageColor = Colors.greenAccent;
           } else if (drop.net == 0) {
             _casinoMessage = 'Push — broke even';
             _casinoMessageColor = Colors.white70;
           } else {
-            _casinoMessage = 'Dropped ${drop.net} DUST';
+            _casinoMessage = 'Dropped ${drop.net} UTXO';
             _casinoMessageColor = Colors.redAccent;
           }
         });
@@ -692,7 +692,7 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 14),
         _sweepButton(
-          label: _plinkoDropping ? 'RELAYING…' : 'RELAY ($_bet DUST)',
+          label: _plinkoDropping ? 'RELAYING…' : 'RELAY ($_bet UTXO)',
           onPressed:
               (canBet && !_casinoBusy) ? () => _playPlinko(game) : null,
         ),
@@ -727,14 +727,14 @@ class _StashScreenState extends State<StashScreen>
       child: ListView(
       padding: const EdgeInsets.all(16),
       children: [
-        // DUST balance
+        // UTXO balance
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            const Icon(Icons.blur_on, color: Colors.cyanAccent, size: 24),
+            const Icon(Icons.token, color: Colors.cyanAccent, size: 24),
             const SizedBox(width: 8),
             Text(
-              '${_chipOverride ?? game.chips} DUST',
+              '${_chipOverride ?? game.chips} UTXO',
               style: GoogleFonts.orbitron(
                 fontSize: 24,
                 color: Colors.cyanAccent,
@@ -915,7 +915,7 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 14),
         _sweepButton(
-          label: _slotSpinning ? 'SCANNING…' : 'SCAN ($_bet DUST)',
+          label: _slotSpinning ? 'SCANNING…' : 'SCAN ($_bet UTXO)',
           onPressed: (canBet && !_casinoBusy) ? () => _playSlots(game) : null,
         ),
         const SizedBox(height: 12),
@@ -933,7 +933,7 @@ class _StashScreenState extends State<StashScreen>
             style: const TextStyle(color: Colors.white54, fontSize: 12)),
         const SizedBox(height: 18),
         _sweepButton(
-          label: 'FLIP ($_bet DUST)',
+          label: 'FLIP ($_bet UTXO)',
           color: Colors.purpleAccent,
           onPressed: (canBet && !_casinoBusy) ? () => _playFlip(game) : null,
         ),

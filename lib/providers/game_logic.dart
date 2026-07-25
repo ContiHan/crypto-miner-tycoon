@@ -154,14 +154,14 @@ class GameLogic with ChangeNotifier {
   final List<String> pendingTabUnlockToasts = [];
   void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
 
-  // SIMULATED "SWEEP" minigame (in-game DUST only). Player-favoured (EV>1),
-  // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted DUST.
+  // SIMULATED "SWEEP" minigame (in-game UTXO only). Player-favoured (EV>1),
+  // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted UTXO.
   final CasinoService _casino = CasinoService();
   final Random _casinoRng; // injectable so tests can force deterministic spins
 
-  // --- Anti-farm: the NET DUST gained from SWEEP per real-time window is capped;
+  // --- Anti-farm: the NET UTXO gained from SWEEP per real-time window is capped;
   // past it, sweeps are blocked until the window resets ("mempool congested"). --
-  double casinoWindowNet = 0; // net DUST gained since the window opened
+  double casinoWindowNet = 0; // net UTXO gained since the window opened
   int casinoWindowStartMs = 0; // window-open epoch ms (0 = not yet opened)
 
   static const int _casinoWindowMs =
@@ -170,7 +170,7 @@ class GameLogic with ChangeNotifier {
   bool _casinoWindowExpired(int nowMs) =>
       casinoWindowStartMs == 0 || nowMs - casinoWindowStartMs >= _casinoWindowMs;
 
-  /// Net DUST gained in the CURRENT window (0 once it has elapsed). Pure read.
+  /// Net UTXO gained in the CURRENT window (0 once it has elapsed). Pure read.
   double get casinoNetThisWindow =>
       _casinoWindowExpired(DateTime.now().millisecondsSinceEpoch)
           ? 0
@@ -201,7 +201,7 @@ class GameLogic with ChangeNotifier {
     return casinoWindowNet < GameConstants.casinoDailyNetCap;
   }
 
-  /// Bet [bet] DUST on the slots. Returns the spin (null if unaffordable or the
+  /// Bet [bet] UTXO on the slots. Returns the spin (null if unaffordable or the
   /// per-window cap already blocks play).
   SlotSpin? playSlots(int bet) {
     if (bet <= 0 || chips < bet) return null;
@@ -224,7 +224,7 @@ class GameLogic with ChangeNotifier {
     return spin;
   }
 
-  /// Hash Flip (double-or-nothing) on [bet] DUST. true=win, false=loss,
+  /// Hash Flip (double-or-nothing) on [bet] UTXO. true=win, false=loss,
   /// null=unaffordable or capped.
   bool? playDoubleOrNothing(int bet) {
     if (bet <= 0 || chips < bet) return null;
@@ -247,7 +247,7 @@ class GameLogic with ChangeNotifier {
     return win;
   }
 
-  /// Relay a packet for [bet] DUST. Returns the drop (null if unaffordable or the
+  /// Relay a packet for [bet] UTXO. Returns the drop (null if unaffordable or the
   /// per-window cap already blocks play).
   PlinkoDrop? playPlinko(int bet) {
     if (bet <= 0 || chips < bet) return null;

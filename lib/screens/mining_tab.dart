@@ -739,27 +739,36 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                           onTap: () {
                             ctx.read<GameLogic>().clickAnomaly();
                             spawnBinaryExplosion(s.pos); // Reuse visuals
-                            addFloatingText('+1 CHIP', s.pos);
+                            addFloatingText('+1 UTXO', s.pos);
                           },
-                          child: AnimatedContainer(
-                            duration: const Duration(milliseconds: 300),
-                            width: 50,
-                            height: 50,
-                            decoration: const BoxDecoration(
-                              shape: BoxShape.circle,
-                              color: Colors.redAccent,
-                              boxShadow: [
-                                BoxShadow(
-                                  color: Colors.red,
-                                  blurRadius: 10,
-                                  spreadRadius: 2,
-                                ),
-                              ],
-                            ),
-                            child: const Icon(
-                              Icons.bug_report,
-                              color: Colors.white,
-                              size: 30,
+                          // A loose UTXO that surfaced on-chain — pops in with a
+                          // little bounce to catch the eye; tap to sweep it up.
+                          child: TweenAnimationBuilder<double>(
+                            key: ValueKey(s.pos),
+                            tween: Tween(begin: 0.0, end: 1.0),
+                            duration: const Duration(milliseconds: 400),
+                            curve: Curves.elasticOut,
+                            builder: (_, t, child) =>
+                                Transform.scale(scale: t, child: child),
+                            child: Container(
+                              width: 52,
+                              height: 52,
+                              decoration: BoxDecoration(
+                                shape: BoxShape.circle,
+                                color: AppTheme.accent.withValues(alpha: 0.9),
+                                boxShadow: [
+                                  BoxShadow(
+                                    color: AppTheme.accent.withValues(alpha: 0.7),
+                                    blurRadius: 14,
+                                    spreadRadius: 3,
+                                  ),
+                                ],
+                              ),
+                              child: const Icon(
+                                Icons.token,
+                                color: Colors.black,
+                                size: 30,
+                              ),
                             ),
                           ),
                         ),

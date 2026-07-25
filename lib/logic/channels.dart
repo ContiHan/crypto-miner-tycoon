@@ -14,7 +14,7 @@ enum Channel {
   income, // flat income/sat bonus
   rigCost, // rig cost reduction (additive discount)
   prestige, // prestige/GovToken income bonus
-  luck, // crit chance, SWEEP winnings (capped), crate/anomaly odds
+  luck, // crit chance, SWEEP UTXO winnings (capped), crate/anomaly odds
   volatility, // chaos event frequency/severity (wired in a later phase)
   special, // catch-all / utility
 }

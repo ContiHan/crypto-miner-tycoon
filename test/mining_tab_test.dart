@@ -77,9 +77,9 @@ void main() {
     game.anomalyPosition = const Offset(50, 50);
 
     await tester.pumpWidget(createWidgetUnderTest());
-    await tester.pump(); // Animation frame
+    await tester.pump(const Duration(milliseconds: 400)); // finish the pop-in scale
 
-    final anomalyIcon = find.byIcon(Icons.bug_report);
+    final anomalyIcon = find.byIcon(Icons.token); // the UTXO that surfaced
     expect(anomalyIcon, findsOneWidget);
 
     // Tap it
