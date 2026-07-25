@@ -6,6 +6,7 @@
 // prestige_loop_sim_test.dart (which omits research/perk/stash content).
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'test_helper.dart';
@@ -72,6 +73,8 @@ void main() {
     final game = createTestGameLogic(startTimers: false, loadOnStart: false);
     await game.loadGame();
     game.wallet = 100; // bootstrap: the player taps to afford the first CPU rig
+    // An engaged player commits to a class early; its skill tree feeds the sim.
+    game.debugSelectClass(BtcClass.corporation);
 
     const step = 120; // seconds per tick
     const days = 60;

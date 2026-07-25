@@ -10,9 +10,8 @@ void main() {
     test('recalculateSpentTokens uses each perk\'s real base cost', () {
       // clickPower base 5, level 3 -> (3/2)*(2*5 + 2*5) = 30
       expect(economy.recalculateSpentTokens({PerkIds.clickPower: 3}), 30);
-      // megaIncome base 500, level 2 -> (2/2)*(2*500 + 1*5) = 1005
-      // (was under-counted to 25 by the old hardcoded base of 10)
-      expect(economy.recalculateSpentTokens({PerkIds.megaIncome: 2}), 1005);
+      // corp_hyperscale base 200, level 2 -> (2/2)*(2*200 + 1*5) = 405
+      expect(economy.recalculateSpentTokens({'corp_hyperscale': 2}), 405);
     });
 
     test('calculatePrestigeMultiplier returns 1.0 for 0 tokens', () {
