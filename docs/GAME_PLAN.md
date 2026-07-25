@@ -1,9 +1,21 @@
 # BTC Only Tycoon — Restructuring & Content Plan
 
-> Status: design blueprint (v1). Grounded in research of Antimatter Dimensions, Cookie Clicker,
-> Realm Grinder, NGU Idle, Melvor Idle, AdVenture Capitalist, Path of Exile, Universal Paperclips,
-> A Dark Room, Idle Iktah + Google Play policy. Architecture section is grounded in the current
-> codebase (this repo as of the sound/hold-to-buy work).
+> **Status: LARGELY SHIPPED — historical blueprint.** This is the original
+> research-backed plan (v1), kept for history; the game has since been built and has
+> evolved past several decisions here. For **current** as-built mechanics/values,
+> [**docs/GAME_PARAMETERS.md**](GAME_PARAMETERS.md) is the source of truth.
+>
+> Notable **deviation:** this plan calls the casino a **negative-EV (< 1) sink** for
+> Google-Play compliance; it SHIPPED **player-favoured (EV > 1)** instead ("SWEEP"),
+> kept safe by a per-real-time-window **net cap** rather than a house edge — still
+> compliant (in-game **UTXO** only, no real money/value, payout RNG-decided). The
+> in-game currency is displayed as **UTXO** (internal field still `chips`). The RPG
+> layer (classes, per-class skill trees, endgame) that post-dates this doc is covered
+> in [RPG_CLASSES_PLAN.md](RPG_CLASSES_PLAN.md).
+>
+> Original grounding (historical): research of Antimatter Dimensions, Cookie Clicker,
+> Realm Grinder, NGU Idle, Melvor Idle, AdVenture Capitalist, Path of Exile, Universal
+> Paperclips, A Dark Room, Idle Iktah + Google Play policy.
 
 ---
 

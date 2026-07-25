@@ -135,22 +135,26 @@ In-game **UTXO** only — no real money or value. Deliberately **player-favoured
 
 ## 8. Market ticker / chaos events
 
-Random events shown in the top news-ticker bar. Logic:
-`lib/logic/systems/chaos_event_system.dart`; flavour lines:
-`lib/content/news_flavor.dart`; the enum: `lib/models/news_event.dart`.
+The top news-ticker bar. Logic: `lib/logic/systems/chaos_event_system.dart`;
+flavour lines: `lib/content/news_flavor.dart`; the enum: `lib/models/news_event.dart`.
+
+**Idle** (white) shows rotating funny headlines — no effect. The random events are
+**three buff/debuff pairs**, each pair a temporary buff and a debuff on one axis:
 
 | Event | Bar colour | Effect | Duration |
 |---|---|---|---|
-| **INFO** | blue | flavour only, no economic effect | 60 s |
 | **BULL RUN** | green | income **×2.0** (+100%) | 90–150 s |
 | **MARKET CRASH** | red | income **×0.5** (−50%) | 90–150 s |
-| **HACK** | bright red | steals a chunk of your **wallet** | 45 s |
+| **AIRDROP** | amber | one-shot **+15% to wallet** | 45 s |
+| **HACK** | red | one-shot **−15% from wallet** | 45 s |
 | **CHEAP ENERGY** | cyan | rig cost **×0.7** (−30%) | 120 s |
+| **COST SPIKE** | deep orange | rig cost **×1.5** (+50%) | 120 s |
 
-(White is only the momentary default before a type is picked.) Income and cost
-buffs run on **independent** timers, so a Bull Run and Cheap Energy stack instead
-of cancelling. The **volatility** channel scales how *often* events fire
-(Corporation = more, Pool Member = fewer).
+(`info` is a neutral type used **only** for manual banners such as the halving — it
+is *not* rolled as a random event.) Income and cost buffs run on **independent**
+timers, so e.g. a Bull Run and Cheap Energy stack instead of cancelling. The
+**volatility** channel scales how *often* events fire (Corporation = more, Pool
+Member = fewer).
 
 ---
 

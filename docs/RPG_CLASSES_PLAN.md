@@ -1,11 +1,28 @@
 # BTC Only Tycoon — RPG Classes, Skill Trees & Endgame (design proposal v1)
 
-> Status: **design only** — nothing here is built yet. This is the "think it through"
-> answer to the owner's RPG vision (2026-07-24). Opinionated on purpose (verdicts,
-> not an options list); items marked **[TUNE]** need a balancing sim, **[DECIDE]**
-> need an owner call. This is the umbrella that the already-queued items fold into:
-> the tech-tree "spider" UI, the 21M-cap → New Blockchain CTA, and casino "luck"
-> are all pieces of this.
+> **Status: SHIPPED — this vision is built (RPG Phases 1–6).** This is the original
+> design proposal, kept for history; the game has since evolved. For **current**
+> as-built mechanics/values, [**docs/GAME_PARAMETERS.md**](GAME_PARAMETERS.md) is the
+> source of truth. Key **deviations from this proposal**:
+>
+> - **Casino:** proposed as a negative-EV (< 1) "chip sink" for compliance; SHIPPED
+>   **player-favoured** ("SWEEP", EV > 1) instead — kept safe not by a house edge but
+>   by a per-real-time-window **net cap**. Still fully compliant: in-game **UTXO** only,
+>   no real value, payout RNG-decided. ("chips" are displayed as **UTXO**.)
+> - **Class pick timing:** proposed first-pick at the first New Blockchain; SHIPPED
+>   first-pick **early, at the first Hard Fork** (when SKILL unlocks), then **locked for
+>   the run**, re-picked only at a New Blockchain. Mastery is credited per GovToken at
+>   **Hard Fork (mint) time**.
+> - **Skill trees:** live on the **SKILL** tab (bespoke per-class GovToken trees drawn
+>   like the TECH tree).
+> - **Endgame target:** `endgameTargetSats = 2.1e20` (~1-year goal); the "ALL BITCOIN"
+>   progress bar is **log-scaled**.
+> - **Nav order:** SKILL · TECH · MINE · STASH · GOAL (GOAL unlocks on the first
+>   achievement).
+>
+> Original framing (historical): the "think it through" answer to the owner's RPG
+> vision (2026-07-24); **[TUNE]** = needs a balancing sim, **[DECIDE]** = needed an
+> owner call.
 
 ---
 
