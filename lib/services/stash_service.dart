@@ -138,12 +138,13 @@ class StashService {
     ArtifactRarity.legendary: 1.2,
     ArtifactRarity.mythic: 0.3,
   };
+  // Premium crates deliver on their "Guaranteed Rare+" promise: NO common or
+  // uncommon rolls — the floor is Rare, with a genuinely high Legendary chance.
   static const Map<ArtifactRarity, double> _premiumWeights = {
-    ArtifactRarity.uncommon: 30,
-    ArtifactRarity.rare: 35,
-    ArtifactRarity.epic: 22,
-    ArtifactRarity.legendary: 10,
-    ArtifactRarity.mythic: 3,
+    ArtifactRarity.rare: 50,
+    ArtifactRarity.epic: 31,
+    ArtifactRarity.legendary: 14,
+    ArtifactRarity.mythic: 5,
   };
 
   // === STATE ===
