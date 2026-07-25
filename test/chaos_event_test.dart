@@ -8,6 +8,7 @@ void main() {
     final sys = ChaosEventSystem(
       onChanged: () {},
       onHackLoss: () => 0,
+      onAirdropGain: () => 0,
       onEventSound: (_) {},
     );
 
@@ -33,6 +34,7 @@ void main() {
     ChaosEventSystem makeSystem() => ChaosEventSystem(
           onChanged: () {},
           onHackLoss: () => 0,
+          onAirdropGain: () => 0,
           onEventSound: (_) {},
         );
 

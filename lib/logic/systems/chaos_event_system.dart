@@ -25,6 +25,7 @@ class ChaosEventSystem {
 
   final void Function() onChanged; // notifyListeners
   final double Function() onHackLoss; // deduct wallet, return loss amount
+  final double Function() onAirdropGain; // credit wallet, return gain amount
   final void Function(bool good) onEventSound;
 
   /// Volatility factor (>=1 raises event frequency, <1 lowers it) read at each
@@ -35,6 +36,7 @@ class ChaosEventSystem {
   ChaosEventSystem({
     required this.onChanged,
     required this.onHackLoss,
+    required this.onAirdropGain,
     required this.onEventSound,
     this.volatilityFactor,
   });
@@ -64,17 +66,28 @@ class ChaosEventSystem {
     currentNews = null;
   }
 
+  // The random-event pool. EventType.info is EXCLUDED — it's a neutral banner
+  // type used only for manual notices (e.g. the halving), never a rolled event.
+  static const List<EventType> _randomTypes = [
+    EventType.airdrop,
+    EventType.marketCrash,
+    EventType.bullRun,
+    EventType.hack,
+    EventType.cheapEnergy,
+  ];
+
   void triggerRandom() {
-    final type = EventType.values[_random.nextInt(EventType.values.length)];
+    final type = _randomTypes[_random.nextInt(_randomTypes.length)];
     double income = 1.0, cost = 1.0, value = 0;
     String message = '';
     int duration = 30;
     Color color = Colors.white;
 
     switch (type) {
-      case EventType.info:
-        color = Colors.blueAccent;
-        duration = 60;
+      case EventType.airdrop:
+        value = onAirdropGain(); // +wallet (opposite of hack)
+        color = Colors.amberAccent;
+        duration = 45;
         break;
       case EventType.marketCrash:
         income = 0.5;
@@ -99,6 +112,8 @@ class ChaosEventSystem {
         color = Colors.cyanAccent;
         duration = 120;
         break;
+      case EventType.info:
+        break; // never rolled (excluded above); here only for exhaustiveness
     }
 
     // Pick a random flavour line for this event type.
