@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
+import 'credits_screen.dart';
 
 class SettingsScreen extends StatelessWidget {
   const SettingsScreen({super.key});
@@ -65,6 +66,18 @@ class SettingsScreen extends StatelessWidget {
                 ),
                 const Divider(color: Colors.white24),
               ],
+
+              // About / Credits — always available (also the win's finale).
+              ListTile(
+                title: const Text('Credits & Thanks',
+                    style: TextStyle(
+                        color: Colors.white, fontWeight: FontWeight.bold)),
+                subtitle: const Text('About the game & the human behind it',
+                    style: TextStyle(color: Colors.white70)),
+                trailing: const Icon(Icons.favorite_border, color: AppTheme.accent),
+                onTap: () => CreditsScreen.open(context),
+              ),
+              const Divider(color: Colors.white24),
 
               // Danger Zone
               const Padding(

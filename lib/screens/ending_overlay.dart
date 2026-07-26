@@ -3,6 +3,7 @@ import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
+import 'credits_screen.dart';
 
 /// Shows the one-shot "GENESIS COMPLETE" ending overlay when the player crosses
 /// the cumulative-ever endgame target. Full-screen, non-dismissible by tap-away;
@@ -159,6 +160,14 @@ class _EndingScreen extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(),
                   child: const Text('KEEP PLAYING',
                       style: TextStyle(color: Colors.white54)),
+                ),
+                // The credits/thanks finale — the win is the right place for it.
+                TextButton.icon(
+                  onPressed: () => CreditsScreen.open(context),
+                  icon: const Icon(Icons.favorite_border,
+                      size: 15, color: Colors.white38),
+                  label: const Text('CREDITS & THANKS',
+                      style: TextStyle(color: Colors.white38, fontSize: 12)),
                 ),
               ],
             ),

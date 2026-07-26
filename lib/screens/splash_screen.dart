@@ -63,20 +63,11 @@ class SplashScreen extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent),
               ),
             ),
-            const SizedBox(height: 40),
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 44),
-              child: Text(
-                'This game was vibecoded —\nbut orchestrated by a human.',
-                textAlign: TextAlign.center,
-                style: GoogleFonts.orbitron(
-                  color: Colors.white24,
-                  fontSize: 10,
-                  letterSpacing: 1.2,
-                  height: 1.6,
-                ),
-              ),
-            ),
+            // NOTE: the "vibecoded" author blurb used to live here, but the
+            // Android 12+ cold-start splash (the launcher ₿ icon) eats the first
+            // seconds and this Flutter splash only shows briefly, so the text was
+            // barely visible. It now lives on the CREDITS & THANKS screen
+            // (Settings → Credits, and the GENESIS COMPLETE ending finale).
           ],
         ),
       ),
