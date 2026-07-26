@@ -215,6 +215,9 @@ class FakeGameRepository implements GameRepository {
     bool unlockedStash = false,
     bool unlockedSkill = false,
     bool unlockedGoal = false,
+    int bullRunsSeen = 0,
+    List<String> unlockedRigs = const [],
+    Map<String, dynamic> rigSnap = const {},
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -246,6 +249,9 @@ class FakeGameRepository implements GameRepository {
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;
     data['unlockedGoal'] = unlockedGoal;
+    data['bullRunsSeen'] = bullRunsSeen;
+    data['unlockedRigs'] = unlockedRigs;
+    data['rigSnap'] = rigSnap;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

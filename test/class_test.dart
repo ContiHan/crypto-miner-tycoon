@@ -133,7 +133,7 @@ void main() {
 
       // Play & mint a big batch of GovTokens as Corporation.
       game.debugSelectClass(BtcClass.corporation);
-      game.lifetimeEarnings = 260000 * 260000 * 5.0e8;
+      game.lifetimeEarnings = 1000000 * 1000000 * 5.0e8; // clears raised Genesis gate
       final minted = game.pendingGovTokens;
       expect(minted, greaterThan(0));
       game.hardFork(); // credits `minted` XP to Corporation at mint time
@@ -171,7 +171,7 @@ void main() {
           reason: 'chooseClass is a no-op once a class is committed');
 
       // A New Blockchain re-opens the choice via its own picker.
-      game.lifetimeEarnings = 260000 * 260000 * 5.0e8;
+      game.lifetimeEarnings = 1000000 * 1000000 * 5.0e8; // clears raised Genesis gate
       game.hardFork();
       expect(game.pendingGenesis, greaterThan(0));
       game.newBlockchain(chosenClass: BtcClass.btcOg);

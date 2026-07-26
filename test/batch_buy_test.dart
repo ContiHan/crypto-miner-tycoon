@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
-import 'package:crypto_miner_tycoon/content/rig_defs.dart';
 import 'package:crypto_miner_tycoon/services/stash_service.dart';
 import 'test_helper.dart';
 
@@ -53,82 +52,65 @@ void main() {
     });
   });
 
-  group('data-driven rigs unlock progressively', () {
-    test('start with only the first rig; the GPU reveals after owning the CPU '
-        'rig, but the ASIC needs its own (own-15-rigs) condition', () async {
+  group('progressive rig unlock (milestones since the last rig)', () {
+    test('start with only the first rig; buying it (own +1) reveals the GPU, and '
+        'each next rig is measured SINCE the last reveal (no cascade)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 0;
       game.wallet = 1e12;
 
       expect(game.visibleRigs.map((r) => r.id).toList(), [RigIds.cpuRig],
           reason: 'a fresh game shows only the first rig');
 
-      game.buyRig(RigIds.cpuRig); // GPU condition = own your first rig
-      final ids = game.visibleRigs.map((r) => r.id).toList();
+      // Buy 4 rigs at once: the GPU (+1) reveals and re-baselines, so the ASIC
+      // (+3 SINCE the GPU) still needs 3 more — a bulk buy can't skip ahead.
+      game.buyRigMax(RigIds.cpuRig, 4);
+      final ids = game.visibleRigs.map((r) => r.id);
       expect(ids.contains(RigIds.gpuRig), true);
       expect(ids.contains(RigIds.asicRig), false,
-          reason: 'ASIC has its OWN condition (own 15 rigs), not "own the GPU"');
+          reason: 'ASIC is +3 rigs SINCE the GPU snapshot, not an absolute total');
+
+      game.buyRigMax(RigIds.cpuRig, 3); // 3 more since the GPU reveal
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.asicRig), true);
     });
 
-    test('varied conditions: ASIC needs 15 rigs, QUANTUM needs a crate opened '
-        '(ordered)', () async {
+    test('ordered: a later rig cannot reveal before its predecessor even if its '
+        'own dimension is already satisfied (no pre-satisfaction)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 0;
       game.wallet = 1e12;
+      game.chips = 1000;
 
-      game.buyRigMax(RigIds.cpuRig, 15); // own 15 rigs total
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.asicRig), true,
-          reason: 'ASIC reveals at 15 rigs owned');
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.quantumRig), false,
-          reason: 'QUANTUM still needs a crate opened');
+      game.buyCrate(CrateTier.scrap); // QUANTUM's dimension (a crate) satisfied early
+      game.buyRig(RigIds.cpuRig); // reveals only the GPU
 
-      game.chips = 100;
-      game.buyCrate(CrateTier.scrap); // cratesOpened -> 1
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.quantumRig), true,
-          reason: 'opening a crate reveals QUANTUM');
+      final ids = game.visibleRigs.map((r) => r.id);
+      expect(ids.contains(RigIds.gpuRig), true);
+      expect(ids.contains(RigIds.quantumRig), false,
+          reason: 'QUANTUM is ordered behind ASIC / Mining Farm — a crate opened '
+              'early must not skip it');
     });
 
-    test('the lifetime-earnings fallback reveals rigs for a pure miner', () async {
+    test('a Hard Fork re-progresses rig reveals from the first rig', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 0;
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), false);
+      game.wallet = 1e12;
+      game.buyRigMax(RigIds.cpuRig, 20); // reveal several rigs
+      expect(game.visibleRigs.length, greaterThan(1));
 
-      // Reaching the GPU's earnings threshold reveals it with nothing owned.
-      game.lifetimeEarnings = rigUnlockThreshold(RigIds.gpuRig);
+      game.lifetimeEarnings = 2e9; // enough to mint GovTokens
+      game.hardFork();
+      expect(game.visibleRigs.map((r) => r.id).toList(), [RigIds.cpuRig],
+          reason: 'rigs reset on a Hard Fork, so progression restarts');
+    });
+
+    test('an owned rig always stays visible', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.wallet = 1e12;
+      game.buyRigMax(RigIds.cpuRig, 1); // reveals the GPU
+      game.buyRig(RigIds.gpuRig); // own one
       expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), true);
-    });
-
-    test('a rig unlocked by a TRANSIENT condition stays revealed after it passes '
-        '(sticky latch)', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.wallet = 1e12;
-      // Reveal up to fusion's predecessor via earnings, then satisfy fusion's
-      // transient UTXO condition and let an evaluation latch it.
-      game.lifetimeEarnings = rigUnlockThreshold(RigIds.quantumRig);
-      game.chips = 30; // fusion condition = hold >= 25 UTXO (transient)
-      game.clickMine(playSound: false); // triggers _evaluateAchievements -> latch
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig), true);
-
-      game.chips = 0; // spend it all — the reveal must persist
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig), true,
-          reason: 'a latched rig stays revealed after the transient condition ends');
-    });
-
-    test('an owned rig stays visible even below its unlock threshold', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.lifetimeEarnings = rigUnlockThreshold(RigIds.fusionRig); // reveal it
-      game.wallet = 1e12;
-      game.buyRig(RigIds.fusionRig); // now owned
-      game.lifetimeEarnings = 0; // drop below the gate (e.g. after a reset)
-      expect(
-        game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig),
-        true,
-      );
     });
   });
 }

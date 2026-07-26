@@ -69,7 +69,12 @@ class GameConstants {
   // faster instead of stacking yet another raw income multiplier. The multiplier
   // is CONCAVE in GB (1 + perGenesisGainBonus*sqrt(GB)) so the Genesis<->GovToken
   // feedback loop converges instead of running away.
-  static const double genesisDivisor = 65000.0; // 65k chain-GovTokens -> 1 GB
+  // Raised with the 10-rig rescale: the new top-tier hashrate (~10,000x the old
+  // ladder) lets a whale saturate the per-era supply cap every fork, so each
+  // fork mints the MAX GovTokens and tier-3 (New Blockchain) was reachable in
+  // ~16-20h of optimal play (vs the intended multi-day milestone). Raising this
+  // gate keeps the deepest prestige a genuine investment under the new economy.
+  static const double genesisDivisor = 520000.0; // chain-GovTokens -> 1 GB
   static const double perGenesisGainBonus = 0.5; // gain x = 1 + 0.5*sqrt(GB)
 
   // Achievements: each NORMAL (non-secret) achievement grants this much permanent

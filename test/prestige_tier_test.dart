@@ -5,10 +5,10 @@ import 'test_helper.dart';
 // Values below track the concave endgame model:
 //   consensusDivisor = 2e9,  consensusBonus      = 0.10*sqrt(CX)
 //   govTokenDivisor  = 5e8,  prestigeMultiplier  = 1 + 0.50*sqrt(GT+spent)
-//   genesisDivisor   = 65000, genesisGainMult    = 1 + 0.50*sqrt(GB)
+//   genesisDivisor   = 520000, genesisGainMult   = 1 + 0.50*sqrt(GB)
 //   pendingConsensus = floor((cbrt(eraSats/2e9)+eps) * genesisGainMult)
 //   pendingGovTokens = floor(sqrt(lifetime/5e8)     * genesisGainMult)
-//   pendingGenesis   = floor(sqrt(chainGovTokens/65000)+eps)
+//   pendingGenesis   = floor(sqrt(chainGovTokens/520000)+eps)
 void main() {
   group('Soft Fork (Tier-1 prestige / Consensus)', () {
     test('banks Consensus from era sats (cube-root) and resets LAB', () async {
@@ -77,11 +77,11 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      await mintTokens(game, 30000); // 30000 < 65000 -> 0 Genesis
+      await mintTokens(game, 300000); // 300000 < 520000 -> 0 Genesis
       expect(game.pendingGenesis, 0);
 
-      // Bump chain total to exactly 65000 -> sqrt(65000/65000) = 1.
-      await mintTokens(game, 35000); // 30000 + 35000 = 65000
+      // Bump chain total to exactly 520000 -> sqrt(520000/520000) = 1.
+      await mintTokens(game, 220000); // 300000 + 220000 = 520000
       expect(game.pendingGenesis, 1);
     });
 
@@ -90,8 +90,8 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // 260000 chain tokens -> sqrt(260000/65000) = sqrt(4) = 2 Genesis Blocks.
-      await mintTokens(game, 260000);
+      // 2080000 chain tokens -> sqrt(2080000/520000) = sqrt(4) = 2 Genesis Blocks.
+      await mintTokens(game, 2080000);
       expect(game.pendingGenesis, 2);
 
       // Seed EVERY resource the deepest reset must wipe, plus a Stash artifact
@@ -138,8 +138,8 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // 1040000 chain tokens -> sqrt(1040000/65000) = sqrt(16) = 4 Genesis.
-      await mintTokens(game, 1040000);
+      // 8320000 chain tokens -> sqrt(8320000/520000) = sqrt(16) = 4 Genesis.
+      await mintTokens(game, 8320000);
       game.newBlockchain();
       expect(game.genesisBlocks, 4);
       // 1 + 0.5*sqrt(4) = x2.0 gain multiplier.
@@ -159,7 +159,7 @@ void main() {
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      await mintTokens(game, 1040000); // chain 1.04M -> pendingGenesis 4
+      await mintTokens(game, 8320000); // chain 8.32M -> pendingGenesis 4
       expect(game.pendingGenesis, 4);
       // Projection must be concave (1 + 0.5*sqrt(0+4) = 2.0), NOT the old linear
       // 1 + 4*0.5 = 3.0 the dialog used to show.
@@ -172,7 +172,7 @@ void main() {
     test('New Blockchain below the threshold does nothing', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      await mintTokens(game, 5); // 5 chain tokens < 65000
+      await mintTokens(game, 5); // 5 chain tokens < 520000
       expect(game.pendingGenesis, 0);
       game.wallet = 500;
       game.newBlockchain();
@@ -185,8 +185,8 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      await mintTokens(game, 1040000); // chain 1.04M -> 4 Genesis
-      game.newBlockchain(); // banks 4 GB + saves (baseline now 1.04M)
+      await mintTokens(game, 8320000); // chain 8.32M -> 4 Genesis
+      game.newBlockchain(); // banks 4 GB + saves (baseline now 8.32M)
       expect(game.genesisBlocks, 4);
 
       // Reload from the same repo the newBlockchain save wrote to.
@@ -198,13 +198,13 @@ void main() {
         reason: 'chain baseline persisted -> no free re-trigger after reload',
       );
 
-      // Behavioural check that BOTH totalGovTokensEver (=1.04M) and the baseline
-      // (=1.04M) round-tripped. With x2.0 gain (4 GB), base sqrt(1.05625e9)=32500
-      // mints 65000, so the fresh chain holds exactly 65000 -> 1 Genesis. A
+      // Behavioural check that BOTH totalGovTokensEver (=8.32M) and the baseline
+      // (=8.32M) round-tripped. With x2.0 gain (4 GB), base sqrt(6.76e10)=260000
+      // mints 520000, so the fresh chain holds exactly 520000 -> 1 Genesis. A
       // dropped total (chain goes negative) or dropped baseline (chain much
       // larger) both change this count, so it pins both fields.
-      game.lifetimeEarnings = 32500.0 * 32500.0 * 5.0e8;
-      expect(game.pendingGovTokens, 65000);
+      game.lifetimeEarnings = 260000.0 * 260000.0 * 5.0e8;
+      expect(game.pendingGovTokens, 520000);
       game.hardFork();
       expect(game.pendingGenesis, 1);
     });
@@ -214,15 +214,15 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      await mintTokens(game, 1040000); // chain 1.04M -> 4 Genesis
+      await mintTokens(game, 8320000); // chain 8.32M -> 4 Genesis
       game.newBlockchain();
       expect(game.genesisBlocks, 4);
       expect(game.genesisGainMultiplier, closeTo(2.0, 1e-9));
 
-      // Boosted mint (x2.0): base sqrt(1.05625e9)=32500 -> 65000 minted, so the
-      // fresh chain reaches 65000 tokens -> floor(sqrt(65000/65000)) = 1 GB.
-      game.lifetimeEarnings = 32500.0 * 32500.0 * 5.0e8;
-      expect(game.pendingGovTokens, 65000, reason: 'GT gain boosted by Genesis');
+      // Boosted mint (x2.0): base sqrt(6.76e10)=260000 -> 520000 minted, so the
+      // fresh chain reaches 520000 tokens -> floor(sqrt(520000/520000)) = 1 GB.
+      game.lifetimeEarnings = 260000.0 * 260000.0 * 5.0e8;
+      expect(game.pendingGovTokens, 520000, reason: 'GT gain boosted by Genesis');
       game.hardFork();
       expect(game.pendingGenesis, 1);
 

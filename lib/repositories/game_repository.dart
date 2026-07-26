@@ -80,6 +80,9 @@ class GameRepository {
     bool unlockedStash = false,
     bool unlockedSkill = false,
     bool unlockedGoal = false,
+    int bullRunsSeen = 0,
+    List<String> unlockedRigs = const [],
+    Map<String, dynamic> rigSnap = const {},
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -131,6 +134,9 @@ class GameRepository {
       'unlockedStash': unlockedStash,
       'unlockedSkill': unlockedSkill,
       'unlockedGoal': unlockedGoal,
+      'bullRunsSeen': bullRunsSeen,
+      'unlockedRigs': unlockedRigs,
+      'rigSnap': rigSnap,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -257,6 +263,7 @@ class GameRepository {
       'unlockedStash': m['unlockedStash'] == true,
       'unlockedSkill': m['unlockedSkill'] == true,
       'unlockedGoal': m['unlockedGoal'] == true,
+      'bullRunsSeen': asInt(m['bullRunsSeen'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,
@@ -272,6 +279,8 @@ class GameRepository {
     if (m['claimedAchievements'] != null) {
       normalized['claimedAchievements'] = m['claimedAchievements'];
     }
+    if (m['unlockedRigs'] != null) normalized['unlockedRigs'] = m['unlockedRigs'];
+    if (m['rigSnap'] != null) normalized['rigSnap'] = m['rigSnap'];
 
     return normalized;
   }

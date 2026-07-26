@@ -28,7 +28,6 @@ int _reinvestRigs(GameLogic g, int cap) {
     Rig? best;
     double bestRoi = 0;
     for (final r in g.rigs) {
-      if (g.lifetimeEarnings < g.unlockThresholdFor(r.id)) continue;
       final cost = g.getRigCostInSats(r);
       if (cost > 0 && cost <= g.wallet) {
         final roi = r.baseHashRate / cost;

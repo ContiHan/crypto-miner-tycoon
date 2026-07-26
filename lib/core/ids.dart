@@ -2,9 +2,13 @@ class RigIds {
   static const String cpuRig = 'cpu_rig';
   static const String gpuRig = 'gpu_rig';
   static const String asicRig = 'asic_rig';
+  static const String miningFarm = 'mining_farm';
   static const String quantumRig = 'quantum';
   static const String fusionRig = 'fusion_rig';
+  static const String photonicRig = 'photonic_rig';
   static const String datacenterRig = 'datacenter_rig';
+  static const String dysonRig = 'dyson_rig';
+  static const String singularityRig = 'singularity_rig';
 }
 
 class ResearchIds {
