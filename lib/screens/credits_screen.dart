@@ -89,8 +89,9 @@ class CreditsScreen extends StatelessWidget {
               // --- Author ---
               const _CreditBlock(
                 label: 'CREATED BY',
-                lines: ['contihan'],
+                lines: ['Daniel Hanák'],
                 highlight: true,
+                subtitle: 'aka contihan',
               ),
 
               // --- Thanks (ties into the GENESIS COMPLETE ending) ---
@@ -155,10 +156,12 @@ class _CreditBlock extends StatelessWidget {
   final String label;
   final List<String> lines;
   final bool highlight;
+  final String? subtitle;
   const _CreditBlock({
     required this.label,
     required this.lines,
     this.highlight = false,
+    this.subtitle,
   });
 
   @override
@@ -196,6 +199,18 @@ class _CreditBlock extends StatelessWidget {
                             height: 1.55,
                           ),
                   ),
+          if (subtitle != null) ...[
+            const SizedBox(height: 4),
+            Text(
+              subtitle!,
+              textAlign: TextAlign.center,
+              style: GoogleFonts.orbitron(
+                fontSize: 11,
+                letterSpacing: 1.5,
+                color: Colors.white38,
+              ),
+            ),
+          ],
         ],
       ),
     );
