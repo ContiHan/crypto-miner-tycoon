@@ -599,7 +599,9 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                       // isn't rebuilt with the cards.
                       Consumer<GameLogic>(
                         builder: (context, game, _) => game.nextLockedRig != null
-                            ? const _LockedRigTeaser()
+                            ? _LockedRigTeaser(
+                                hint: game.rigUnlockHint(game.nextLockedRig!.id),
+                              )
                             : const SizedBox.shrink(),
                       ),
                     ],
@@ -812,7 +814,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
 /// Greyed "???" teaser for the next still-locked rig (progressive discovery).
 
 class _LockedRigTeaser extends StatelessWidget {
-  const _LockedRigTeaser();
+  final String hint;
+  const _LockedRigTeaser({required this.hint});
 
   @override
   Widget build(BuildContext context) {
@@ -864,9 +867,9 @@ class _LockedRigTeaser extends StatelessWidget {
 
                   const SizedBox(height: 4),
 
-                  const Text(
-                    'Buy the rig above to reveal',
-                    style: TextStyle(color: Colors.white38, fontSize: 12),
+                  Text(
+                    hint,
+                    style: const TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                 ],
               ),

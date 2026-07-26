@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/content/rig_defs.dart';
+import 'package:crypto_miner_tycoon/services/stash_service.dart';
 import 'test_helper.dart';
 
 void main() {
@@ -53,8 +54,8 @@ void main() {
   });
 
   group('data-driven rigs unlock progressively', () {
-    test('you start with only the first rig; owning each one reveals the next '
-        '(the ownership chain)', () async {
+    test('start with only the first rig; the GPU reveals after owning the CPU '
+        'rig, but the ASIC needs its own (own-15-rigs) condition', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.lifetimeEarnings = 0;
@@ -63,26 +64,58 @@ void main() {
       expect(game.visibleRigs.map((r) => r.id).toList(), [RigIds.cpuRig],
           reason: 'a fresh game shows only the first rig');
 
-      game.buyRig(RigIds.cpuRig); // owning the CPU reveals the GPU
-      var ids = game.visibleRigs.map((r) => r.id).toList();
+      game.buyRig(RigIds.cpuRig); // GPU condition = own your first rig
+      final ids = game.visibleRigs.map((r) => r.id).toList();
       expect(ids.contains(RigIds.gpuRig), true);
       expect(ids.contains(RigIds.asicRig), false,
-          reason: 'the ASIC only reveals once the GPU is owned');
-
-      game.buyRig(RigIds.gpuRig); // owning the GPU reveals the ASIC
-      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.asicRig), true);
+          reason: 'ASIC has its OWN condition (own 15 rigs), not "own the GPU"');
     });
 
-    test('the lifetime-earnings fallback also reveals a rig without owning the '
-        'previous', () async {
+    test('varied conditions: ASIC needs 15 rigs, QUANTUM needs a crate opened '
+        '(ordered)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.lifetimeEarnings = 0;
+      game.wallet = 1e12;
+
+      game.buyRigMax(RigIds.cpuRig, 15); // own 15 rigs total
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.asicRig), true,
+          reason: 'ASIC reveals at 15 rigs owned');
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.quantumRig), false,
+          reason: 'QUANTUM still needs a crate opened');
+
+      game.chips = 100;
+      game.buyCrate(CrateTier.scrap); // cratesOpened -> 1
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.quantumRig), true,
+          reason: 'opening a crate reveals QUANTUM');
+    });
+
+    test('the lifetime-earnings fallback reveals rigs for a pure miner', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.lifetimeEarnings = 0;
       expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), false);
 
-      // Reaching the GPU's earnings threshold reveals it even with nothing owned.
+      // Reaching the GPU's earnings threshold reveals it with nothing owned.
       game.lifetimeEarnings = rigUnlockThreshold(RigIds.gpuRig);
       expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), true);
+    });
+
+    test('a rig unlocked by a TRANSIENT condition stays revealed after it passes '
+        '(sticky latch)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.wallet = 1e12;
+      // Reveal up to fusion's predecessor via earnings, then satisfy fusion's
+      // transient UTXO condition and let an evaluation latch it.
+      game.lifetimeEarnings = rigUnlockThreshold(RigIds.quantumRig);
+      game.chips = 30; // fusion condition = hold >= 25 UTXO (transient)
+      game.clickMine(playSound: false); // triggers _evaluateAchievements -> latch
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig), true);
+
+      game.chips = 0; // spend it all — the reveal must persist
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.fusionRig), true,
+          reason: 'a latched rig stays revealed after the transient condition ends');
     });
 
     test('an owned rig stays visible even below its unlock threshold', () async {

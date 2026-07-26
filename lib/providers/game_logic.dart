@@ -112,16 +112,82 @@ class GameLogic with ChangeNotifier {
   // Runtime rigs are built from the data-driven catalog (lib/content/rig_defs).
   List<Rig> rigs = createRigs();
 
-  /// Whether rig at index [i] should be visible yet. Progressive reveal: the
-  /// FIRST rig is always shown; every later rig unlocks once you OWN the previous
-  /// one (buy a rig → the next appears), with the lifetime-earnings threshold as
-  /// a secondary fallback. Already-owned rigs are always shown.
+  /// Rig ids the player has already REVEALED this era (sticky, in-memory). The
+  /// latch matters for the TRANSIENT unlock conditions (holding UTXO, a live Bull
+  /// Run) so a rig doesn't re-hide once its moment passes. Cleared on any reset
+  /// that wipes rigs (Hard Fork / New Blockchain / full wipe) so each era
+  /// re-progresses from the first rig.
+  final Set<String> _unlockedRigs = {};
+
+  int _rigAmount(String id) {
+    for (final r in rigs) {
+      if (r.id == id) return r.amount;
+    }
+    return 0;
+  }
+
+  /// Each rig's DISTINCT unlock condition, deliberately spread across the game's
+  /// systems so progression exercises the WHOLE game — buy rigs, open a crate,
+  /// stockpile UTXO, ride a market event — not just "buy the one above". The
+  /// lifetime-earnings fallback (in [_rigRevealed]) still guarantees a pure miner
+  /// unlocks everything.
+  bool _rigConditionMet(String id) {
+    switch (id) {
+      case RigIds.gpuRig: // buy your very first rig
+        return _rigAmount(RigIds.cpuRig) >= 1;
+      case RigIds.asicRig: // scale the operation up
+        return rigs.fold<int>(0, (a, r) => a + r.amount) >= 15;
+      case RigIds.quantumRig: // dip into the STASH
+        return cratesOpened >= 1;
+      case RigIds.fusionRig: // stockpile UTXO (anomalies / SWEEP)
+        return chips >= 25;
+      case RigIds.datacenterRig: // ride a market Bull Run
+        return chaosIncomeMultiplier > 1.01;
+      default:
+        return false;
+    }
+  }
+
+  /// Short hint for the locked-rig teaser: exactly which bit of the game reveals
+  /// the next rig.
+  String rigUnlockHint(String id) {
+    switch (id) {
+      case RigIds.gpuRig:
+        return 'Buy your first rig';
+      case RigIds.asicRig:
+        return 'Own 15 rigs in total';
+      case RigIds.quantumRig:
+        return 'Open a supply crate';
+      case RigIds.fusionRig:
+        return 'Stockpile 25 UTXO';
+      case RigIds.datacenterRig:
+        return 'Ride out a Bull Run event';
+      default:
+        return 'Keep playing to reveal';
+    }
+  }
+
+  /// Whether rig [i] is revealed. Progressive + ORDERED: the first rig always
+  /// shows; each later rig needs the previous one revealed AND its own distinct
+  /// condition met (or the lifetime-earnings fallback). Owned or already-latched
+  /// rigs always show.
   bool _rigRevealed(int i) {
     final r = rigs[i];
-    return r.amount > 0 ||
-        i == 0 ||
-        rigs[i - 1].amount > 0 ||
+    if (r.amount > 0 || i == 0 || _unlockedRigs.contains(r.id)) return true;
+    if (!_rigRevealed(i - 1)) return false; // keep the reveal order
+    return _rigConditionMet(r.id) ||
         lifetimeEarnings >= rigUnlockThreshold(r.id);
+  }
+
+  /// Latch every currently-revealed rig into the sticky set so transient unlock
+  /// conditions stick. Called from [_evaluateAchievements] (every tick + action).
+  void _refreshRigUnlocks() {
+    for (int i = 1; i < rigs.length; i++) {
+      final id = rigs[i].id;
+      if (!_unlockedRigs.contains(id) && _rigRevealed(i)) {
+        _unlockedRigs.add(id);
+      }
+    }
   }
 
   /// Rigs the player should currently SEE. You start with just the first rig; the
@@ -485,6 +551,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
+    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
 
     notifyListeners();
   }
@@ -1065,6 +1132,7 @@ class GameLogic with ChangeNotifier {
     // the first achievement unlocking GOAL) happen WITHOUT its own overlapping
     // cue — one celebratory sound per frame, not a double-chime.
     _refreshTabUnlocks(suppressSound: playedAchievementCue);
+    _refreshRigUnlocks();
   }
 
   /// Reveal bottom-nav tabs as the player progresses (sticky — never re-locks).
@@ -1269,6 +1337,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
+    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
 
     // Reset Research (ResearchManager)
     _researchManager.reset();
@@ -1325,6 +1394,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
+    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
     _researchManager.reset();
     _perkManager.reset();
 
@@ -1496,7 +1566,23 @@ class GameLogic with ChangeNotifier {
     );
   }
 
+  /// Minimum time the branded splash stays up, so a fast local load (prefs read
+  /// in a few ms) doesn't skip past the splash before its first frame even paints
+  /// — otherwise the loading screen / its flavour line is never actually seen.
+  static const int _minSplashMs = 1700;
+
+  Future<void> _holdSplash(int startMs) async {
+    // Only in the real app (timers auto-start). Tests build with startTimers:false
+    // and must not eat a 1.7s delay on every loadGame().
+    if (!_autoStartTimers) return;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - startMs;
+    if (elapsed < _minSplashMs) {
+      await Future.delayed(Duration(milliseconds: _minSplashMs - elapsed));
+    }
+  }
+
   Future<void> loadGame() async {
+    final splashStartMs = DateTime.now().millisecondsSinceEpoch;
     try {
       final settings = await _settingsRepo.loadSettings();
       soundEnabled = settings['sound_enabled'] ?? true;
@@ -1645,7 +1731,9 @@ class GameLogic with ChangeNotifier {
       _researchManager.refreshUnlocks();
 
       // The load has succeeded far enough to be authoritative; saves are now
-      // safe to persist (and the offline sim below relies on this).
+      // safe to persist (and the offline sim below relies on this). Hold the
+      // splash to its minimum first so the loading screen is actually seen.
+      await _holdSplash(splashStartMs);
       _isLoaded = true;
 
       // Migration — MUST run before the offline sim below: it recovers
@@ -1691,6 +1779,7 @@ class GameLogic with ChangeNotifier {
       // and still mark the game loaded so timers start and play can continue.
       debugPrint('GameLogic.loadGame failed, using defaults: $e\n$st');
     } finally {
+      await _holdSplash(splashStartMs); // no-op if the success path already held
       _isLoaded = true;
     }
 
