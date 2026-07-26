@@ -119,23 +119,24 @@ class ResearchTab extends StatelessWidget {
       computeDepth(n);
     }
 
-    // Bucket rendered nodes by depth (list order = slot order).
-    final buckets = <int, List<ResearchNode>>{};
+    // STABLE layout: bucket ALL nodes (not just the visible ones) by depth and
+    // give each a FIXED position. Vertical: prereq depth → row (top-down),
+    // siblings within a depth → columns centred on the canvas. Because positions
+    // come from the WHOLE tree, buying a node changes only which nodes are DRAWN,
+    // never where any node sits — so the view never jumps to a newly-revealed
+    // node on a purchase.
+    final allBuckets = <int, List<ResearchNode>>{};
     for (final n in game.researchNodes) {
-      if (!rendered(n)) continue;
-      buckets.putIfAbsent(depth[n.id] ?? 0, () => []).add(n);
+      allBuckets.putIfAbsent(depth[n.id] ?? 0, () => []).add(n);
     }
     final maxDepth =
-        buckets.keys.isEmpty ? 0 : buckets.keys.reduce(math.max);
-
-    // Vertical layout: prereq depth → row (top-down); siblings within a depth →
-    // column (centred on the canvas). Reads better on a tall/narrow phone.
+        allBuckets.keys.isEmpty ? 0 : allBuckets.keys.reduce(math.max);
     final maxBucket =
-        buckets.values.fold(1, (m, l) => math.max(m, l.length));
+        allBuckets.values.fold(1, (m, l) => math.max(m, l.length));
     final canvasW = math.max(360.0, maxBucket * _nodeGap + 160);
     final centerX = canvasW / 2;
     final pos = <String, Offset>{};
-    buckets.forEach((d, list) {
+    allBuckets.forEach((d, list) {
       for (int s = 0; s < list.length; s++) {
         final x = centerX + (s - (list.length - 1) / 2) * _nodeGap;
         final y = 90 + d * _levelH;
@@ -143,45 +144,46 @@ class ResearchTab extends StatelessWidget {
       }
     });
 
+    // Render only the visible subset, at their stable positions.
     final nodes = <GraphNode>[];
     final edges = <GraphEdge>[];
-    buckets.forEach((d, list) {
-      for (final n in list) {
-        final p = pos[n.id]!;
-        final costSats = game.getResearchCost(n.id);
-        final canAfford = game.wallet >= costSats;
-        GraphNodeState state;
-        String sublabel;
-        if (n.isCompleted) {
-          state = GraphNodeState.owned;
-          sublabel = 'ACTIVE';
-        } else if (n.isUnlocked) {
-          state = GraphNodeState.available;
-          sublabel = game.showFiatPrices
-              ? '\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
-              : Formatter.formatBitcoin(costSats);
-        } else {
-          state = GraphNodeState.teaser;
-          sublabel = '';
-        }
-        nodes.add(GraphNode(
-          id: n.id,
-          x: p.dx,
-          y: p.dy,
-          label: n.name.toUpperCase(),
-          sublabel: sublabel,
-          icon: n.icon,
-          state: state,
-          canAfford: canAfford,
-          isGenesis: n.requirements.isEmpty,
-          onTap: () =>
-              _openResearchSheet(context, game, n, costSats, canAfford, state),
-        ));
-        for (final r in n.requirements) {
-          if (pos.containsKey(r)) edges.add(GraphEdge(r, n.id));
-        }
+    for (final n in game.researchNodes) {
+      if (!rendered(n)) continue;
+      final p = pos[n.id]!;
+      final costSats = game.getResearchCost(n.id);
+      final canAfford = game.wallet >= costSats;
+      GraphNodeState state;
+      String sublabel;
+      if (n.isCompleted) {
+        state = GraphNodeState.owned;
+        sublabel = 'ACTIVE';
+      } else if (n.isUnlocked) {
+        state = GraphNodeState.available;
+        sublabel = game.showFiatPrices
+            ? '\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
+            : Formatter.formatBitcoin(costSats);
+      } else {
+        state = GraphNodeState.teaser;
+        sublabel = '';
       }
-    });
+      nodes.add(GraphNode(
+        id: n.id,
+        x: p.dx,
+        y: p.dy,
+        label: n.name.toUpperCase(),
+        sublabel: sublabel,
+        icon: n.icon,
+        state: state,
+        canAfford: canAfford,
+        isGenesis: n.requirements.isEmpty,
+        onTap: () =>
+            _openResearchSheet(context, game, n, costSats, canAfford, state),
+      ));
+      for (final r in n.requirements) {
+        final req = byId[r];
+        if (req != null && rendered(req)) edges.add(GraphEdge(r, n.id));
+      }
+    }
 
     return BlockGraph(
       nodes: nodes,
