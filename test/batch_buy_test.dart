@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/content/rig_defs.dart';
 import 'test_helper.dart';
 
 void main() {
@@ -52,30 +53,42 @@ void main() {
   });
 
   group('data-driven rigs unlock progressively', () {
-    test('higher rig tiers reveal as lifetime earnings grow', () async {
+    test('you start with only the first rig; owning each one reveals the next '
+        '(the ownership chain)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
       game.lifetimeEarnings = 0;
+      game.wallet = 1e12;
+
+      expect(game.visibleRigs.map((r) => r.id).toList(), [RigIds.cpuRig],
+          reason: 'a fresh game shows only the first rig');
+
+      game.buyRig(RigIds.cpuRig); // owning the CPU reveals the GPU
       var ids = game.visibleRigs.map((r) => r.id).toList();
-      expect(ids.contains(RigIds.cpuRig), true);
-      expect(ids.contains(RigIds.fusionRig), false, reason: 'fusion gated at 1e6');
-      expect(ids.contains(RigIds.datacenterRig), false);
+      expect(ids.contains(RigIds.gpuRig), true);
+      expect(ids.contains(RigIds.asicRig), false,
+          reason: 'the ASIC only reveals once the GPU is owned');
 
-      game.lifetimeEarnings = 2e6;
-      ids = game.visibleRigs.map((r) => r.id).toList();
-      expect(ids.contains(RigIds.fusionRig), true);
-      expect(ids.contains(RigIds.datacenterRig), false, reason: 'datacenter 1e9');
+      game.buyRig(RigIds.gpuRig); // owning the GPU reveals the ASIC
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.asicRig), true);
+    });
 
-      game.lifetimeEarnings = 2e9;
-      ids = game.visibleRigs.map((r) => r.id).toList();
-      expect(ids.contains(RigIds.datacenterRig), true);
+    test('the lifetime-earnings fallback also reveals a rig without owning the '
+        'previous', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.lifetimeEarnings = 0;
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), false);
+
+      // Reaching the GPU's earnings threshold reveals it even with nothing owned.
+      game.lifetimeEarnings = rigUnlockThreshold(RigIds.gpuRig);
+      expect(game.visibleRigs.map((r) => r.id).contains(RigIds.gpuRig), true);
     });
 
     test('an owned rig stays visible even below its unlock threshold', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 2e6;
+      game.lifetimeEarnings = rigUnlockThreshold(RigIds.fusionRig); // reveal it
       game.wallet = 1e12;
       game.buyRig(RigIds.fusionRig); // now owned
       game.lifetimeEarnings = 0; // drop below the gate (e.g. after a reset)

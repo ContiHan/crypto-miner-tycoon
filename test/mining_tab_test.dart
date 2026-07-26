@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:provider/provider.dart';
 
 import 'package:crypto_miner_tycoon/screens/mining_tab.dart';
+import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'test_helper.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 
@@ -43,10 +44,19 @@ void main() {
     expect(game.wallet, greaterThan(0.0));
   });
 
-  testWidgets('MiningTab: Shows Rig List', (WidgetTester tester) async {
+  testWidgets('MiningTab: shows only the first rig at start, reveals the next '
+      'after buying it (progressive reveal)', (WidgetTester tester) async {
     await tester.pumpWidget(createWidgetUnderTest());
 
+    // Fresh game: only the starter rig is shown; the GPU rack is still hidden.
     expect(find.text('STARTER CPU RIG'), findsOneWidget);
+    expect(find.text('GPU RACK'), findsNothing);
+
+    // Buying the CPU rig reveals the GPU rack (ownership chain).
+    game.wallet = 10000;
+    game.buyRig(RigIds.cpuRig);
+    await tester.pump();
+
     expect(find.text('GPU RACK'), findsOneWidget);
   });
 

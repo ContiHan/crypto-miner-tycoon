@@ -595,17 +595,11 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                           );
                         },
                       ),
-                      // Locked-rig teaser — own Consumer (nextLockedRig +
-                      // threshold + fiat), so it isn't rebuilt with the cards.
+                      // Locked-rig teaser — own Consumer (nextLockedRig), so it
+                      // isn't rebuilt with the cards.
                       Consumer<GameLogic>(
                         builder: (context, game, _) => game.nextLockedRig != null
-                            ? _LockedRigTeaser(
-                                threshold: game.unlockThresholdFor(
-                                  game.nextLockedRig!.id,
-                                ),
-                                showFiat: game.showFiatPrices,
-                                toFiat: game.toFiat,
-                              )
+                            ? const _LockedRigTeaser()
                             : const SizedBox.shrink(),
                       ),
                     ],
@@ -818,26 +812,10 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
 /// Greyed "???" teaser for the next still-locked rig (progressive discovery).
 
 class _LockedRigTeaser extends StatelessWidget {
-  final double threshold;
-
-  final bool showFiat;
-
-  final double Function(double) toFiat;
-
-  const _LockedRigTeaser({
-    required this.threshold,
-
-    required this.showFiat,
-
-    required this.toFiat,
-  });
+  const _LockedRigTeaser();
 
   @override
   Widget build(BuildContext context) {
-    final hint = showFiat
-        ? '\$ ${Formatter.formatNumber(toFiat(threshold))}'
-        : Formatter.formatBitcoin(threshold);
-
     return StylizedCard(
       color: Colors.black26,
 
@@ -886,10 +864,9 @@ class _LockedRigTeaser extends StatelessWidget {
 
                   const SizedBox(height: 4),
 
-                  Text(
-                    'Unlocks at $hint mined',
-
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
+                  const Text(
+                    'Buy the rig above to reveal',
+                    style: TextStyle(color: Colors.white38, fontSize: 12),
                   ),
                 ],
               ),

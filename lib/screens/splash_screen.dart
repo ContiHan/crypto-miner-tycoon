@@ -63,6 +63,20 @@ class SplashScreen extends StatelessWidget {
                 valueColor: AlwaysStoppedAnimation<Color>(AppTheme.accent),
               ),
             ),
+            const SizedBox(height: 40),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 44),
+              child: Text(
+                'This game was vibecoded —\nbut orchestrated by a human.',
+                textAlign: TextAlign.center,
+                style: GoogleFonts.orbitron(
+                  color: Colors.white24,
+                  fontSize: 10,
+                  letterSpacing: 1.2,
+                  height: 1.6,
+                ),
+              ),
+            ),
           ],
         ),
       ),

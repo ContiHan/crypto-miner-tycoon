@@ -32,6 +32,83 @@ class Artifact {
   });
 }
 
+/// The four crate tiers you buy with UTXO. Higher tiers cost more and shift the
+/// whole drop table up (scrap = mostly Common; quantum = Epic floor). [weights]
+/// is a rarity → relative-weight table (geometric ladder); a rarity absent from
+/// the map can't drop from that crate.
+enum CrateTier { scrap, standard, premium, quantum }
+
+class CrateDef {
+  final CrateTier tier;
+  final String name;
+  final int cost; // UTXO
+  final String blurb; // odds summary shown on the card
+  final Map<ArtifactRarity, double> weights;
+  const CrateDef({
+    required this.tier,
+    required this.name,
+    required this.cost,
+    required this.blurb,
+    required this.weights,
+  });
+}
+
+const List<CrateDef> kCrates = [
+  CrateDef(
+    tier: CrateTier.scrap,
+    name: 'SCRAP',
+    cost: 5,
+    blurb: 'Cheap gamble · mostly Common, ~8% Rare+',
+    weights: {
+      ArtifactRarity.common: 70,
+      ArtifactRarity.uncommon: 22,
+      ArtifactRarity.rare: 6,
+      ArtifactRarity.epic: 1.7,
+      ArtifactRarity.legendary: 0.3,
+    },
+  ),
+  CrateDef(
+    tier: CrateTier.standard,
+    name: 'STANDARD',
+    cost: 10,
+    blurb: 'Common / Uncommon · 12% Rare, rare Epic+',
+    weights: {
+      ArtifactRarity.common: 55,
+      ArtifactRarity.uncommon: 27,
+      ArtifactRarity.rare: 12,
+      ArtifactRarity.epic: 4.5,
+      ArtifactRarity.legendary: 1.2,
+      ArtifactRarity.mythic: 0.3,
+    },
+  ),
+  CrateDef(
+    tier: CrateTier.premium,
+    name: 'PREMIUM',
+    cost: 50,
+    blurb: 'Rare floor · Epic 31% · Leg 14% · Myth 5%',
+    weights: {
+      ArtifactRarity.rare: 50,
+      ArtifactRarity.epic: 31,
+      ArtifactRarity.legendary: 14,
+      ArtifactRarity.mythic: 5,
+    },
+  ),
+  CrateDef(
+    tier: CrateTier.quantum,
+    name: 'QUANTUM',
+    cost: 200,
+    blurb: 'Epic floor · Leg 38% · Myth 17%',
+    weights: {
+      ArtifactRarity.epic: 45,
+      ArtifactRarity.legendary: 38,
+      ArtifactRarity.mythic: 17,
+    },
+  ),
+];
+
+/// The [CrateDef] for [tier].
+CrateDef crateDef(CrateTier tier) => kCrates.firstWhere((c) => c.tier == tier);
+
 class StashService {
   // === DATABASE OF ARTIFACTS ===
   // Data-driven: add rows here to grow content. baseBonus follows per-rarity
@@ -128,24 +205,6 @@ class StashService {
     Artifact(id: 'philosophers_stone', name: "Philosopher's Stone", description: '+450% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 4.5),
   ];
 
-  // Drop-weight tables (geometric ladder). Standard crates favour low rarities;
-  // premium crates drop commons and shift the whole table up.
-  static const Map<ArtifactRarity, double> _standardWeights = {
-    ArtifactRarity.common: 55,
-    ArtifactRarity.uncommon: 27,
-    ArtifactRarity.rare: 12,
-    ArtifactRarity.epic: 4.5,
-    ArtifactRarity.legendary: 1.2,
-    ArtifactRarity.mythic: 0.3,
-  };
-  // Premium crates deliver on their "Guaranteed Rare+" promise: NO common or
-  // uncommon rolls — the floor is Rare, with a genuinely high Legendary chance.
-  static const Map<ArtifactRarity, double> _premiumWeights = {
-    ArtifactRarity.rare: 50,
-    ArtifactRarity.epic: 31,
-    ArtifactRarity.legendary: 14,
-    ArtifactRarity.mythic: 5,
-  };
 
   // === STATE ===
   // Map<ArtifactId, Count/Level>
@@ -232,9 +291,8 @@ class StashService {
     }
   }
 
-  /// Rolls a rarity from the weighted table (premium shifts it up).
-  ArtifactRarity _rollRarity(Random random, bool isPremium) {
-    final weights = isPremium ? _premiumWeights : _standardWeights;
+  /// Rolls a rarity from a crate's weighted table.
+  ArtifactRarity _rollRarity(Random random, Map<ArtifactRarity, double> weights) {
     final total = weights.values.fold(0.0, (a, b) => a + b);
     double roll = random.nextDouble() * total;
     for (final entry in weights.entries) {
@@ -245,9 +303,9 @@ class StashService {
   }
 
   // Returns the allocated Artifact.
-  Artifact openCrate({required bool isPremium}) {
+  Artifact openCrate({required CrateTier tier}) {
     final random = Random();
-    final electedRarity = _rollRarity(random, isPremium);
+    final electedRarity = _rollRarity(random, crateDef(tier).weights);
 
     // Draw from that rarity's pool only; fall back down the ladder if a rarity
     // has no items defined yet.

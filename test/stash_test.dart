@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+import 'package:crypto_miner_tycoon/services/stash_service.dart';
 
 import 'test_helper.dart';
 
@@ -21,7 +22,7 @@ void main() {
       game.chips = 60;
 
       // Buy Standard Crate (10 Chips)
-      game.buyCrate(false);
+      game.buyCrate(CrateTier.standard);
       expect(game.chips, 50);
       expect(
         game.stashService.ownedArtifacts.values.fold(0, (a, b) => a + b),
@@ -29,7 +30,7 @@ void main() {
       ); // 1 Item total
 
       // Buy Premium Crate (50 Chips)
-      game.buyCrate(true);
+      game.buyCrate(CrateTier.premium);
       expect(game.chips, 0);
       expect(
         game.stashService.ownedArtifacts.values.fold(0, (a, b) => a + b),
@@ -37,7 +38,7 @@ void main() {
       ); // At least 2 items now
 
       // Try buying with insufficient funds
-      game.buyCrate(false);
+      game.buyCrate(CrateTier.standard);
       expect(game.chips, 0); // No change
     });
 

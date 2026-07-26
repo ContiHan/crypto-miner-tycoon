@@ -112,23 +112,38 @@ class GameLogic with ChangeNotifier {
   // Runtime rigs are built from the data-driven catalog (lib/content/rig_defs).
   List<Rig> rigs = createRigs();
 
-  /// Rigs the player should currently SEE: any already owned, plus any whose
-  /// lifetime-earnings unlock threshold has been reached. Higher rigs reveal
-  /// progressively as the player grows (content isn't all shown at once).
-  List<Rig> get visibleRigs => rigs
-      .where((r) => r.amount > 0 || lifetimeEarnings >= rigUnlockThreshold(r.id))
-      .toList();
+  /// Whether rig at index [i] should be visible yet. Progressive reveal: the
+  /// FIRST rig is always shown; every later rig unlocks once you OWN the previous
+  /// one (buy a rig → the next appears), with the lifetime-earnings threshold as
+  /// a secondary fallback. Already-owned rigs are always shown.
+  bool _rigRevealed(int i) {
+    final r = rigs[i];
+    return r.amount > 0 ||
+        i == 0 ||
+        rigs[i - 1].amount > 0 ||
+        lifetimeEarnings >= rigUnlockThreshold(r.id);
+  }
+
+  /// Rigs the player should currently SEE. You start with just the first rig; the
+  /// rest reveal one at a time as you buy the previous tier (see [_rigRevealed]).
+  List<Rig> get visibleRigs {
+    final out = <Rig>[];
+    for (int i = 0; i < rigs.length; i++) {
+      if (_rigRevealed(i)) out.add(rigs[i]);
+    }
+    return out;
+  }
 
   /// The next still-locked rig, shown as a "???" silhouette teaser so the player
   /// always has a visible next goal (progressive discovery). Null if all revealed.
   Rig? get nextLockedRig {
-    for (final r in rigs) {
-      if (r.amount == 0 && lifetimeEarnings < rigUnlockThreshold(r.id)) return r;
+    for (int i = 0; i < rigs.length; i++) {
+      if (!_rigRevealed(i)) return rigs[i];
     }
     return null;
   }
 
-  /// Lifetime-earnings threshold that reveals [rigId].
+  /// Lifetime-earnings threshold that reveals [rigId] (the secondary fallback).
   double unlockThresholdFor(String rigId) => rigUnlockThreshold(rigId);
 
   int govTokens = 0;
@@ -278,14 +293,17 @@ class GameLogic with ChangeNotifier {
     casinoSpins++;
     if (outcome.isJackpot) casinoJackpots++;
     if (!silent) {
-      _soundService.playBuy();
+      if (outcome.isWin) _soundService.playCoin(); // win chime (a bust is silent)
       if (outcome.isJackpot) {
         _hapticHeavy();
       } else if (outcome.isWin) {
         _hapticLight();
       }
     }
-    _evaluateAchievements();
+    // On a SILENT commit (teardown/backgrounding) skip achievement evaluation so
+    // its cue can't fire during teardown — the counters are saved below, so any
+    // crossed achievement unlocks on the next natural evaluation (or on reload).
+    if (!silent) _evaluateAchievements();
     if (!silent) notifyListeners();
     _saveGame();
   }
@@ -328,7 +346,7 @@ class GameLogic with ChangeNotifier {
   /// Claim an unlocked achievement — activates its Notoriety income bonus.
   bool claimAchievement(String id) {
     if (!_achievements.claim(id)) return false;
-    _soundService.playUnlock();
+    _soundService.playCoin(); // collecting a reward
     _hapticMedium();
     notifyListeners();
     _saveGame();
@@ -339,7 +357,7 @@ class GameLogic with ChangeNotifier {
   int claimAllAchievements() {
     final n = _achievements.claimAll();
     if (n > 0) {
-      _soundService.playUnlock();
+      _soundService.playCoin(); // collecting rewards
       _hapticMedium();
       notifyListeners();
       _saveGame();
@@ -386,7 +404,7 @@ class GameLogic with ChangeNotifier {
 
   Future<void> toggleFiatDisplay() async {
     showFiatPrices = !showFiatPrices;
-    _soundService.playMine(); // light UI click on the currency toggle
+    _soundService.playClick(); // light UI click on the currency toggle
     await _persistSettings();
     notifyListeners();
   }
@@ -416,7 +434,7 @@ class GameLogic with ChangeNotifier {
 
   /// A light click for generic UI interactions (e.g. bottom-nav tab switches)
   /// that have no dedicated effect of their own.
-  void playUiClick() => _soundService.playMine();
+  void playUiClick() => _soundService.playClick();
 
   // Full Reset (Wipe Save)
   Future<void> resetGame() async {
@@ -482,7 +500,7 @@ class GameLogic with ChangeNotifier {
 
     if (cost > 0) {
       wallet -= cost;
-      _soundService.playUnlock();
+      _soundService.playResearch();
       _evaluateAchievements();
       notifyListeners();
       _saveGame();
@@ -610,7 +628,7 @@ class GameLogic with ChangeNotifier {
     );
     _researchManager.reset();
     softForkCount++;
-    _soundService.playUnlock();
+    _soundService.playPrestige();
     _hapticHeavy();
     _evaluateAchievements();
     notifyListeners();
@@ -709,7 +727,7 @@ class GameLogic with ChangeNotifier {
       onChanged: notifyListeners,
       onCollect: () {
         chips += 1;
-        _soundService.playUnlock();
+        _soundService.playCoin();
         _evaluateAchievements();
         _saveGame();
       },
@@ -1005,7 +1023,7 @@ class GameLogic with ChangeNotifier {
     // the ending before the WELCOME BACK dialog and stack it underneath. The
     // caller's trailing notify (+ end-of-loop _saveGame) surfaces both in order.
     if (_inOfflineSim) return;
-    _soundService.playHalving(); // dramatic cue for the ending
+    _soundService.playEnding(); // dramatic cue for the ending
     _hapticHeavy();
     _saveGame();
     notifyListeners();
@@ -1037,12 +1055,16 @@ class GameLogic with ChangeNotifier {
   /// to run every tick and after each discrete action.
   void _evaluateAchievements() {
     final newly = _achievements.evaluate(_buildAchStats());
-    if (newly.isNotEmpty) {
+    final playedAchievementCue = newly.isNotEmpty;
+    if (playedAchievementCue) {
       pendingAchievementToasts.addAll(newly);
-      _soundService.playUnlock();
+      _soundService.playAchievement();
       _saveGame();
     }
-    _refreshTabUnlocks();
+    // If an achievement chime just fired, let any simultaneous tab reveal (e.g.
+    // the first achievement unlocking GOAL) happen WITHOUT its own overlapping
+    // cue — one celebratory sound per frame, not a double-chime.
+    _refreshTabUnlocks(suppressSound: playedAchievementCue);
   }
 
   /// Reveal bottom-nav tabs as the player progresses (sticky — never re-locks).
@@ -1052,7 +1074,7 @@ class GameLogic with ChangeNotifier {
   ///   TECH  after 10k sats mined (a bit of play, not the very first rig);
   ///   STASH after 1M sats / a chip / a crate;
   ///   SKILL after the first Hard Fork (when GovTokens first exist to spend).
-  void _refreshTabUnlocks({bool silent = false}) {
+  void _refreshTabUnlocks({bool silent = false, bool suppressSound = false}) {
     final newly = <String>[];
     var changed = false;
     if (!unlockedTech && lifetimeEarnings >= 10000) {
@@ -1079,7 +1101,7 @@ class GameLogic with ChangeNotifier {
     if (!changed) return;
     if (!silent) {
       pendingTabUnlockToasts.addAll(newly);
-      _soundService.playUnlock();
+      if (!suppressSound) _soundService.playUnlock();
       _saveGame();
       notifyListeners();
     }
@@ -1170,8 +1192,12 @@ class GameLogic with ChangeNotifier {
     // Only a real tap makes the click sound; the AI auto-clicker stays silent
     // so it doesn't emit a click every 5 seconds on its own.
     if (playSound) {
-      _soundService.playMine();
-      if (isCrit) _hapticHeavy();
+      if (isCrit) {
+        _soundService.playCrit();
+        _hapticHeavy();
+      } else {
+        _soundService.playMine();
+      }
     }
 
     _evaluateAchievements();
@@ -1216,7 +1242,7 @@ class GameLogic with ChangeNotifier {
     int tokensToClaim = pendingGovTokens;
     if (tokensToClaim <= 0) return;
 
-    _soundService.playHalving(); // dramatic cue for the prestige reset
+    _soundService.playPrestige(); // dramatic cue for the prestige reset
     _hapticHeavy();
 
     govTokens += tokensToClaim;
@@ -1279,7 +1305,7 @@ class GameLogic with ChangeNotifier {
   /// that survives every prestige). Mastery is NOT credited here — it accrues
   /// per-mint at each Hard Fork (see [hardFork]).
   void _newChainInternal({BtcClass? chosenClass}) {
-    _soundService.playHalving(); // dramatic cue for the deepest reset
+    _soundService.playPrestige(); // dramatic cue for the deepest reset
     _hapticHeavy();
 
     // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
@@ -1398,22 +1424,22 @@ class GameLogic with ChangeNotifier {
       govTokens -= cost;
 
       spentGovTokens += cost;
-      _soundService.playUnlock();
+      _soundService.playSkill();
       _evaluateAchievements();
       _saveGame();
       notifyListeners();
     }
   }
 
-  /// Opens a crate and returns the artifact won (null if unaffordable), so the
-  /// UI can show a reveal of exactly what dropped.
-  Artifact? buyCrate(bool isPremium) {
-    int cost = isPremium ? 50 : 10;
+  /// Opens a crate of [tier] and returns the artifact won (null if unaffordable),
+  /// so the UI can show a reveal of exactly what dropped.
+  Artifact? buyCrate(CrateTier tier) {
+    final int cost = crateDef(tier).cost;
     if (chips < cost) return null;
     chips -= cost;
-    final won = _stash.openCrate(isPremium: isPremium);
+    final won = _stash.openCrate(tier: tier);
     cratesOpened++;
-    _soundService.playUnlock();
+    _soundService.playCrate();
     _evaluateAchievements();
     notifyListeners();
     _saveGame();

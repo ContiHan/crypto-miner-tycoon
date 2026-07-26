@@ -66,6 +66,44 @@ class FakeSoundService implements SoundService {
 
   @override
   Future<void> playHalving() async => halvingCount++;
+
+  // --- Per-action cues added in the sound audit (unique sound per action) ---
+  int clickCount = 0;
+  int critCount = 0;
+  int coinCount = 0;
+  int crateCount = 0;
+  int researchCount = 0;
+  int skillCount = 0;
+  int achievementCount = 0;
+  int prestigeCount = 0;
+  int endingCount = 0;
+
+  @override
+  Future<void> playClick() async => clickCount++;
+
+  @override
+  Future<void> playCrit() async => critCount++;
+
+  @override
+  Future<void> playCoin() async => coinCount++;
+
+  @override
+  Future<void> playCrate() async => crateCount++;
+
+  @override
+  Future<void> playResearch() async => researchCount++;
+
+  @override
+  Future<void> playSkill() async => skillCount++;
+
+  @override
+  Future<void> playAchievement() async => achievementCount++;
+
+  @override
+  Future<void> playPrestige() async => prestigeCount++;
+
+  @override
+  Future<void> playEnding() async => endingCount++;
 }
 
 class FakeSettingsRepository implements SettingsRepository {

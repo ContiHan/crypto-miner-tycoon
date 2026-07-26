@@ -74,7 +74,7 @@ void main() {
       // Can't easily deterministic test random drops without mocking Random or high volumes.
       // We check that inventory grows.
 
-      stash.openCrate(isPremium: false);
+      stash.openCrate(tier: CrateTier.standard);
 
       // Should have at least one artifact now
       int totalItems = stash.ownedArtifacts.values.fold(0, (a, b) => a + b);
@@ -83,7 +83,7 @@ void main() {
 
     test('Premium Crate gives better/more loot', () {
       // Premium gives 3 rolls.
-      stash.openCrate(isPremium: true);
+      stash.openCrate(tier: CrateTier.premium);
       int totalItems = stash.ownedArtifacts.values.fold(0, (a, b) => a + b);
       expect(totalItems, greaterThanOrEqualTo(1));
     });
@@ -108,7 +108,7 @@ void main() {
 
     test('premium crates never drop common rarity', () {
       for (var i = 0; i < 300; i++) {
-        final a = StashService().openCrate(isPremium: true);
+        final a = StashService().openCrate(tier: CrateTier.premium);
         expect(a.rarity, isNot(ArtifactRarity.common));
       }
     });
@@ -116,7 +116,7 @@ void main() {
     test('standard crates can drop across the ladder', () {
       final seen = <ArtifactRarity>{};
       for (var i = 0; i < 2000; i++) {
-        seen.add(StashService().openCrate(isPremium: false).rarity);
+        seen.add(StashService().openCrate(tier: CrateTier.standard).rarity);
       }
       // Commons dominate but higher rarities should also appear over many rolls.
       expect(seen.contains(ArtifactRarity.common), true);

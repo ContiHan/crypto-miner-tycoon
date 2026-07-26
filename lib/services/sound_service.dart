@@ -8,16 +8,27 @@ import 'package:flutter/foundation.dart';
 /// another source did not always switch, so only one effect was ever audible.
 /// Dedicated players also let effects overlap.
 ///
-/// Assets live under `assets/sounds/<name>.wav`:
-///   click, buy, unlock, event_good, event_bad, halving
+/// Assets live under `assets/sounds/<name>.wav`. Each distinct game action gets
+/// its own most-fitting cue (no sharing): UI vs mining tap vs crit, rig-buy vs
+/// crate vs SWEEP-win, research vs skill vs tab-unlock vs achievement, and the
+/// forks/ending vs the halving.
 class SoundService {
   static const List<String> _effects = [
-    'click',
-    'buy',
-    'unlock',
-    'event_good',
-    'event_bad',
-    'halving',
+    'click', // generic UI (nav, toggles)
+    'mine', // mining tap
+    'crit', // critical tap
+    'buy', // rig purchase
+    'coin', // SWEEP win / anomaly pickup / achievement claim
+    'crate', // opening a supply crate
+    'research', // TECH node completed
+    'skill', // SKILL node bought
+    'unlock', // a tab / feature unlocking
+    'achievement', // an achievement unlocking
+    'event_good', // market buff
+    'event_bad', // market debuff
+    'halving', // block-reward halving
+    'prestige', // Soft/Hard Fork + New Blockchain reset
+    'ending', // the true ending (21M-ever)
   ];
 
   final Map<String, AudioPlayer> _players = {};
@@ -55,16 +66,25 @@ class SoundService {
     }
   }
 
-  /// Mining tap. A bundled asset instead of SystemSound (which was silent when
-  /// the OS "touch sounds" setting was off) and instead of PlayerMode.lowLatency
-  /// (which did not play at all on the test emulator).
-  Future<void> playMine() => _play('click');
-
   Future<void> playSound(String soundName) => _play(soundName);
 
-  Future<void> playBuy() => _play('buy');
-  Future<void> playUnlock() => _play('unlock');
+  /// Mining tap — a soft dedicated "chip" (distinct from the UI click). A bundled
+  /// asset instead of SystemSound (silent with the OS "touch sounds" setting off)
+  /// and instead of PlayerMode.lowLatency (which did not play on the emulator).
+  Future<void> playMine() => _play('mine');
+
+  Future<void> playClick() => _play('click'); // generic UI (nav, toggles)
+  Future<void> playCrit() => _play('crit'); // critical tap
+  Future<void> playBuy() => _play('buy'); // rig purchase
+  Future<void> playCoin() => _play('coin'); // SWEEP win / anomaly / claim reward
+  Future<void> playCrate() => _play('crate'); // open a supply crate
+  Future<void> playResearch() => _play('research'); // TECH node done
+  Future<void> playSkill() => _play('skill'); // SKILL node bought
+  Future<void> playUnlock() => _play('unlock'); // tab / feature unlock
+  Future<void> playAchievement() => _play('achievement'); // achievement unlock
   Future<void> playEventGood() => _play('event_good');
   Future<void> playEventBad() => _play('event_bad');
   Future<void> playHalving() => _play('halving');
+  Future<void> playPrestige() => _play('prestige'); // fork / new-chain reset
+  Future<void> playEnding() => _play('ending'); // the true ending
 }

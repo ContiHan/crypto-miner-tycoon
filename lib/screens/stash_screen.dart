@@ -127,9 +127,9 @@ class _StashScreenState extends State<StashScreen>
     super.dispose();
   }
 
-  void _showCrateOpening(BuildContext context, bool isPremium, GameLogic game) {
+  void _showCrateOpening(BuildContext context, CrateTier tier, GameLogic game) {
     // Logic is handled in game.buyCrate, here we just trigger it and show feedback
-    if ((isPremium && game.chips < 50) || (!isPremium && game.chips < 10)) {
+    if (game.chips < crateDef(tier).cost) {
       if (_isErrorShowing) return;
       _isErrorShowing = true;
       ScaffoldMessenger.of(context)
@@ -145,7 +145,7 @@ class _StashScreenState extends State<StashScreen>
     }
 
     // Open the crate and reveal exactly what dropped.
-    final won = game.buyCrate(isPremium);
+    final won = game.buyCrate(tier);
     if (won == null) return;
     final count = game.stashService.ownedArtifacts[won.id] ?? 1;
     final color = _rarityColor(won.rarity);
@@ -365,33 +365,29 @@ class _StashScreenState extends State<StashScreen>
         ),
         const SizedBox(height: 8),
 
-        // IntrinsicHeight keeps the two cards equal height and lets them GROW to
-        // fit their text (no fixed-height clipping / overflow).
+        // 2×2 grid of the four crate tiers. IntrinsicHeight per row keeps each
+        // pair equal height and lets them GROW to fit their text (no clipping).
+        IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(child: _buildCrateCard(context, game, CrateTier.scrap)),
+              const SizedBox(width: 12),
+              Expanded(
+                  child: _buildCrateCard(context, game, CrateTier.standard)),
+            ],
+          ),
+        ),
+        const SizedBox(height: 12),
         IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(
-                child: _buildCrateCard(
-                  context,
-                  "STANDARD",
-                  10,
-                  Colors.blueGrey,
-                  () => _showCrateOpening(context, false, game),
-                  "Common / Uncommon · 12% Rare, rare Epic+",
-                ),
-              ),
+                  child: _buildCrateCard(context, game, CrateTier.premium)),
               const SizedBox(width: 12),
               Expanded(
-                child: _buildCrateCard(
-                  context,
-                  "PREMIUM",
-                  50,
-                  Colors.amber,
-                  () => _showCrateOpening(context, true, game),
-                  "Rare floor · Epic 31% · Leg 14% · Myth 5%",
-                ),
-              ),
+                  child: _buildCrateCard(context, game, CrateTier.quantum)),
             ],
           ),
         ),
@@ -399,52 +395,75 @@ class _StashScreenState extends State<StashScreen>
     );
   }
 
-  Widget _buildCrateCard(
-    BuildContext context,
-    String title,
-    int cost,
-    Color color,
-    VoidCallback onTap,
-    String desc,
-  ) {
-    return GestureDetector(
-      onTap: onTap,
-      child: Container(
-        constraints: const BoxConstraints(minHeight: 170),
-        decoration: BoxDecoration(
-          color: color.withValues(alpha: 0.1),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(color: color, width: 2),
-        ),
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            Icon(Icons.inventory_2_outlined, size: 48, color: color),
-            const SizedBox(height: 12),
-            Text(
-              title,
-              style: GoogleFonts.orbitron(
-                color: color,
-                fontSize: 16,
-                fontWeight: FontWeight.bold,
+  static Color _crateColor(CrateTier tier) {
+    switch (tier) {
+      case CrateTier.scrap:
+        return Colors.blueGrey;
+      case CrateTier.standard:
+        return Colors.blueAccent;
+      case CrateTier.premium:
+        return Colors.amber;
+      case CrateTier.quantum:
+        return Colors.purpleAccent;
+    }
+  }
+
+  static IconData _crateIcon(CrateTier tier) {
+    switch (tier) {
+      case CrateTier.scrap:
+        return Icons.inventory_2_outlined;
+      case CrateTier.standard:
+        return Icons.inventory_2;
+      case CrateTier.premium:
+        return Icons.workspace_premium;
+      case CrateTier.quantum:
+        return Icons.auto_awesome;
+    }
+  }
+
+  Widget _buildCrateCard(BuildContext context, GameLogic game, CrateTier tier) {
+    final def = crateDef(tier);
+    final color = _crateColor(tier);
+    final affordable = game.chips >= def.cost;
+    return Opacity(
+      opacity: affordable ? 1.0 : 0.45, // dim (still tappable → "not enough" toast)
+      child: GestureDetector(
+        onTap: () => _showCrateOpening(context, tier, game),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 168),
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.1),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color, width: 2),
+          ),
+          padding: const EdgeInsets.all(14),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(_crateIcon(tier), size: 44, color: color),
+              const SizedBox(height: 10),
+              Text(
+                def.name,
+                style: GoogleFonts.orbitron(
+                  color: color,
+                  fontSize: 15,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
-            ),
-            const SizedBox(height: 4),
-            Text(
-              '$cost UTXO',
-              style: TextStyle(
-                color: Colors.white,
-                fontWeight: FontWeight.bold,
+              const SizedBox(height: 4),
+              Text(
+                '${def.cost} UTXO',
+                style: const TextStyle(
+                    color: Colors.white, fontWeight: FontWeight.bold),
               ),
-            ),
-            const SizedBox(height: 8),
-            Text(
-              desc,
-              style: const TextStyle(color: Colors.white54, fontSize: 10),
-              textAlign: TextAlign.center,
-            ),
-          ],
+              const SizedBox(height: 8),
+              Text(
+                def.blurb,
+                style: const TextStyle(color: Colors.white54, fontSize: 10),
+                textAlign: TextAlign.center,
+              ),
+            ],
+          ),
         ),
       ),
     );

@@ -46,7 +46,7 @@ class MyApp extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
-      title: 'Bitcoin Idle Tycoon',
+      title: 'BTC Only Tycoon',
       debugShowCheckedModeBanner: false,
       theme: AppTheme.darkTheme,
       // Hold on a branded splash until the save has loaded — no white flash and
