@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
+import '../core/ids.dart';
 import '../models/rig.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
@@ -312,26 +313,38 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
     );
   }
 
+  // A distinct, thematic icon per rig tier (all 10). Keep in sync with the
+  // rig ladder in content/rig_defs.dart.
   IconData _getRigIcon(String id) {
     switch (id) {
-      case 'cpu_rig': return Icons.memory;
-      case 'gpu_rig': return Icons.developer_board;
-      case 'asic_rig': return Icons.dns;
-      case 'quantum': return Icons.hub;
-      case 'fusion_rig': return Icons.local_fire_department;
-      case 'datacenter_rig': return Icons.cloud;
+      case RigIds.cpuRig: return Icons.memory;
+      case RigIds.gpuRig: return Icons.developer_board;
+      case RigIds.asicRig: return Icons.dns;
+      case RigIds.miningFarm: return Icons.warehouse;
+      case RigIds.quantumRig: return Icons.hub;
+      case RigIds.fusionRig: return Icons.local_fire_department;
+      case RigIds.photonicRig: return Icons.flare;
+      case RigIds.datacenterRig: return Icons.cloud;
+      case RigIds.dysonRig: return Icons.solar_power;
+      case RigIds.singularityRig: return Icons.filter_tilt_shift;
       default: return Icons.cyclone;
     }
   }
 
+  // A distinct neon accent per rig tier (all 10). Adjacent tiers never share a
+  // hue so the ladder reads as ten different machines at a glance.
   Color _getRigColor(String id) {
     switch (id) {
-      case 'cpu_rig': return Colors.cyanAccent;
-      case 'gpu_rig': return Colors.purpleAccent;
-      case 'asic_rig': return Colors.lightGreenAccent;
-      case 'quantum': return Colors.blueAccent;
-      case 'fusion_rig': return Colors.orangeAccent;
-      case 'datacenter_rig': return Colors.tealAccent;
+      case RigIds.cpuRig: return Colors.cyanAccent;
+      case RigIds.gpuRig: return Colors.purpleAccent;
+      case RigIds.asicRig: return Colors.lightGreenAccent;
+      case RigIds.miningFarm: return Colors.amberAccent;
+      case RigIds.quantumRig: return Colors.blueAccent;
+      case RigIds.fusionRig: return Colors.orangeAccent;
+      case RigIds.photonicRig: return Colors.pinkAccent;
+      case RigIds.datacenterRig: return Colors.tealAccent;
+      case RigIds.dysonRig: return Colors.redAccent;
+      case RigIds.singularityRig: return Colors.white;
       default: return AppTheme.accent;
     }
   }
