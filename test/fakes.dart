@@ -218,6 +218,11 @@ class FakeGameRepository implements GameRepository {
     int bullRunsSeen = 0,
     List<String> unlockedRigs = const [],
     Map<String, dynamic> rigSnap = const {},
+    bool speedRunActive = false,
+    int speedRunStartMs = 0,
+    double speedRunMinedSats = 0,
+    int speedRunBestMs = 0,
+    int speedRunLastMs = 0,
   }) async {
     data['wallet'] = wallet;
     data['lifetimeEarnings'] = lifetimeEarnings;
@@ -252,6 +257,11 @@ class FakeGameRepository implements GameRepository {
     data['bullRunsSeen'] = bullRunsSeen;
     data['unlockedRigs'] = unlockedRigs;
     data['rigSnap'] = rigSnap;
+    data['speedRunActive'] = speedRunActive;
+    data['speedRunStartMs'] = speedRunStartMs;
+    data['speedRunMinedSats'] = speedRunMinedSats;
+    data['speedRunBestMs'] = speedRunBestMs;
+    data['speedRunLastMs'] = speedRunLastMs;
 
     data['perks'] = perks;
     data['perkCosts'] = perkCosts;

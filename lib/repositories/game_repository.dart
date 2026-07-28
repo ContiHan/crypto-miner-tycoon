@@ -83,6 +83,11 @@ class GameRepository {
     int bullRunsSeen = 0,
     List<String> unlockedRigs = const [],
     Map<String, dynamic> rigSnap = const {},
+    bool speedRunActive = false,
+    int speedRunStartMs = 0,
+    double speedRunMinedSats = 0,
+    int speedRunBestMs = 0,
+    int speedRunLastMs = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
 
@@ -137,6 +142,11 @@ class GameRepository {
       'bullRunsSeen': bullRunsSeen,
       'unlockedRigs': unlockedRigs,
       'rigSnap': rigSnap,
+      'speedRunActive': speedRunActive,
+      'speedRunStartMs': speedRunStartMs,
+      'speedRunMinedSats': fin(speedRunMinedSats),
+      'speedRunBestMs': speedRunBestMs,
+      'speedRunLastMs': speedRunLastMs,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
 
@@ -264,6 +274,11 @@ class GameRepository {
       'unlockedSkill': m['unlockedSkill'] == true,
       'unlockedGoal': m['unlockedGoal'] == true,
       'bullRunsSeen': asInt(m['bullRunsSeen'], 0),
+      'speedRunActive': m['speedRunActive'] == true,
+      'speedRunStartMs': asInt(m['speedRunStartMs'], 0),
+      'speedRunMinedSats': asDouble(m['speedRunMinedSats'], 0),
+      'speedRunBestMs': asInt(m['speedRunBestMs'], 0),
+      'speedRunLastMs': asInt(m['speedRunLastMs'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()
           : null,

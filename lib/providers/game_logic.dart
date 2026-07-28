@@ -61,6 +61,21 @@ class GameLogic with ChangeNotifier {
   // Number of endings reached; drives the permanent NG+ trophy gain multiplier.
   int winCount = 0;
 
+  // --- Speed Run (Genesis Sprint) ---
+  // An optional timed challenge: from a deep (New-Blockchain-style) reset that
+  // keeps your permanent progression (Genesis Blocks, Mastery, achievements /
+  // Notoriety, Stash), race to mine one full 21M-BTC supply (maxSupplySats) as
+  // fast as possible. The clock is WALL-CLOCK (persisted start timestamp) so
+  // backgrounding/closing the app can't pause or cheat it.
+  bool speedRunActive = false;
+  int speedRunStartMs = 0;
+  double speedRunMinedSats = 0; // sats mined since the current run started
+  int speedRunBestMs = 0; // best completed time in ms (0 = no record yet)
+  int speedRunLastMs = 0; // most recent completed time (for the overlay)
+  // Transient (NOT persisted): drives the one-shot SPEED RUN COMPLETE overlay.
+  bool pendingSpeedRunCelebration = false;
+  bool _speedRunWasRecord = false;
+
   final GameRepository _gameRepo;
   final SettingsRepository _settingsRepo;
   final EconomyService _economy;
@@ -1117,6 +1132,12 @@ class GameLogic with ChangeNotifier {
     // Extreme uncapped sandbox play could sum finite chunks into Infinity, which
     // fin() would then persist as 0 — clamp so the monotonic counter survives.
     if (!lifetimeEverSats.isFinite) lifetimeEverSats = double.maxFinite;
+    // Speed Run: accumulate this run's mined total and finish at one full supply.
+    // Runs before the win latch's early-return so a run can complete post-win too.
+    if (speedRunActive) {
+      speedRunMinedSats += amount;
+      if (speedRunMinedSats >= GameConstants.maxSupplySats) _finishSpeedRun();
+    }
     if (hasWonGame) return;
     if (lifetimeEverSats < GameConstants.endgameTargetSats) return;
     hasWonGame = true;
@@ -1153,6 +1174,83 @@ class GameLogic with ChangeNotifier {
     pendingWinCelebration = false;
     notifyListeners();
   }
+
+  // --- Speed Run (Genesis Sprint) ----------------------------------------
+
+  /// Unlocks once the player has prestiged at least once, so they understand
+  /// resets and have some permanent power (Genesis/Mastery/Notoriety/Stash) to
+  /// carry into the sprint.
+  bool get speedRunUnlocked =>
+      hardForkCount > 0 || newChainCount > 0 || hasWonGame;
+
+  /// Fraction (0..1) of one full 21M-BTC supply mined in the current run.
+  double get speedRunProgress =>
+      (speedRunMinedSats / GameConstants.maxSupplySats).clamp(0.0, 1.0);
+
+  /// Live elapsed milliseconds of the active run (0 when none is running).
+  /// Wall-clock, so it keeps counting across a background/close.
+  int get speedRunElapsedMs {
+    if (!speedRunActive) return 0;
+    final e = DateTime.now().millisecondsSinceEpoch - speedRunStartMs;
+    return e < 0 ? 0 : e;
+  }
+
+  /// Whether the most recently completed run set a new best time.
+  bool get speedRunWasRecord => _speedRunWasRecord;
+
+  /// Begin a Speed Run: a deep New-Blockchain-style reset (keeps Genesis Blocks,
+  /// Mastery, achievements/Notoriety and Stash; wipes wallet/rigs/TECH/TALENTS/
+  /// GovTokens/era) with the stopwatch started. Restarting while a run is active
+  /// abandons the current attempt. No-op until [speedRunUnlocked].
+  void startSpeedRun({BtcClass? chosenClass}) {
+    if (!speedRunUnlocked) return;
+    speedRunActive = true;
+    speedRunStartMs = DateTime.now().millisecondsSinceEpoch;
+    speedRunMinedSats = 0;
+    pendingSpeedRunCelebration = false;
+    _speedRunWasRecord = false;
+    _newChainInternal(chosenClass: chosenClass); // deep reset + save + notify
+  }
+
+  /// Finish the active run: record the time, update the best, raise the one-shot
+  /// celebration. Called from the income chokepoint when the run's mined total
+  /// first reaches one full supply. Latched via [speedRunActive] so it fires once.
+  void _finishSpeedRun() {
+    if (!speedRunActive) return;
+    final elapsed = DateTime.now().millisecondsSinceEpoch - speedRunStartMs;
+    speedRunActive = false;
+    speedRunLastMs = elapsed < 0 ? 0 : elapsed;
+    _speedRunWasRecord = speedRunBestMs == 0 || speedRunLastMs < speedRunBestMs;
+    if (_speedRunWasRecord) speedRunBestMs = speedRunLastMs;
+    pendingSpeedRunCelebration = true;
+    if (_inOfflineSim) return; // defer UI during offline catch-up
+    _soundService.playEnding();
+    _hapticHeavy();
+    _saveGame();
+    notifyListeners();
+  }
+
+  /// Abandon the active run without recording a time. The current (already
+  /// reset-and-partly-rebuilt) state stays; the player just leaves the timer.
+  void abortSpeedRun() {
+    if (!speedRunActive) return;
+    speedRunActive = false;
+    speedRunMinedSats = 0;
+    _saveGame();
+    notifyListeners();
+  }
+
+  /// Drain the one-shot SPEED RUN COMPLETE trigger after the UI has shown it.
+  void clearSpeedRunCelebration() {
+    if (!pendingSpeedRunCelebration) return;
+    pendingSpeedRunCelebration = false;
+    notifyListeners();
+  }
+
+  /// Test seam: credit cumulative-ever (and thus advance an active Speed Run)
+  /// directly, without driving the whole mining tick.
+  @visibleForTesting
+  void debugCreditEver(double amount) => _creditLifetimeEver(amount);
 
   /// Evaluate achievements; queue toasts + save on any new unlock. Cheap enough
   /// to run every tick and after each discrete action.
@@ -1610,6 +1708,11 @@ class GameLogic with ChangeNotifier {
         'bullRuns': _snapBullRuns,
         'hash': _snapHash,
       },
+      speedRunActive: speedRunActive,
+      speedRunStartMs: speedRunStartMs,
+      speedRunMinedSats: speedRunMinedSats,
+      speedRunBestMs: speedRunBestMs,
+      speedRunLastMs: speedRunLastMs,
     );
   }
 
@@ -1696,6 +1799,16 @@ class GameLogic with ChangeNotifier {
       // Self-heal + defensive invariants.
       if (lifetimeEverSats >= GameConstants.endgameTargetSats) hasWonGame = true;
       if (sandboxNoCap && !hasWonGame) sandboxNoCap = false;
+
+      // Speed Run (wall-clock timed challenge). The start timestamp keeps the
+      // clock running across a close; a missing/garbage start with an active
+      // flag would read as an absurd elapsed, so drop the run in that case.
+      speedRunActive = data['speedRunActive'] == true;
+      speedRunStartMs = _toInt(data['speedRunStartMs']);
+      speedRunMinedSats = _toDouble(data['speedRunMinedSats']);
+      speedRunBestMs = _toInt(data['speedRunBestMs']);
+      speedRunLastMs = _toInt(data['speedRunLastMs']);
+      if (speedRunActive && speedRunStartMs <= 0) speedRunActive = false;
 
       // Progressive-disclosure tab unlocks (sticky). Defaults false for saves
       // predating this; the silent refresh below re-derives them from loaded

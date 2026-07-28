@@ -6,6 +6,7 @@ import '../theme/app_theme.dart';
 import '../widgets/class_picker.dart';
 import '../widgets/first_visit_tip.dart';
 import 'ending_overlay.dart';
+import 'speed_run_overlay.dart';
 import '../widgets/news_ticker.dart';
 import 'perks_screen.dart';
 import 'research_tab.dart';
@@ -31,6 +32,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   bool _offlineDialogOpen = false;
   // Guards the once-per-crossing GENESIS COMPLETE ending overlay.
   bool _endingShown = false;
+  // Re-entrancy guard for the (repeatable) SPEED RUN COMPLETE overlay.
+  bool _speedRunOverlayOpen = false;
 
   @override
   void initState() {
@@ -50,6 +53,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
       _maybeShowEnding(_gameLogic);
+      _maybeShowSpeedRunComplete(_gameLogic);
     });
 
     // Listen for future updates (async load)
@@ -107,6 +111,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         (_currentIndex == 4 && !game.unlockedGoal);
     if (onLocked && mounted) setState(() => _currentIndex = 2); // fall back to MINE
     _maybeShowEnding(game);
+    _maybeShowSpeedRunComplete(game);
   }
 
   void _showTabUnlockToasts(GameLogic game) {
@@ -152,6 +157,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       onNewGenesis: () => _showNewGenesisPicker(context, game),
       onBreakChain: () => game.toggleSandboxNoCap(),
     );
+  }
+
+  /// Show the SPEED RUN COMPLETE overlay when a run finishes. Repeatable (each
+  /// run), so it uses a re-entrancy guard rather than a permanent latch. Defers
+  /// behind the WELCOME BACK dialog and the (higher-priority) GENESIS COMPLETE
+  /// ending; both re-invoke this on dismissal / the next tick.
+  void _maybeShowSpeedRunComplete(GameLogic game) {
+    if (!game.pendingSpeedRunCelebration || _speedRunOverlayOpen) return;
+    if (_offlineDialogOpen || game.pendingWinCelebration) return;
+    _speedRunOverlayOpen = true;
+    game.clearSpeedRunCelebration(); // the overlay reads last/best off `game`
+    showSpeedRunCompleteOverlay(context, game).whenComplete(() {
+      _speedRunOverlayOpen = false;
+    });
   }
 
   void _showAchievementToasts(GameLogic game) {
@@ -488,6 +507,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       // A win that crossed during the just-shown offline catch-up was deferred
       // (so it wouldn't stack); show it now that the dialog is dismissed.
       if (mounted) _maybeShowEnding(game);
+      // Same for a Speed Run that finished during the offline catch-up.
+      if (mounted) _maybeShowSpeedRunComplete(game);
     });
   }
 }

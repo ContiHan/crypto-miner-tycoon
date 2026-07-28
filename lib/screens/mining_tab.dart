@@ -12,6 +12,7 @@ import '../widgets/floating_text.dart';
 import '../widgets/binary_particle.dart';
 import '../widgets/animated_count_text.dart';
 import '../widgets/onboarding_overlay.dart';
+import '../widgets/speed_run.dart';
 
 class MiningTab extends StatefulWidget {
   final VoidCallback
@@ -322,9 +323,14 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                       children: [
                                         _buildStatItem(
                                           'DIFFICULTY',
-                                          Formatter.formatNumber(
-                                            game.networkDifficulty,
-                                          ),
+                                          // At the per-era supply cap difficulty
+                                          // is ∞ (income clamped to 0). Show a
+                                          // readable "MAXED" instead of a raw ∞.
+                                          game.networkDifficulty.isInfinite
+                                              ? 'MAXED'
+                                              : Formatter.formatNumber(
+                                                  game.networkDifficulty,
+                                                ),
                                           Colors.white70,
                                         ),
                                         Container(
@@ -530,6 +536,10 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     ),
                                   ),
                                 ),
+                              // Speed Run: optional timed sprint. START button
+                              // when idle, live HUD while running; hidden until
+                              // unlocked (first Hard Fork).
+                              SpeedRunSection(game: game),
                             ],
                           ),
                         ),
