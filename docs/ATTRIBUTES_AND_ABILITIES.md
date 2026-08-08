@@ -34,13 +34,15 @@ Derived / off-channel: **prestigeMultiplier** (1+0.5√GT+0.1√CX), **prestigeG
 ### 5 new attributes
 
 1. **OFFLINE YIELD** *(required; new `offline` channel)* — fraction of live
-   income/sec earned while closed. `offlineFraction = clamp(0.50 + sum(offline), 0, 1.0)`.
-   Base **0.50** (⚑ a deliberate rebalance down from today's implicit ~100%),
-   hard cap **1.0 = parity** (offline can never out-earn active play → no softcap
-   needed). Source: TECH "Autonomous Daemons", universal TALENT "Cron Jobs", STASH
-   `offlineYield` affix, **BTC OG +0.10**. Consumed: `_simulateOfflineMining`
-   (a new `yieldFactor` param on `_accrueMining`, live tick stays 1.0). Duration
-   cap + block advance unchanged (governs RATE, not duration).
+   income/sec earned while closed. `offlineFraction = clamp(0.70 + sum(offline), 0, 1.0)`.
+   Base **0.70** *(owner-chosen: soften the nerf from today's implicit ~100% —
+   a gentler transition than 0.50; you climb the last 30% back to parity via
+   TECH/TALENT/STASH/OG-class)*, hard cap **1.0 = parity** (offline can never
+   out-earn active play → no softcap needed). Source: TECH "Autonomous Daemons",
+   universal TALENT "Cron Jobs", STASH `offlineYield` affix, **BTC OG +0.10**.
+   Consumed: `_simulateOfflineMining` (a new `yieldFactor` param on `_accrueMining`,
+   live tick stays 1.0). Duration cap + block advance unchanged (governs RATE, not
+   duration).
 2. **CRIT POWER** *(revives `special`)* — raises crit **payout** (luck governs
    only chance). `critMult = 5 + 5·(special sum, softcapped)`. Source: Solo TALENT,
    repurpose legacy STASH `criticalChance` affix → crit-power, TECH. Self-limiting
@@ -55,7 +57,7 @@ Derived / off-channel: **prestigeMultiplier** (1+0.5√GT+0.1√CX), **prestigeG
    affix, OG/Pool lean. Consumed: `StashService._rollRarity`, `AnomalySystem`.
 5. **HASTE / COOLDOWN REDUCTION** — the bridge to abilities. `effectiveCD =
    baseCD·(1−haste)`, **haste hard-capped 0.40** with hard floors (basics never
-   < ~18 min, ult never < ~14.4 h). Source: small sub-linear Mastery nudge,
+   < ~18 min, ult never < ~13 h). Source: small sub-linear Mastery nudge,
    endgame TECH, Corp/Pool lean, a TALENT branch. Consumed: the ability timers.
 
 Everything either routes through the existing softcap math or is hard-capped by
@@ -79,7 +81,10 @@ avoid crowding the tap zone.* Firing pops floating text + a NEWS TICKER line.
 window), so they tick while closed; **single charge** (a week away = one of each,
 no stacking); no pre-load/auto-fire. **Buffs are foreground-only** — they run on a
 real-time timer and are NEVER re-applied inside the offline sim, so a buff can't
-juice offline earnings.
+juice offline earnings. Basics: **30 min / 2 h**. ⚑ **Ultimates ~22 h**
+*(owner-chosen: deliberately UNDER 24 h so a daily player always finds the ult
+ready and it drifts ~2 h earlier each day — daily play is rewarded).* Haste/CDR
+can shorten further, floor ~13 h.
 
 **Ability axes:** ⚑ abilities get their **own** multiplier axes (income/hash/
 click/cost/luck), independent of chaos (which uses replace-semantics on its own
@@ -91,6 +96,16 @@ supply-clamped `_accrueMining` lump path → can never breach the 21M/era wall
 (disabled once the era is mined out). ⚑ *To keep the roster distinct, the instant
 income lump is **Corp-only** (their signature); Pool/OG use different levers.*
 
+**Unlocking (progressive — owner-chosen):** abilities are earned, not handed over
+at once. The Abilities Bar appears when you pick a real class; **slot 1** (30-min
+basic) is available immediately. **Slot 2** (2-h basic) unlocks at that class's
+**Mastery 1**; the **Ultimate** at **Mastery 2** — *or* each can be backed by a
+dedicated TECH node ("Ability Console" → slot 2, a deeper node → ult) so they stay
+reachable if per-supply Mastery pacing proves slow. Thresholds are **[TUNE]**,
+tied to the Mastery-pacing decision in [ENDGAME_REDESIGN.md](ENDGAME_REDESIGN.md)
+(1 supply = Mastery 1). Because Mastery is permanent + per class, mastering a class
+unlocks its full kit and keeps it forever.
+
 ### Solo Miner — clicks / crit / luck
 - **OVERCLOCK THE GPU** · 30 min · 45s: every real HACK tap is a guaranteed crit at ×8, click ×2.5 (auto-taps excluded).
 - **LUCKY NONCE** · 2 h · instant: open 1 free luck-weighted Supply Crate + luck ×3 for 5 min + spawn 3 anomalies.
@@ -99,17 +114,17 @@ income lump is **Corp-only** (their signature); Pool/OG use different levers.*
 ### Corporation — raw hash / income / buy-power
 - **SPIN UP THE FARM** · 30 min · 90s: hash ×2.5.
 - **CAPITAL INJECTION** · 2 h · instant: bank 30 min of current income (supply-clamped). *(The one signature lump.)*
-- **HOSTILE TAKEOVER (ult)** · ~24 h · 10 min income ×4 **and** rig cost ×0.5, plus an instant 2h lump.
+- **HOSTILE TAKEOVER (ult)** · ~22 h · 10 min income ×4 **and** rig cost ×0.5, plus an instant 2h lump.
 
 ### BTC OG — market / prestige / time
 - **WHALE ORDER** · 30 min · force a Bull Run (income ×3, 3 min); or cancel an active crash/spike.
 - **COLD STORAGE** · 2 h · 6 min: prestige-gain ×1.75 (stacks with class 1.25) on any fork cashed in the window.
-- **SATOSHI MODE (ult)** · ~24 h · 10 min: prestige-gain ×2.5 **and** blocks ×4 (halving progress). ⚑ *Pure prestige/time window — NO raw income lump, NO free era-sats drip; you still pay the full fork reset.*
+- **SATOSHI MODE (ult)** · ~22 h · 10 min: prestige-gain ×2.5 **and** blocks ×4 (halving progress). ⚑ *Pure prestige/time window — NO raw income lump, NO free era-sats drip; you still pay the full fork reset.*
 
 ### Pool Member — stability / SWEEP / steady
 - **STEADY HANDS** · 30 min · 5 min: income ×2 with total crash-immunity (crash/hack/spike suppressed, active debuff cleared).
 - **POOL LUCK** · 2 h · 10 min: SWEEP luck pinned to the 2.5 EV ceiling. ⚑ *Luck-pin ONLY — does NOT reset/raise the SWEEP net cap (that reset was an infinite +EV faucet); the 400/24h bound stays intact.*
-- **CONSENSUS RALLY (ult)** · ~24 h · 10 min: income ×3, hash ×1.5, all negative chaos suppressed, cost frozen. ⚑ *No SWEEP cap change.*
+- **CONSENSUS RALLY (ult)** · ~22 h · 10 min: income ×3, hash ×1.5, all negative chaos suppressed, cost frozen. ⚑ *No SWEEP cap change.*
 
 ### Scaling (bounded, stays relevant)
 - **Haste/CDR** shortens CDs (hard cap 0.40, hard floors).
@@ -136,10 +151,15 @@ income lump is **Corp-only** (their signature); Pool/OG use different levers.*
 
 ---
 
-## Open decisions for the owner
-1. **Offline base 0.50** — accept the nerf from today's ~100%, or set higher (e.g. 0.70) to soften the transition?
-2. **Solo Basic-2** — keep LUCKY NONCE (luck/loot), or a JURY-RIG cheap-build window (leans on Solo's rigCost)?
-3. **Ult cooldown** — standardise 24h for all, or stagger (Solo ~22h) so a daily player's ults drift earlier?
-4. **Ability gating** — all 3 available the moment a class is chosen, or gate some behind Mastery/TECH?
-5. **Prestige tools on OG** — COLD STORAGE + SATOSHI MODE both touch prestige gain (differ by magnitude/CD). Fine, or make one non-prestige?
-6. **Abilities during Back-in-Time** — fully disabled (simplest) vs allowed-but-excluded-from-the-timer.
+## Decisions
+
+### Resolved (owner)
+- ✅ **Offline base = 0.70** (soften the nerf from today's ~100%).
+- ✅ **Ultimate CD ~22 h** (sub-24 h so daily play is rewarded — always ready, drifts earlier).
+- ✅ **Progressive unlock** via class Mastery (slot 1 → pick, slot 2 → Mastery 1, ult → Mastery 2) and/or TECH nodes.
+
+### Still open
+1. **Solo Basic-2** — keep LUCKY NONCE (luck/loot), or a JURY-RIG cheap-build window (leans on Solo's rigCost)?
+2. **Prestige tools on OG** — COLD STORAGE + SATOSHI MODE both touch prestige gain (differ by magnitude/CD). Fine, or make one non-prestige?
+3. **Abilities during Back-in-Time** — fully disabled (simplest, current plan) vs allowed-but-excluded-from-the-timer.
+4. **Mastery-gate thresholds** depend on the Mastery-pacing [TUNE] in the endgame doc — if per-supply Mastery is slow, back slot-2/ult with TECH nodes instead.
