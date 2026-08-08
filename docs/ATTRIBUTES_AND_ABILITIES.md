@@ -119,7 +119,7 @@ unlocks its full kit and keeps it forever.
 ### BTC OG — market / prestige / time
 - **WHALE ORDER** · 30 min · force a Bull Run (income ×3, 3 min); or cancel an active crash/spike.
 - **COLD STORAGE** · 2 h · 6 min: prestige-gain ×1.75 (stacks with class 1.25) on any fork cashed in the window.
-- **SATOSHI MODE (ult)** · ~22 h · 10 min: prestige-gain ×2.5 **and** blocks ×4 (halving progress). ⚑ *Pure prestige/time window — NO raw income lump, NO free era-sats drip; you still pay the full fork reset.*
+- **SATOSHI MODE (ult)** · ~22 h · instant: **resets both basic cooldowns** (WHALE ORDER + COLD STORAGE), then income ×2 & hash ×2 for 8 min. ⚑ *Chosen: TIME/TEMPO, not a third prestige buff — resolves the two-prestige-ability overlap. No lump, no era-sats drip. Lets OG chain a fresh market + prestige window off one ult, bounded by the 22h CD + the concave prestige curves.*
 
 ### Pool Member — stability / SWEEP / steady
 - **STEADY HANDS** · 30 min · 5 min: income ×2 with total crash-immunity (crash/hack/spike suppressed, active debuff cleared).
@@ -134,8 +134,8 @@ unlocks its full kit and keeps it forever.
 
 ### ⚑ Balance fixes applied from the review
 1. **Pool DEEP LIQUIDITY removed** — its casino net-cap reset was the sole brake on >1-EV sweeps → an infinite money faucet. Replaced by **POOL LUCK** (luck-pin only). CONSENSUS RALLY no longer touches the cap.
-2. **Abilities disabled during a Back-in-Time run** — else a returning player pre-stocks all 3 and dumps ~8.5h of lumps at t=0, trivialising the best time. (Alternatively: exclude ability grants from `speedRunMinedSats`.)
-3. **SATOSHI MODE** is wallet-lump-free and doesn't advance era-sats → the prestige ladder stays honest.
+2. **Abilities ALLOWED during a Back-in-Time run** (they're core to optimizing your time — disabling them in the endgame loop would make the whole kit pointless), BUT **instant income-lumps (Corp) credit your wallet only and do NOT count toward the run's re-mined 21M** (`speedRunMinedSats`). So a lump can't teleport the progress bar — only real, buff-boosted mining advances the time; the lump still helps indirectly (more wallet → buy rigs → mine faster). Buff abilities count normally.
+3. **SATOSHI MODE** is a time/tempo ult (cooldown reset + short income/hash window) — wallet-lump-free, no era-sats drip → the prestige ladder stays honest.
 4. **Own-axis** ability multipliers (see above) → chaos never silently clobbers a buff, and the stack is intentional + bounded.
 5. **Instant income lump is Corp-only** → the 4 kits read as distinct, not 3× the same lump.
 6. **Clock-set-forward** (refreshes CDs + grants offline) is accepted as *self-only* cheating in a single-player offline idle game — consistent with the existing wall-clock offline/casino, no server/leaderboard to protect. Not worth anti-cheat plumbing.
@@ -143,7 +143,7 @@ unlocks its full kit and keeps it forever.
 ### Implementation sketch (reuses existing systems)
 - `channels.dart`: add `offline` to the enum; wire `prestige`/`special` into their consumers.
 - `constants.dart`: `offlineBaseFraction=0.50`, `offlineFractionCap=1.0`, ability CDs, haste cap.
-- `game_logic.dart`: `yieldFactor` on `_accrueMining` (offline passes `offlineFraction`); crit reads `special`; new `AbilitySystem` (per-class 3 defs + persisted `{abilityId: lastUsedEpochMs}`); gate abilities off during a Back-in-Time run.
+- `game_logic.dart`: `yieldFactor` on `_accrueMining` (offline passes `offlineFraction`); crit reads `special`; new `AbilitySystem` (per-class 3 defs + persisted `{abilityId: lastUsedEpochMs}`); during a Back-in-Time run, instant-lump grants skip the `speedRunMinedSats` accumulation (credit wallet/lifetime only); SATOSHI MODE zeroes the two basics' `lastUsedEpochMs`.
 - `class_manager.dart`: CX/GT gain hooks also ×`multiplier(prestige)`.
 - `chaos_event_system.dart`: reuse temp-multiplier axes for buffs + a chaos-suppression flag (Pool); post ability fires to `showNews`.
 - `stash_service.dart` / `AnomalySystem`: Fortune tier-shift.
@@ -153,13 +153,45 @@ unlocks its full kit and keeps it forever.
 
 ## Decisions
 
-### Resolved (owner)
+### Resolved (owner + Claude's pick where delegated)
 - ✅ **Offline base = 0.70** (soften the nerf from today's ~100%).
 - ✅ **Ultimate CD ~22 h** (sub-24 h so daily play is rewarded — always ready, drifts earlier).
 - ✅ **Progressive unlock** via class Mastery (slot 1 → pick, slot 2 → Mastery 1, ult → Mastery 2) and/or TECH nodes.
+- ✅ **Solo Basic-2 = LUCKY NONCE** (kept): the only loot/luck active in the roster; JURY-RIG (rigCost) would have overlapped Corp's buy-power. Solo's rigCost identity already lives in its passive channel + TALENTS.
+- ✅ **OG = one prestige ability** (COLD STORAGE); SATOSHI MODE re-themed to time/tempo (cooldown reset) → three distinct pillars: market / prestige / time.
+- ✅ **Abilities usable in Back-in-Time**; instant lumps credit wallet only, not the timer (so the endgame stays ability-driven without lumps teleporting the best time).
 
-### Still open
-1. **Solo Basic-2** — keep LUCKY NONCE (luck/loot), or a JURY-RIG cheap-build window (leans on Solo's rigCost)?
-2. **Prestige tools on OG** — COLD STORAGE + SATOSHI MODE both touch prestige gain (differ by magnitude/CD). Fine, or make one non-prestige?
-3. **Abilities during Back-in-Time** — fully disabled (simplest, current plan) vs allowed-but-excluded-from-the-timer.
-4. **Mastery-gate thresholds** depend on the Mastery-pacing [TUNE] in the endgame doc — if per-supply Mastery is slow, back slot-2/ult with TECH nodes instead.
+### Still open (minor, [TUNE])
+1. **Mastery-gate thresholds** depend on the Mastery-pacing [TUNE] in the endgame doc — if per-supply Mastery is slow, back slot-2/ult with TECH nodes instead.
+2. Exact ability numbers (durations/magnitudes) — tune against a build matrix once implemented (see Balance validation below).
+
+---
+
+## Balance validation — the build matrix + "grail build" stance
+
+Once attributes + abilities are implemented with real numbers, validate balance
+with two artifacts (owner asked to "look at a heatmap/matrix to judge nothing is
+too strong — or maybe it should be"):
+
+1. **Build matrix** — a table of **class × key metric**: income ×, hash ×,
+   prestige-gain speed, luck/loot, best Back-in-Time time, ability burst ceiling.
+   One row per class (+ notable attribute/ability synergies). Rendered as a
+   colour **heatmap** (green = strong on that axis, red = weak) so dominance
+   jumps out visually. Buildable as an Artifact/HTML heatmap.
+2. **Sim-driven best-times** — extend `test/class_balance_sim_test.dart` to drive
+   each class through a Back-in-Time run and print the best time per class; that
+   is the objective "is one build strictly faster" check (the sim is the ground
+   truth, the heatmap is the readable summary).
+
+**Design stance (owner-aligned):** hard **safety rails are non-negotiable** — the
+per-channel softcaps, the inviolable 21M/era cap, the concave prestige curves,
+and the bounded casino mean **no build can literally break the game** (no infinite
+money, no bypassing 21M, no compliance issue). *Within* those rails, **deliberately
+allowing a few standout "grail" builds is good, modern design** — the fun of the
+meta is discovering a powerful class+attribute+ability synergy. The bar is not
+"every build is equal" but: (a) **no build is strictly dominant** — each class
+keeps a niche and a real tradeoff; (b) no build makes the others *pointless* for
+the endgame best-time; (c) the rails always hold. So the matrix is used to catch
+a *strictly-dominant* or *rail-breaking* build, NOT to flatten everything to
+parity. A spread of ~±15–25% between the best and worst class on any single axis
+is healthy; a class that wins *every* axis is the red flag.
