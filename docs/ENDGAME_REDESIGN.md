@@ -34,17 +34,33 @@ supply — and the endgame is re-mining that same supply faster, forever.**
 
 | Tier | Name | Grants | Wipes | Keeps | Cadence |
 |---|---|---|---|---|---|
-| Era boundary | **SUPPLY MINED OUT** | — (first time = the win) | — | all | passive, once/era at the 21M cap |
-| 1 | **SOFT FORK** | Consensus (CX), +0.10·√CX income | TECH only | everything else | frequent, cheap |
-| 2 | **HARD FORK** | GovTokens (income ×(1+0.5·√GT) + spent on TALENTS) | wallet, era earnings, rigs, TECH, CX, mining state | GovTokens, TALENTS, chips, Time Capsule | main mid-loop |
-| 3 | **NEW GENESIS** (post-credits button flips to **GO BACK IN TIME**, timed) | Genesis Blocks (×(1+0.5·√GB) on CX+GT gain); picks next class | wallet, era, GovTokens, spent, rigs, TECH, TALENTS, CX, mining | Time Capsule | rare/deliberate; post-credits = the endgame loop |
+| 1 | **SOFT FORK** | Consensus (CX), +0.10·√CX income | TECH only | everything else | frequent, cheap; mid-chain |
+| 2 | **HARD FORK** | GovTokens (income ×(1+0.5·√GT) + spent on TALENTS) | wallet, era earnings, rigs, TECH, CX, mining state | GovTokens, TALENTS, chips, Time Capsule | main mid-loop; **before** the cap |
+| 3 | **NEW GENESIS** (post-credits button flips to **GO BACK IN TIME**, timed) | Genesis Blocks (×(1+0.5·√GB) on CX+GT gain); picks next class | wallet, era, GovTokens, spent, rigs, TECH, TALENTS, CX, mining | Time Capsule | the chain's **bookend** — see below |
+
+### SUPPLY MINED OUT is *not* a separate tier — it's the completion of tier 3
+
+Filling the supply (`lifetimeEarnings` reaches the 21M cap) and starting the next
+rewind are the **two ends of one loop**, not two mechanics:
+
+- **Finish:** mining the full 21M **completes** the chain (this is "SUPPLY MINED
+  OUT"). It is the *dojezd/cílová páska*, not a dead-end wall.
+- **Start:** **NEW GENESIS / GO BACK IN TIME** rewinds to the genesis block for
+  the next run.
+
+So the cap is the natural **New Genesis trigger**: once the supply is full,
+income is 0 and the only meaningful move is the deep rewind. First completion =
+THE LAST SATOSHI (win + credits); every later completion = one Back-in-Time run
+finished (record the time) → rewind again. This also kills the old "capped at ∞
+difficulty, looks broken" dead-end — the cap now flows straight into the next
+rewind. **Hard Fork stays a mid-chain tool** (you bank GovTokens *before* the
+cap); at the cap you Genesis.
 
 **One deep-reset concept** (`_newChainInternal`) powers tier 3. Pre-credits it's
-"NEW GENESIS" (untimed, needs pending Genesis). Post-credits the **same** entry
-flips to the timed "GO BACK IN TIME". This kills the current collision where
-"NEW BLOCKCHAIN" and a standalone "BACK IN TIME" button both showed at once.
-*(Review's #1 fix: gate the BACK IN TIME button on `hasWonGame`, not on the
-first Hard Fork.)*
+"NEW GENESIS" (untimed). Post-credits the **same** entry flips to the timed "GO
+BACK IN TIME". This kills the current collision where "NEW BLOCKCHAIN" and a
+standalone "BACK IN TIME" button both showed at once. *(Review's #1 fix: gate the
+BACK IN TIME button on `hasWonGame`, not on the first Hard Fork.)*
 
 ### "What else should the deep reset wipe?" → nothing more; wipe **less**
 
