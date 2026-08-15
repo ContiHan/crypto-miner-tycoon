@@ -1,6 +1,12 @@
 # TECH Re-acquisition — anti-tedium plan
 
-Status: **PLANNING ONLY.** No code.
+> ⚠️ **SUPERSEDED by [BUILD_DEPTH.md](BUILD_DEPTH.md).** That doc's exclusive
+> doctrine pairs + **presets + build-aware auto-apply + blueprints** replace the
+> plain "buy-all-affordable REBUILD/AUTO" below. Do NOT build the cumulative
+> auto-buy from this doc — build the preset system instead. Kept for the
+> problem statement + the auto-buy internals, which the preset apply() reuses.
+
+Status: **SUPERSEDED — PLANNING ONLY.** No code.
 
 ## The problem
 
