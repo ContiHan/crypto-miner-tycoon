@@ -1519,12 +1519,14 @@ class GameLogic with ChangeNotifier {
     if (chosenClass != null) _classManager.select(chosenClass);
 
     // Wipe the run. Stash artifacts are deliberately preserved (permanent
-    // collection); Genesis Blocks were just banked above.
+    // collection); Genesis Blocks were just banked above. CHIPS (UTXO) are now
+    // PERMANENT too — they only buy crates that fill the permanent Stash, so
+    // wiping them would destroy convertible-to-permanent value (only a full
+    // Wipe Save clears them, in resetGame).
     wallet = 0;
     lifetimeEarnings = 0;
     govTokens = 0;
     spentGovTokens = 0;
-    chips = 0;
     _miningManager.hardForkReset();
     for (var rig in rigs) {
       rig.amount = 0;

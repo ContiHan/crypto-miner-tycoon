@@ -94,8 +94,8 @@ void main() {
       await mintTokens(game, 2080000);
       expect(game.pendingGenesis, 2);
 
-      // Seed EVERY resource the deepest reset must wipe, plus a Stash artifact
-      // that must survive.
+      // Seed the run resources the deepest reset must wipe, plus permanent
+      // things that must survive (Stash artifact + chips/UTXO).
       game.wallet = 1e9;
       game.chips = 40;
       game.buyResearch(ResearchIds.basicOverclock);
@@ -114,7 +114,7 @@ void main() {
       expect(game.lifetimeEarnings, 0);
       expect(game.govTokens, 0);
       expect(game.spentGovTokens, 0);
-      expect(game.chips, 0, reason: 'chips wiped');
+      expect(game.chips, 40, reason: 'chips/UTXO are PERMANENT (survive New Blockchain)');
       expect(game.consensus, 0, reason: 'New Blockchain wipes Consensus too');
       expect(game.rigs.every((r) => r.amount == 0), true, reason: 'rigs wiped');
       expect(
