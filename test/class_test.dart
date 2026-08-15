@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
@@ -122,38 +123,34 @@ void main() {
       expect(game.pendingGovTokens, lessThan(ogGT));
     });
 
-    test('Mastery follows the MINT-time class; a last-second switch cannot farm it',
+    test('Mastery follows the class you MINED as; switching cannot farm it',
         () async {
-      // QA regression: Mastery XP is credited per GovToken at Hard Fork (mint)
-      // time to whoever was active THEN — not to the class held at New Blockchain
-      // reset time. So switching class right before a New Blockchain credits the
-      // switched-to class nothing.
+      // Mastery now accrues from MINING (in _creditLifetimeEver), credited live
+      // to whoever is active THEN — one full 21M supply mined = one Mastery unit.
+      // Switching class never retroactively moves earned Mastery, and a class you
+      // never mined as earns nothing.
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // Play & mint a big batch of GovTokens as Corporation.
+      // Mine one full supply as Corporation → exactly Mastery 1 for Corp.
       game.debugSelectClass(BtcClass.corporation);
-      game.lifetimeEarnings = 1000000 * 1000000 * 5.0e8; // clears raised Genesis gate
-      final minted = game.pendingGovTokens;
-      expect(minted, greaterThan(0));
-      game.hardFork(); // credits `minted` XP to Corporation at mint time
-      expect(game.pendingGenesis, greaterThan(0)); // enough to New Blockchain
+      game.debugCreditEver(GameConstants.maxSupplySats);
+      expect(game.masteryLevel(BtcClass.corporation), 1,
+          reason: 'mining one full supply as Corp = Mastery 1');
+      final corpXp = game.masteryXp(BtcClass.corporation);
 
-      final corpLevel = game.masteryLevel(BtcClass.corporation);
-      expect(corpLevel, greaterThan(0),
-          reason: 'the class that actually minted earns the XP');
-
-      // Farm attempt: switch to a class that minted nothing, THEN New Blockchain.
+      // Switch to Solo (mine nothing yet): Corp's earned XP is untouched.
       game.debugSelectClass(BtcClass.soloMiner);
-      game.newBlockchain(chosenClass: BtcClass.btcOg);
-
-      expect(game.currentClass, BtcClass.btcOg, reason: 'new class locked in');
-      expect(game.masteryLevel(BtcClass.corporation), corpLevel,
-          reason: 'earner keeps exactly its mint-time credit (no bulk re-credit)');
       expect(game.masteryLevel(BtcClass.soloMiner), 0,
-          reason: 'the switched-through class minted nothing → no farmed credit');
-      // Chain baseline reset, so the fresh chain starts at 0 mastery-earning.
-      expect(game.pendingGenesis, 0);
+          reason: 'a class you never mined as earns nothing');
+      expect(game.masteryXp(BtcClass.corporation), corpXp,
+          reason: 'switching class never retroactively moves earned Mastery');
+
+      // Mine a full supply as Solo → only Solo accrues; Corp unchanged.
+      game.debugCreditEver(GameConstants.maxSupplySats);
+      expect(game.masteryLevel(BtcClass.soloMiner), 1);
+      expect(game.masteryXp(BtcClass.corporation), corpXp,
+          reason: 'Corp keeps exactly what it mined');
     });
 
     test('class is LOCKED after the first pick — no mid-chain switching', () async {

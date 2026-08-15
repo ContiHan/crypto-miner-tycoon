@@ -123,10 +123,14 @@ class GameConstants {
   // every other bonus) plus a prestige-gain multiplier. Mastery is permanent
   // (survives everything but a full wipe) and is the "play them all" driver.
   //
-  // Mastery XP earned when a chain ends (New Blockchain) = the GovTokens minted
-  // during that chain, credited to the class you played it as. Mastery level is
-  // CONCAVE (sqrt) so it keeps growing but never runs away.
+  // Mastery XP is earned by MINING, credited live to the class you're playing:
+  // masteryXp += masteryXpPerFullSupply * (income / maxSupplySats). Since a full
+  // era mines at most one 21M supply, ONE full supply mined == exactly one XP
+  // unit == masteryXpPerFullSupply, so with masteryXpDivisor equal, mining one
+  // full supply = Mastery level 1, four = level 2, nine = level 3 (concave,
+  // un-farmable by rapid resetting — only real mining grants it).
   static const double masteryXpDivisor = 10000.0; // level = floor(sqrt(xp/this))
+  static const double masteryXpPerFullSupply = 10000.0; // 1 full 21M supply = 1 unit
   // Each TOTAL mastery level (summed across all classes) grants this much
   // permanent hash AND income bonus, for every class including Prospector. Tiny
   // and softcapped, so mastering all four is a gentle nudge, not a power spike.

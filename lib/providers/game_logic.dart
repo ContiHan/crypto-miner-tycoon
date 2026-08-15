@@ -1128,6 +1128,11 @@ class GameLogic with ChangeNotifier {
   /// every later call a cheap no-op, so it's safe to call every tick.
   void _creditLifetimeEver(double amount) {
     if (!amount.isFinite || amount <= 0) return;
+    // Mastery is earned by MINING — credited live to the class you're playing
+    // (passive tick, click, offline catch-up, Back-in-Time run all flow here).
+    // One full 21M supply mined = exactly one Mastery unit; un-farmable by
+    // rapid resetting since only mining grants it.
+    _classManager.creditMasteryFromMining(_classManager.current, amount);
     lifetimeEverSats += amount;
     // Extreme uncapped sandbox play could sum finite chunks into Infinity, which
     // fin() would then persist as 0 — clamp so the monotonic counter survives.
@@ -1451,11 +1456,8 @@ class GameLogic with ChangeNotifier {
     // Feed tier-3 progress: every GovToken ever minted counts toward the next
     // New Blockchain / Genesis Block.
     _prestige.recordGovTokensMinted(tokensToClaim);
-    // Credit Mastery XP HERE, at mint time, to the class actually active now —
-    // not in bulk at New Blockchain reading the class at reset time (which a
-    // last-second class switch could farm onto a class that minted nothing).
-    // Crediting per-mint makes Mastery honestly follow who was played.
-    _classManager.creditMastery(_classManager.current, tokensToClaim.toDouble());
+    // (Mastery is no longer credited here — it now accrues live from MINING in
+    // _creditLifetimeEver, per mined supply, so it can't be farmed by forking.)
     // Exchange rate is neutralised (was: *= (1 + tokensToClaim), which overflowed
     // to Infinity late-game). Cross-era power is the prestige income multiplier,
     // which rises because govTokens rose.

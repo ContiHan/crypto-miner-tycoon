@@ -171,12 +171,23 @@ class ClassManager {
     return masteryLevel(c);
   }
 
-  /// Credit [govTokensMinted] of Mastery XP to the class that was active when
-  /// those GovTokens were minted (called per Hard Fork). Prospector earns
-  /// nothing (it isn't a real class).
-  void creditMastery(BtcClass playedAs, double govTokensMinted) {
-    if (playedAs == BtcClass.prospector || govTokensMinted <= 0) return;
-    masteryXp[playedAs] = (masteryXp[playedAs] ?? 0) + govTokensMinted;
+  /// Low-level: add [xp] Mastery XP to a class (Prospector earns nothing).
+  void creditMastery(BtcClass playedAs, double xp) {
+    if (playedAs == BtcClass.prospector || xp <= 0) return;
+    masteryXp[playedAs] = (masteryXp[playedAs] ?? 0) + xp;
+  }
+
+  /// Credit Mastery from MINING: [minedSats] of income credited live to the
+  /// class currently played. One full 21M supply mined = exactly one XP unit
+  /// (masteryXpPerFullSupply), so Mastery tracks how much Bitcoin you've mined
+  /// AS that class — un-farmable by rapid resetting (only mining grants it).
+  void creditMasteryFromMining(BtcClass playedAs, double minedSats) {
+    if (playedAs == BtcClass.prospector || minedSats <= 0) return;
+    creditMastery(
+      playedAs,
+      GameConstants.masteryXpPerFullSupply *
+          (minedSats / GameConstants.maxSupplySats),
+    );
   }
 
   // ---- Economy contributions ---------------------------------------------
