@@ -146,10 +146,25 @@ economically identical to manual buying**, no new power. If a preset's gates
 conflict with a doctrine already entered this run: "Locked this run — apply at your
 next Soft Fork."
 
-**AUTO-APPLY** (gated behind the META Auto-Research Daemon): after each Soft Fork
-the active preset auto-rebuilds as income allows — **build-aware** (rebuilds YOUR
-doctrines, not "everything affordable"). This supersedes the plain REBUILD/AUTO in
+**AUTO-APPLY (owner-chosen: default ON, opt-out).** After every reset the active
+preset auto-rebuilds as income allows — **build-aware** (rebuilds YOUR doctrines,
+not "everything affordable"). A first-time GUIDE explains it ("Your build re-applies
+automatically after each reset — you can turn this off, or rebuild once per run").
+Supersedes the plain REBUILD/AUTO in
 [TECH_REACQUISITION_QOL.md](TECH_REACQUISITION_QOL.md).
+
+**ONE FREE RESPEC PER RUN (owner-chosen).** After the preset auto-applies you may,
+**once per run**, clear the whole tree and manually build something different —
+re-choosing your doctrines (this is the in-run REROUTE the earlier plan deferred)
+— then **save it as a new preset**. After that single respec the doctrines lock
+again until the next fork. So: auto-apply keeps it frictionless, but experimenting
++ saving a new build is always one tap away, without waiting for a fork.
+
+**PRESET SLOTS: cap 3 (owner-chosen).** Small on purpose. Each is **auto-named by
+its dominant axis** so the player never types a name: pick the doctrine/channel
+with the most invested nodes and label it — e.g. mostly MEGA-HASH → "Hash Whale",
+HODLER/prestige → "Prestige Farmer", DEGEN-LUCK → "Fortune Hunter", COLD-STORAGE →
+"Fortress", LEAN-RIG+crit → "Crit Tapper". (Player can still rename.)
 
 **BLUEPRINTS** — bounded permanent re-tech discount (no power). Each node keeps a
 permanent `researchCount` (survives every reset, like Mastery/Stash).
@@ -157,17 +172,42 @@ permanent `researchCount` (survives every reset, like Mastery/Stash).
 40%. Applied once in `getCostInSats`. Turns the repetition into a mild, capped
 "specialization dividend" — your main build spins back up faster each fork.
 
-⚑ **Pick a lane (review):** auto-apply + the blueprint dividend both push toward
-build **lock-in**, which sits in tension with "exclusivity = a live choice every
-fork". **Resolution: embrace it.** Exclusivity is a **build SETUP** choice you
-*can* revisit any fork, but by default your preset re-applies for convenience —
-experimenting is opt-in (save a new preset / manually pick a different doctrine).
-Idle players settle into a build; the depth is in *finding* it, not re-picking it
-every 20 minutes.
+⚑ **Lane resolved (owner):** auto-apply + the blueprint dividend push toward build
+**lock-in**, which is *intended*. Exclusivity is a **build SETUP** choice: your
+preset re-applies automatically after each reset (frictionless), and the **one
+free respec per run** is the opt-in path to try + save a different build. Idle
+players settle into a build; the depth is in *finding* the grail, not re-picking
+it every 20 minutes.
 
 ---
 
+## Part 3b — Keystones (the MOBA / PoE build-definer layer)
+
+Beyond the ~25 numeric attributes, add a small set of **KEYSTONES** — the
+MMORPG/MOBA "talent" / PoE "keystone" idea: **a big, build-defining effect with a
+real downside; you pick ONE.** These are what make a "grail build" feel like a
+*build*, not just stacked %s. They live at **doctrine capstones** (the deepest
+node of a TECH branch), so committing a doctrine + its keystone is the identity of
+the run. Optional later phase; ~1 per doctrine to start.
+
+| Keystone (BTC) | Doctrine | Upside | Downside |
+|---|---|---|---|
+| **ASIC MONOCULTURE** | MEGA-HASH | +100% hash | −60% luck, no crits (all-in raw output) |
+| **LASER EYES** | DEGEN-LUCK | crit chance to cap + crit payout ×2 | non-crit taps do nothing (crit-or-bust) |
+| **PAPER HANDS** | DEGEN-YIELD | GovToken gain ×2 | Consensus can't be held — you must fork fast |
+| **LOW TIME PREFERENCE** | HODLER | prestige gain ×1.5 + full offline parity | −30% active income (the loop, not the grind) |
+| **COLD MINER** | COLD-STORAGE | immune to ALL negative events | positive events (Bull Run etc.) also never fire |
+
+They stay rail-safe: each is one bounded multiplier/flag with a symmetric cost,
+gated behind a deep exclusive doctrine, so no keystone stacks into a runaway —
+the tradeoff *is* the balance. This is the layer that most directly answers "draw
+on RPG/MMO/MOBA history," and it pairs perfectly with the exclusive-branch TECH.
+
 ## Part 4 — Build archetypes (diversity proof)
+
+*(Reminder: there are still **4 classes** — Solo Miner, Corporation, BTC OG, Pool
+Member. The 8 below are **archetypes / builds** = class × attributes × TECH
+doctrine (× keystone), not new classes.)*
 
 Eight builds, distinct on **win-condition × primary channel × class**. Endgame
 axes: THE LAST SATOSHI (first era to fill 21M → credits), BACK IN TIME best time
@@ -221,10 +261,18 @@ prestige + SWEEP cap keep even a "grail" synergy inside the rails.
 
 ---
 
-## Open decisions for the owner
-1. **Attribute count** — target **distinctness (~25 load-bearing), not exactly 30**? (Review's strong recommendation; I agree.)
-2. **Commitment budget** — enter all 3 doctrine pairs (generalist) or cap at 2 (sharper specialization)? Recommend ship 3, A/B via the sim.
-3. **Upkeep/Energy economy** (the heaviest new system) — build it (gives Fee Hedge real bite + a sustain axis) or cut it (game is diverse without it)?
-4. **Cold Storage / theft roll** — build the theft system (Phase 5) or merge Cold Storage into a broader chaos-defense stat?
-5. **Auto-apply default** — off (opt-in via Auto-Research Daemon) or on once owned?
-6. **Blueprint curve** (cap 40%, T=6) + preset cap (~5) — accept or tune to playtest re-tech times.
+## Decisions
+
+### Resolved (owner)
+- ✅ **~25 load-bearing attributes** (distinctness over a round 30).
+- ✅ **Keystone layer added** (Part 3b) — the MOBA/PoE build-definers; ~1 per doctrine, optional later phase.
+- ✅ **Auto-apply preset = default ON, opt-out**, with a first-time guide.
+- ✅ **One free respec per run** to rebuild + save a new preset.
+- ✅ **Preset cap = 3**, auto-named by dominant axis.
+- ✅ **Upkeep/Energy economy = DEFER/likely cut** (owner didn't want the heavy layer now; Fee Hedge falls back to cost-spike events only). Revisit only if the meta wants a sustain axis.
+
+### Still open
+1. **Commitment budget** — enter all 3 doctrine pairs (generalist) or cap at 2 (sharper specialization)? Recommend ship 3, A/B via the sim.
+2. **Cold Storage / theft roll** — build the theft system (Phase 5) or merge Cold Storage into a broader chaos-defense stat? (It's the weakest resist standalone.)
+3. **MORE MOBA/MMO breadth** — is the Keystone layer enough, or expand it (more keystones / on-X proc "talents" / auras)?
+4. **Blueprint curve** (cap 40%, T=6) — accept or tune to playtest re-tech times.
