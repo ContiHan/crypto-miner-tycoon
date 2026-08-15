@@ -43,8 +43,17 @@ class Channels {
     double softStart = double.infinity,
     double power = 0.5,
   }) {
-    return softcap(1 + sum(channel), softStart, power);
+    // Floor `1+sum` at a small positive epsilon BEFORE softcap: a future stack
+    // of additive DEBUFFS (class/keystone/aura costs) could drive the sum below
+    // -1, which would otherwise yield a negative multiplier (negative income /
+    // hash / click) or a zero volatility factor (÷0 in chaos scheduling). A
+    // channel can legitimately go below 1 (a debuff), just never <= 0.
+    final raw = 1 + sum(channel);
+    return softcap(raw < _channelFloor ? _channelFloor : raw, softStart, power);
   }
+
+  /// Smallest a channel multiplier may reach — never negative or zero.
+  static const double _channelFloor = 0.01;
 }
 
 /// Diminishing-returns softcap: identity below [start], then

@@ -59,5 +59,20 @@ void main() {
     test('non-finite input is returned unchanged (no crash)', () {
       expect(softcap(double.infinity, 10, 0.5), double.infinity);
     });
+
+    test('a channel debuffed below -100% floors at a small positive, never <=0',
+        () {
+      final c = Channels();
+      c.add(Channel.income, -1.5); // raw 1 + (-1.5) = -0.5
+      final m = c.multiplier(Channel.income);
+      expect(m, greaterThan(0), reason: 'income multiplier must never go <= 0');
+      expect(m, closeTo(0.01, 1e-9), reason: 'floored at the epsilon');
+    });
+
+    test('a mild debuff (still > -100%) is untouched by the floor', () {
+      final c = Channels();
+      c.add(Channel.volatility, -0.25); // Pool: fewer events -> 0.75x
+      expect(c.multiplier(Channel.volatility), closeTo(0.75, 1e-9));
+    });
   });
 }
