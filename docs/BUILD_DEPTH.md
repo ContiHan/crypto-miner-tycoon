@@ -43,7 +43,7 @@ by the review (listed so we remember why).
 
 **IV. Prestige / Progression** (BTC OG's home; all concave)
 11. **CONSENSUS WEIGHT** — buildable × on CX+GT gain — revives dead `prestige`; `multiplier(prestige, start 1.0, power 0.5)` ⚑ *(pin these params — was only "softcapped")* — CX/GT accrual already concave. `[P0]`
-12. **MASTERY DRIVE** — +% Mastery XP per GovToken — `[NEW]` hook on Mastery-XP accrual — cap +50%.
+12. ~~MASTERY DRIVE~~ `[CUT]` — ⚑ its "+% Mastery XP per GovToken" hook no longer exists once Mastery moves to **per-mined-supply** (ENDGAME_REDESIGN), and +50% would break the "1 full supply = exactly 1 Mastery unit, un-farmable" identity + de-sync the ability-unlock gates (slot 2 @ Mastery 1, ult @ Mastery 2). Removed.
 - ⚑ *Genesis Attunement merged into Consensus Weight (both were "another concave prestige-gain ×").*
 
 **V. Fortune / Luck** — the de-monolithed facets; a sideways UTXO/STASH economy.
@@ -80,11 +80,15 @@ actives (Pool's STEADY HANDS / CONSENSUS RALLY) grant true immunity.
 
 | # | Name (BTC) | Resists | Formula | Cap |
 |---|---|---|---|---|
-| 18 | **DIAMOND HANDS** | Market Crash magnitude | `crashMult = 1 − 0.50·(1−R)` | R 0.75 |
-| 19 | **FEE HEDGE** | Cost Spike surcharge + Energy upkeep | `surcharge = 0.5·(1−R)` | R 0.75 |
+| 18 | **DIAMOND HANDS** | Market Crash magnitude | `crashMult = 1 − 0.50·(1−R)` | R 0.70 |
+| 19 | **FEE HEDGE** | Cost Spike surcharge + Energy upkeep | `surcharge = 0.5·(1−R)` | R 0.70 |
 | 20 | **STOCK-TO-FLOW** | the halving's income cut | `f' = f + R·(1−f)` | R 0.60 (never cancels) |
-| 21 | **STEEL NERVES** | ⚑ DURATION of Crash/Cost-Spike only | `dur = base·(1−R)` | R 0.60 |
-| 22 | **COLD STORAGE** | Hack loss (+ optional theft roll) | `loss = 0.15·(1−R)` | R 0.75 |
+| 21 | **STEEL NERVES** | ⚑ DURATION of Crash/Cost-Spike only — **NOT hack/breach** | `dur = base·(1−R)` | R 0.60 |
+| 22 | **COLD STORAGE** | Hack loss (+ optional theft roll) | `loss = 0.15·(1−R)` | R 0.70 |
+
+⚑ Per-lever caps lowered 0.75→0.70 and the **integrated combined mitigation
+`min(0.70, 1 − ∏(1−Rᵢ))` per event type is AUTHORITATIVE** (see
+[BALANCE_AND_BOUNDS.md](BALANCE_AND_BOUNDS.md) #8) — an event always lands ≥30%.
 
 ⚑ **Review fixes (must-do):**
 - **Combined-mitigation cap** — Diamond Hands (magnitude) × Steel Nerves (duration)
@@ -249,7 +253,7 @@ prestige + SWEEP cap keep even a "grail" synergy inside the rails.
   Weight (`prestige`), Prospector's Eye. *(Rig Cooling moves to the AbilitySystem
   phase — fixes the Phase-0 contradiction.)*
 - **Phase 1** — luck decouple (Nonce Precision / Whale's Favor / UTXO Magnetism) +
-  Mastery Drive + Idle Capacity. All reuse existing systems. Highest variety/line.
+  Idle Capacity. All reuse existing systems. Highest variety/line.
 - **Phase 2** — the resistance suite (Diamond Hands / Fee Hedge / Stock-to-Flow /
   Steel Nerves) with the combined-mitigation cap. Gives Pool its identity.
 - **Phase 3** — exclusive TECH forks + presets (branch-tag existing nodes, gate

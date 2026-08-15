@@ -96,6 +96,15 @@ the "fast" ones from a timed-endgame pacing break into a bounded spike.
 
 ## Cross-doc contradictions to fix (before coding)
 
+> **Reconciliation status (doc pass done):** ✅ X3 (offline 0.70), ✅ X4 (resist
+> caps 0.70 + integrated ≤0.70 authoritative), ✅ X5 (TECH QoL marked superseded),
+> ✅ X6 (Prestige Yield = canonical CONSENSUS WEIGHT; OG ability Cold Storage →
+> **DEEP FREEZE** so "Cold Storage" = only the theft vault/attribute), ✅ X7
+> (formula), ✅ X8 (Steel Nerves "NOT hack" noted), ✅ X9 (aura on-channel), and
+> ✅ MASTERY DRIVE cut. **Remaining = CODE-phase:** X1 (constants.dart still has
+> the old win/sandbox — implement the redesign + migration) and X2's accrual-basis
+> switch (Mastery → per-mined-supply). Plus all `[MISSING]` caps in the checklist.
+
 - **X1 (biggest):** `constants.dart` still encodes the OLD win (endgameTargetSats 2.1e20, perWinTrophyBonus, winCount, Sandbox) that ENDGAME_REDESIGN retires → implement the redesign + save migration (enables Tier-0 #2).
 - **X2 / Mastery:** move Mastery from per-GovToken to per-mined-supply; make "1 full supply = Mastery 1" explicit. ⚑ **MASTERY DRIVE (BUILD_DEPTH #12) contradicts this** — its per-GovToken hook no longer exists, and +50% breaks the "1 supply = 1 unit, un-farmable" identity + de-syncs ability-unlock gates → **delete it, or re-scope to a separate soft bonus excluded from the `floor(√supplies)` gate count.**
 - **X3:** offline base is **0.70** (decided) — fix stale `0.50` references.

@@ -25,7 +25,7 @@ soft-capped past a threshold so nothing runs away.
 | **prestige** | *declared, UNUSED* | — | — (revived, see new #3) |
 | **special** | *declared, UNUSED* | — | — (revived, see new #2) |
 
-Derived / off-channel: **prestigeMultiplier** (1+0.5√GT+0.1√CX), **prestigeGainMult**
+Derived / off-channel: **prestigeMultiplier** (1+0.5√(GT+spent)+0.1√CX), **prestigeGainMult**
 (class scalar), **genesisGainMultiplier** (1+0.5√GB), **Mastery** (+0.5% hash&income
 /level), **Notoriety** (+1% income/achievement), **crit** (6%→cap 25%, ×5),
 **SWEEP EV** (luck-scaled, cap 2.5, bounded 400 UTXO/24h), **chaos** temp mults,
@@ -47,7 +47,7 @@ Derived / off-channel: **prestigeMultiplier** (1+0.5√GT+0.1√CX), **prestigeG
    only chance). `critMult = 5 + 5·(special sum, softcapped)`. Source: Solo TALENT,
    repurpose legacy STASH `criticalChance` affix → crit-power, TECH. Self-limiting
    (crits on 6–25% of taps; taps are a minor late source). Fits Solo.
-3. **PRESTIGE YIELD** *(revives `prestige`)* — buildable × on CX+GovToken **gain**,
+3. **PRESTIGE YIELD** *(revives `prestige`; canonical name **CONSENSUS WEIGHT**, BUILD_DEPTH #11 — ONE attribute, one impl)* — buildable × on CX+GovToken **gain**,
    beside the class scalar. `gainMult ×= multiplier(prestige, softcapped)`. Source:
    endgame OG TALENTS, late TECH, a slice of Genesis Blocks. CX/GT accrual is
    already concave (cbrt/√) so it steepens without trivialising. Fits BTC OG.
@@ -118,8 +118,8 @@ unlocks its full kit and keeps it forever.
 
 ### BTC OG — market / prestige / time
 - **WHALE ORDER** · 30 min · force a Bull Run (income ×3, 3 min); or cancel an active crash/spike.
-- **COLD STORAGE** · 2 h · 6 min: prestige-gain ×1.75 (stacks with class 1.25) on any fork cashed in the window.
-- **SATOSHI MODE (ult)** · ~22 h · instant: **resets both basic cooldowns** (WHALE ORDER + COLD STORAGE), then income ×2 & hash ×2 for 8 min. ⚑ *Chosen: TIME/TEMPO, not a third prestige buff — resolves the two-prestige-ability overlap. No lump, no era-sats drip. Lets OG chain a fresh market + prestige window off one ult, bounded by the 22h CD + the concave prestige curves.*
+- **DEEP FREEZE** · 2 h · 6 min: prestige-gain ×1.75 (stacks with class 1.25) on any fork cashed in the window. *(Renamed from "Cold Storage" — that name is now reserved for the theft vault/attribute; see CHAOS_DEPTH_LAYER.)*
+- **SATOSHI MODE (ult)** · ~22 h · instant: **resets both basic cooldowns** (WHALE ORDER + DEEP FREEZE), then income ×2 & hash ×2 for 8 min. ⚑ *Chosen: TIME/TEMPO, not a third prestige buff — resolves the two-prestige-ability overlap. No lump, no era-sats drip. Lets OG chain a fresh market + prestige window off one ult, bounded by the 22h CD + the concave prestige curves.*
 
 ### Pool Member — stability / SWEEP / steady
 - **STEADY HANDS** · 30 min · 5 min: income ×2 with total crash-immunity (crash/hack/spike suppressed, active debuff cleared).
@@ -142,7 +142,7 @@ unlocks its full kit and keeps it forever.
 
 ### Implementation sketch (reuses existing systems)
 - `channels.dart`: add `offline` to the enum; wire `prestige`/`special` into their consumers.
-- `constants.dart`: `offlineBaseFraction=0.50`, `offlineFractionCap=1.0`, ability CDs, haste cap.
+- `constants.dart`: `offlineBaseFraction=0.70`, `offlineFractionCap=1.0`, ability CDs, haste cap.
 - `game_logic.dart`: `yieldFactor` on `_accrueMining` (offline passes `offlineFraction`); crit reads `special`; new `AbilitySystem` (per-class 3 defs + persisted `{abilityId: lastUsedEpochMs}`); during a Back-in-Time run, instant-lump grants skip the `speedRunMinedSats` accumulation (credit wallet/lifetime only); SATOSHI MODE zeroes the two basics' `lastUsedEpochMs`.
 - `class_manager.dart`: CX/GT gain hooks also ×`multiplier(prestige)`.
 - `chaos_event_system.dart`: reuse temp-multiplier axes for buffs + a chaos-suppression flag (Pool); post ability fires to `showNews`.
@@ -158,7 +158,7 @@ unlocks its full kit and keeps it forever.
 - ✅ **Ultimate CD ~22 h** (sub-24 h so daily play is rewarded — always ready, drifts earlier).
 - ✅ **Progressive unlock** via class Mastery (slot 1 → pick, slot 2 → Mastery 1, ult → Mastery 2) and/or TECH nodes.
 - ✅ **Solo Basic-2 = LUCKY NONCE** (kept): the only loot/luck active in the roster; JURY-RIG (rigCost) would have overlapped Corp's buy-power. Solo's rigCost identity already lives in its passive channel + TALENTS.
-- ✅ **OG = one prestige ability** (COLD STORAGE); SATOSHI MODE re-themed to time/tempo (cooldown reset) → three distinct pillars: market / prestige / time.
+- ✅ **OG = one prestige ability** (DEEP FREEZE); SATOSHI MODE re-themed to time/tempo (cooldown reset) → three distinct pillars: market / prestige / time.
 - ✅ **Abilities usable in Back-in-Time**; instant lumps credit wallet only, not the timer (so the endgame stays ability-driven without lumps teleporting the best time).
 
 ### Still open (minor, [TUNE])

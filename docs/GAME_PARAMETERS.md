@@ -4,6 +4,14 @@ Every stat the game tracks, what it means, what raises it, and what it affects.
 All numeric values are the `[TUNE]` defaults in `lib/core/constants.dart` /
 `lib/logic/managers/class_manager.dart`; the code is the source of truth.
 
+> This doc mirrors the **currently-shipped** code. A large **planned redesign**
+> (endgame → "THE LAST SATOSHI" / Back-in-Time, ~25 attributes + resistances,
+> exclusive TECH doctrines, procs/auras/keystones, upkeep, theft) is specified in
+> `docs/ENDGAME_REDESIGN.md`, `BUILD_DEPTH.md`, `CHAOS_DEPTH_LAYER.md`,
+> `ATTRIBUTES_AND_ABILITIES.md`, with the authoritative cap checklist in
+> `BALANCE_AND_BOUNDS.md`. Update this reference as those ship. The old
+> win/sandbox/NG+ rows below are current-code, and are RETIRED by that redesign.
+
 ---
 
 ## 1. Currencies
@@ -13,7 +21,7 @@ All numeric values are the `[TUNE]` defaults in `lib/core/constants.dart` /
 | **Sats / BTC** (`wallet`) | mining (passive + taps) | buying rigs; the visible balance | every Hard Fork+ |
 | **GovTokens** (`govTokens`) | Hard Fork (`floor(sqrt(lifetimeSats / 5e8))` × class/trophy/genesis gain) | SKILL nodes; drives `prestigeMultiplier` | New Blockchain |
 | **Consensus / CX** | Soft Fork (`floor(cbrt(eraSats / 2e9) …)`) | always-on income bonus | Hard Fork |
-| **Genesis Blocks / GB** | New Blockchain (`floor(sqrt(chainGovTokens / 65000))`) | multiplies CX+GT **gain** (not raw income) | never (permanent) |
+| **Genesis Blocks / GB** | New Blockchain (`floor(sqrt(chainGovTokens / 520000))`) | multiplies CX+GT **gain** (not raw income) | never (permanent) |
 | **UTXO** (`chips`, internal) | anomaly pop-ups (+1), SWEEP wins | crates; SWEEP stakes | New Blockchain |
 | **Trophies** (`winCount`) | reaching the ending / NG+ | permanent prestige-gain bonus | never |
 | **Mastery XP** (per class) | GovTokens minted **while playing that class** | permanent all-class bonus | full wipe only |
