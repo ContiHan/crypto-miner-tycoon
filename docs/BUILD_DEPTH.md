@@ -269,10 +269,11 @@ prestige + SWEEP cap keep even a "grail" synergy inside the rails.
 - ✅ **Auto-apply preset = default ON, opt-out**, with a first-time guide.
 - ✅ **One free respec per run** to rebuild + save a new preset.
 - ✅ **Preset cap = 3**, auto-named by dominant axis.
-- ✅ **Upkeep/Energy economy = DEFER/likely cut** (owner didn't want the heavy layer now; Fee Hedge falls back to cost-spike events only). Revisit only if the meta wants a sustain axis.
+- ✅ **Commitment budget = 2 doctrine pairs** (sharper specialization; → equip ≤2 keystones).
+- ✅ **Upkeep/Energy economy = IN** (owner reversed the earlier defer) — designed as "THE POWER BILL" in [CHAOS_DEPTH_LAYER.md](CHAOS_DEPTH_LAYER.md).
+- ✅ **Theft = BUILT** ("THE BREACH", hot/cold wallet) — gives Cold Storage real bite; see CHAOS_DEPTH_LAYER.md.
+- ✅ **MORE MOBA/MMO breadth = YES, go big** — procs + auras + on-crit + expanded (12) keystones, all in CHAOS_DEPTH_LAYER.md.
 
 ### Still open
-1. **Commitment budget** — enter all 3 doctrine pairs (generalist) or cap at 2 (sharper specialization)? Recommend ship 3, A/B via the sim.
-2. **Cold Storage / theft roll** — build the theft system (Phase 5) or merge Cold Storage into a broader chaos-defense stat? (It's the weakest resist standalone.)
-3. **MORE MOBA/MMO breadth** — is the Keystone layer enough, or expand it (more keystones / on-X proc "talents" / auras)?
-4. **Blueprint curve** (cap 40%, T=6) — accept or tune to playtest re-tech times.
+1. **Blueprint curve** (cap 40%, T=6) — accept or tune to playtest re-tech times.
+2. Tuning constants for the whole depth stack — see the open decisions in [CHAOS_DEPTH_LAYER.md](CHAOS_DEPTH_LAYER.md) (aggregate temp ceiling, crit-payout cap, upkeep K, breach cadence).
