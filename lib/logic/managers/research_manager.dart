@@ -509,11 +509,42 @@ class ResearchManager {
     ),
   ];
 
+  /// BLUEPRINTS: permanent per-node completion count. Survives every prestige
+  /// reset (only a full Wipe Save clears it) and drives the re-tech discount.
+  final Map<String, int> researchCount = {};
+
+  /// Blueprint re-tech discount for a node id (0..blueprintMaxDiscount), concave
+  /// in how many times it has been researched across all past runs.
+  double blueprintDiscount(String id) {
+    final n = researchCount[id] ?? 0;
+    if (n <= 0) return 0.0;
+    return GameConstants.blueprintMaxDiscount *
+        (1 - 1 / (1 + n / GameConstants.blueprintDivisor));
+  }
+
+  /// Serialise blueprint counts for the save blob.
+  Map<String, int> researchCountJson() => Map<String, int>.from(researchCount);
+
+  /// Restore blueprint counts (tolerant of nulls / non-int values).
+  void loadResearchCounts(dynamic data) {
+    researchCount.clear();
+    if (data is Map) {
+      data.forEach((k, v) {
+        if (k is String && v is num) researchCount[k] = v.toInt();
+      });
+    }
+  }
+
+  /// Full Wipe Save only: clears the permanent blueprint dividend.
+  void wipeBlueprints() => researchCount.clear();
+
   void reset() {
     for (var node in researchNodes) {
       node.isCompleted = false;
       node.isUnlocked = node.requirements.isEmpty;
     }
+    // NOTE: researchCount (blueprints) is intentionally NOT cleared here — it is
+    // permanent across prestige resets.
   }
 
   /// Re-derives unlock state from completed nodes. Called after loading a save so
@@ -547,6 +578,9 @@ class ResearchManager {
 
     if (currentWallet >= costSats) {
       node.isCompleted = true;
+      // BLUEPRINTS: record the completion permanently (drives the re-tech discount
+      // on every future run).
+      researchCount[researchId] = (researchCount[researchId] ?? 0) + 1;
       _checkUnlocks();
       return costSats;
     }
@@ -554,8 +588,14 @@ class ResearchManager {
   }
 
   double getCostInSats(ResearchNode node, double bitcoinExchangeRate) {
-    if (bitcoinExchangeRate <= 0) return node.cost; // Fallback
-    return node.cost / bitcoinExchangeRate;
+    final double base =
+        bitcoinExchangeRate <= 0 ? node.cost : node.cost / bitcoinExchangeRate;
+    // Combined discount (blueprint now; a future R&D doctrine adds here), with the
+    // #3 FLOOR so stacked discounts can never drive the price below techCostFloor.
+    final double totalDiscount = blueprintDiscount(node.id);
+    double factor = 1.0 - totalDiscount;
+    if (factor < GameConstants.techCostFloor) factor = GameConstants.techCostFloor;
+    return base * factor;
   }
 
   void _checkUnlocks() {

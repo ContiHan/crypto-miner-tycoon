@@ -33,6 +33,18 @@ class GameConstants {
   static const double resistCapMagnitude = 0.70; // Diamond Hands, Fee Hedge, Cold Storage
   static const double resistCapDuration = 0.60; // Steel Nerves
   static const double resistCapHalving = 0.60; // Stock-to-Flow (never cancels a halving)
+
+  // BLUEPRINTS (Phase 3) — a permanent, bounded re-tech DISCOUNT. Each TECH node
+  // keeps a `researchCount` that survives every reset (like Mastery/Stash); the
+  // discount asymptotes to blueprintMaxDiscount:
+  //   discount(n) = blueprintMaxDiscount · (1 − 1/(1 + n/blueprintDivisor))
+  // ~2-3% early, ~24% by n=12, → 40% cap. A specialisation dividend, not power.
+  static const double blueprintMaxDiscount = 0.40;
+  static const double blueprintDivisor = 6.0;
+  // Combined TECH-cost FLOOR (#3): a node's cost never drops below this fraction
+  // of base no matter how discounts stack (blueprint + a future R&D −80% doctrine
+  // would otherwise reach a negative price).
+  static const double techCostFloor = 0.05;
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 
   // Income model (Phase 1 redesign): income/sec =

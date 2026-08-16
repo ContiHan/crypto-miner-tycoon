@@ -89,6 +89,9 @@ class GameLogic with ChangeNotifier {
   // Expose Managers for UI (if needed, or expose specific data)
   // Ideally expose data.
   List<ResearchNode> get researchNodes => _researchManager.researchNodes;
+
+  /// BLUEPRINTS: permanent re-tech count for a TECH node (0 if never researched).
+  int blueprintCount(String id) => _researchManager.researchCount[id] ?? 0;
   Map<String, int> get perks => _perkManager.perks;
   Map<String, int> get perkCosts => _perkManager.perkCosts;
 
@@ -664,6 +667,7 @@ class GameLogic with ChangeNotifier {
     // Reset Managers
     _perkManager.reset();
     _researchManager.reset();
+    _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -1725,6 +1729,7 @@ class GameLogic with ChangeNotifier {
       perkCosts: _perkManager.perkCosts,
       rigs: rigs,
       researchNodes: _researchManager.researchNodes,
+      researchCount: _researchManager.researchCountJson(), // BLUEPRINTS
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -1967,6 +1972,8 @@ class GameLogic with ChangeNotifier {
           }
         }
       }
+      // BLUEPRINTS: permanent per-node re-tech counts (survive every reset).
+      _researchManager.loadResearchCounts(data['researchCount']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).
