@@ -2,35 +2,34 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
-import '../utils/formatter.dart';
 import 'credits_screen.dart';
 
-/// Shows the one-shot "GENESIS COMPLETE" ending overlay when the player crosses
-/// the cumulative-ever endgame target. Full-screen, non-dismissible by tap-away;
-/// the player chooses how to continue (New Genesis, Break the Chain, or keep
-/// playing). [onNewGenesis]/[onBreakChain] are wired by HomeScreen.
+/// Shows the one-shot "THE LAST SATOSHI" ending overlay the moment the player
+/// mines a full 21,000,000-coin supply within a single era — the true win.
+/// Full-screen, non-dismissible by tap-away; the player chooses how to continue
+/// (go Back in Time for a timed re-mine, or keep mining this chain). The credits
+/// finale lives here. [onBackInTime] is wired by HomeScreen (startSpeedRun).
 Future<void> showEndingOverlay(
   BuildContext context,
   GameLogic game, {
-  required VoidCallback onNewGenesis,
-  required VoidCallback onBreakChain,
+  required VoidCallback onBackInTime,
 }) {
   return showGeneralDialog(
     context: context,
     barrierDismissible: false,
-    barrierLabel: 'Genesis Complete',
+    barrierLabel: 'The Last Satoshi',
     barrierColor: Colors.black,
     transitionDuration: const Duration(milliseconds: 600),
     pageBuilder: (ctx, _, _) => _EndingScreen(
       game: game,
-      onNewGenesis: onNewGenesis,
-      onBreakChain: onBreakChain,
+      onBackInTime: onBackInTime,
     ),
     transitionBuilder: (ctx, anim, _, child) {
       final curved = CurvedAnimation(parent: anim, curve: Curves.easeOutBack);
       return FadeTransition(
         opacity: anim,
-        child: ScaleTransition(scale: Tween(begin: 0.85, end: 1.0).animate(curved), child: child),
+        child: ScaleTransition(
+            scale: Tween(begin: 0.85, end: 1.0).animate(curved), child: child),
       );
     },
   );
@@ -38,13 +37,11 @@ Future<void> showEndingOverlay(
 
 class _EndingScreen extends StatelessWidget {
   final GameLogic game;
-  final VoidCallback onNewGenesis;
-  final VoidCallback onBreakChain;
+  final VoidCallback onBackInTime;
 
   const _EndingScreen({
     required this.game,
-    required this.onNewGenesis,
-    required this.onBreakChain,
+    required this.onBackInTime,
   });
 
   @override
@@ -64,13 +61,15 @@ class _EndingScreen extends StatelessWidget {
                     fontSize: 96,
                     color: AppTheme.accent,
                     shadows: [
-                      Shadow(color: AppTheme.accent.withValues(alpha: 0.7), blurRadius: 30),
+                      Shadow(
+                          color: AppTheme.accent.withValues(alpha: 0.7),
+                          blurRadius: 30),
                     ],
                   ),
                 ),
                 const SizedBox(height: 8),
                 Text(
-                  'GENESIS COMPLETE',
+                  'THE LAST SATOSHI',
                   textAlign: TextAlign.center,
                   style: GoogleFonts.orbitron(
                     fontSize: 30,
@@ -81,32 +80,40 @@ class _EndingScreen extends StatelessWidget {
                 ),
                 const SizedBox(height: 16),
                 const Text(
-                  'You have mined more Bitcoin than will ever exist.',
+                  'You mined the last satoshi.\n'
+                  'Every coin that will ever exist — in a single era.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white, fontSize: 15),
                 ),
                 const SizedBox(height: 6),
                 Text(
-                  Formatter.formatBitcoin(game.lifetimeEverSats),
+                  '21,000,000 BTC',
                   textAlign: TextAlign.center,
                   style: TextStyle(
                     color: AppTheme.accent,
-                    fontSize: 20,
+                    fontSize: 22,
                     fontWeight: FontWeight.bold,
                   ),
                 ),
                 const SizedBox(height: 24),
                 _StatRow(label: 'GENESIS BLOCKS', value: '${game.genesisBlocks}'),
-                _StatRow(label: 'BLOCKCHAINS FORGED', value: '${game.newChainCount}'),
-                _StatRow(label: 'TOTAL MASTERY', value: '${game.totalMasteryLevel}'),
+                _StatRow(
+                    label: 'BLOCKCHAINS FORGED', value: '${game.newChainCount}'),
+                _StatRow(
+                    label: 'TOTAL MASTERY', value: '${game.totalMasteryLevel}'),
                 const SizedBox(height: 28),
                 const Text(
-                  'The 21 million was never the limit. What now?',
+                  'There will never be a 21,000,001st. So how fast can you do it '
+                  'all again?',
                   textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white54, fontSize: 13, fontStyle: FontStyle.italic),
+                  style: TextStyle(
+                      color: Colors.white54,
+                      fontSize: 13,
+                      fontStyle: FontStyle.italic),
                 ),
                 const SizedBox(height: 16),
-                // New Genesis (NG+): reset stronger.
+                // Back in Time: a timed re-mine of the whole 21M. Keeps your
+                // Time Capsule (crate items), Stash & Mastery.
                 SizedBox(
                   width: double.infinity,
                   child: ElevatedButton.icon(
@@ -115,50 +122,25 @@ class _EndingScreen extends StatelessWidget {
                       foregroundColor: Colors.black,
                       padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    icon: const Icon(Icons.auto_awesome),
-                    label: const Text('NEW GENESIS (NG+)',
+                    icon: const Icon(Icons.history_toggle_off),
+                    label: const Text('GO BACK IN TIME',
                         style: TextStyle(fontWeight: FontWeight.bold)),
                     onPressed: () {
                       Navigator.of(context).pop();
-                      onNewGenesis();
+                      onBackInTime();
                     },
                   ),
                 ),
                 const SizedBox(height: 4),
                 const Text(
-                  'Reset for a permanent, compounding prestige boost. Keeps Stash, Mastery & trophies.',
-                  textAlign: TextAlign.center,
-                  style: TextStyle(color: Colors.white38, fontSize: 11),
-                ),
-                const SizedBox(height: 14),
-                // Break the chain: uncapped sandbox.
-                SizedBox(
-                  width: double.infinity,
-                  child: OutlinedButton.icon(
-                    style: OutlinedButton.styleFrom(
-                      foregroundColor: Colors.redAccent,
-                      side: const BorderSide(color: Colors.redAccent),
-                      padding: const EdgeInsets.symmetric(vertical: 14),
-                    ),
-                    icon: const Icon(Icons.all_inclusive),
-                    label: const Text('BREAK THE CHAIN',
-                        style: TextStyle(fontWeight: FontWeight.bold)),
-                    onPressed: () {
-                      Navigator.of(context).pop();
-                      onBreakChain();
-                    },
-                  ),
-                ),
-                const SizedBox(height: 4),
-                const Text(
-                  'Remove the supply cap. Numbers go to absurdity. Purely for fun.',
+                  'Race the clock to re-mine all 21,000,000. Beat your best time.',
                   textAlign: TextAlign.center,
                   style: TextStyle(color: Colors.white38, fontSize: 11),
                 ),
                 const SizedBox(height: 18),
                 TextButton(
                   onPressed: () => Navigator.of(context).pop(),
-                  child: const Text('KEEP PLAYING',
+                  child: const Text('KEEP MINING',
                       style: TextStyle(color: Colors.white54)),
                 ),
                 // The credits/thanks finale — the win is the right place for it.
@@ -190,10 +172,13 @@ class _StatRow extends StatelessWidget {
       child: Row(
         mainAxisAlignment: MainAxisAlignment.spaceBetween,
         children: [
-          Text(label, style: const TextStyle(color: Colors.white54, fontSize: 12)),
+          Text(label,
+              style: const TextStyle(color: Colors.white54, fontSize: 12)),
           Text(value,
               style: const TextStyle(
-                  color: Colors.white, fontSize: 13, fontWeight: FontWeight.bold)),
+                  color: Colors.white,
+                  fontSize: 13,
+                  fontWeight: FontWeight.bold)),
         ],
       ),
     );

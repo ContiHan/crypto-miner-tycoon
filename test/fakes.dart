@@ -209,8 +209,6 @@ class FakeGameRepository implements GameRepository {
     Map<String, dynamic> mastery = const {},
     double lifetimeEverSats = 0,
     bool hasWonGame = false,
-    bool sandboxNoCap = false,
-    int winCount = 0,
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -248,8 +246,6 @@ class FakeGameRepository implements GameRepository {
     data['mastery'] = mastery;
     data['lifetimeEverSats'] = lifetimeEverSats;
     data['hasWonGame'] = hasWonGame;
-    data['sandboxNoCap'] = sandboxNoCap;
-    data['winCount'] = winCount;
     data['unlockedTech'] = unlockedTech;
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;

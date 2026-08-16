@@ -94,7 +94,7 @@ class CreditsScreen extends StatelessWidget {
                 subtitle: 'aka contihan',
               ),
 
-              // --- Thanks (ties into the GENESIS COMPLETE ending) ---
+              // --- Thanks (ties into the THE LAST SATOSHI ending) ---
               const _CreditBlock(
                 label: 'THANKS',
                 lines: [

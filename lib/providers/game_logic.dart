@@ -44,22 +44,18 @@ class GameLogic with ChangeNotifier {
   double wallet = 0;
   double lifetimeEarnings = 0;
 
-  // --- Endgame (RPG Phase 5) ---
-  // Cumulative sats mined across ALL eras/chains; NEVER reset by any prestige
-  // (only a full Wipe Save clears it). This is the win metric — see
-  // GameConstants.endgameTargetSats.
+  // --- Endgame (THE LAST SATOSHI) ---
+  // Cosmetic cumulative sats mined across ALL eras/chains; NEVER reset by any
+  // prestige (only a full Wipe Save clears it). Purely a lifetime stat now — the
+  // win is per-era (lifetimeEarnings reaching the 21M cap), not cumulative.
   double lifetimeEverSats = 0;
-  // Persisted once-only win latch (also gates sandbox availability).
+  // Persisted once-only win latch: set the first time a single era mines a full
+  // 21M supply (lifetimeEarnings >= maxSupplySats). Gates Back in Time + credits.
   bool hasWonGame = false;
-  // Transient (NOT persisted): drives the one-shot GENESIS COMPLETE overlay,
+  // Transient (NOT persisted): drives the one-shot THE LAST SATOSHI overlay,
   // drained by clearWinCelebration() — mirrors offlineEarningsAmount so a
   // relaunch never replays the ending.
   bool pendingWinCelebration = false;
-  // "Break the chain" sandbox toggle: lifts the per-era supply cap. Only
-  // settable after hasWonGame.
-  bool sandboxNoCap = false;
-  // Number of endings reached; drives the permanent NG+ trophy gain multiplier.
-  int winCount = 0;
 
   // --- Speed Run (Genesis Sprint) ---
   // An optional timed challenge: from a deep (New-Blockchain-style) reset that
@@ -581,8 +577,6 @@ class GameLogic with ChangeNotifier {
     lifetimeEverSats = 0;
     hasWonGame = false;
     pendingWinCelebration = false;
-    sandboxNoCap = false;
-    winCount = 0;
     // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
     unlockedTech = false;
     unlockedStash = false;
@@ -686,14 +680,9 @@ class GameLogic with ChangeNotifier {
   double get classPrestigeGainMultiplier =>
       _classManager.prestigeGainMultiplier;
 
-  /// Permanent New-Genesis (NG+) trophy multiplier on prestige GAIN — grows with
-  /// each ending reached (1.0 with no wins). See GameConstants.perWinTrophyBonus.
-  double get trophyGainMultiplier =>
-      1.0 + GameConstants.perWinTrophyBonus * winCount;
-
-  /// Total multiplier applied to Consensus + GovToken gain (class * trophy).
-  double get prestigeGainMultiplier =>
-      classPrestigeGainMultiplier * trophyGainMultiplier;
+  /// Total multiplier applied to Consensus + GovToken gain (currently just the
+  /// class scalar — the NG+ trophy multiplier was retired with the endgame pivot).
+  double get prestigeGainMultiplier => classPrestigeGainMultiplier;
 
   // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
   final PrestigeSystem _prestige = PrestigeSystem();
@@ -765,8 +754,7 @@ class GameLogic with ChangeNotifier {
   }
 
   double get networkDifficulty =>
-      _miningManager.calculateNetworkDifficulty(lifetimeEarnings,
-          noCap: sandboxNoCap);
+      _miningManager.calculateNetworkDifficulty(lifetimeEarnings);
 
   // Chaos/news events — extracted into ChaosEventSystem (lib/logic/systems).
   late final ChaosEventSystem _events;
@@ -997,24 +985,17 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
-      ignoreCap: sandboxNoCap,
     );
     double income = perSecond * seconds;
-    if (!sandboxNoCap) {
-      final room = GameConstants.maxSupplySats - lifetimeEarnings;
-      if (room <= 0) return 0;
-      if (income > room) income = room;
-    } else if (income > 1e300) {
-      income = 1e300; // sandbox floor-of-last-resort against double overflow
-    }
+    // The per-era 21M supply cap is now INVIOLABLE (sandbox removed): income is
+    // always clamped to the room left this era, so an era mines at most one full
+    // 21,000,000-BTC supply.
+    final room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) return 0;
+    if (income > room) income = room;
     wallet += income;
     lifetimeEarnings += income;
-    // Extreme uncapped sandbox play can sum finite chunks into Infinity; fin()
-    // would then persist that as 0 and wipe the balance on reload. Clamp the
-    // running totals the same way lifetimeEverSats is guarded below.
-    if (!wallet.isFinite) wallet = 1e300;
-    if (!lifetimeEarnings.isFinite) lifetimeEarnings = 1e300;
-    _creditLifetimeEver(income); // cumulative-ever endgame counter + win check
+    _creditLifetimeEver(income); // cumulative-ever stat + LAST SATOSHI win check
     return income;
   }
 
@@ -1088,6 +1069,7 @@ class GameLogic with ChangeNotifier {
     return AchStats(
       lifetimeEarnings: lifetimeEarnings,
       lifetimeEverSats: lifetimeEverSats,
+      hasWonGame: hasWonGame,
       totalGovTokensEver: totalGovTokensEver,
       govTokens: govTokens,
       consensus: consensus,
@@ -1116,8 +1098,7 @@ class GameLogic with ChangeNotifier {
       totalMasteryLevel: totalMasteryLevel,
       masteredClassCount: masteredClassCount,
       classMasteryLevel: classMasteryLevelByName,
-      winCount: winCount,
-      inSandbox: sandboxNoCap,
+      speedRunBestMs: speedRunBestMs,
     );
   }
 
@@ -1133,9 +1114,7 @@ class GameLogic with ChangeNotifier {
     // One full 21M supply mined = exactly one Mastery unit; un-farmable by
     // rapid resetting since only mining grants it.
     _classManager.creditMasteryFromMining(_classManager.current, amount);
-    lifetimeEverSats += amount;
-    // Extreme uncapped sandbox play could sum finite chunks into Infinity, which
-    // fin() would then persist as 0 — clamp so the monotonic counter survives.
+    lifetimeEverSats += amount; // cosmetic lifetime stat (survives all resets)
     if (!lifetimeEverSats.isFinite) lifetimeEverSats = double.maxFinite;
     // Speed Run: accumulate this run's mined total and finish at one full supply.
     // Runs before the win latch's early-return so a run can complete post-win too.
@@ -1143,8 +1122,10 @@ class GameLogic with ChangeNotifier {
       speedRunMinedSats += amount;
       if (speedRunMinedSats >= GameConstants.maxSupplySats) _finishSpeedRun();
     }
+    // THE LAST SATOSHI: the win is the FIRST time a single era mines the full
+    // 21,000,000-BTC supply (lifetimeEarnings reaches the inviolable per-era cap).
     if (hasWonGame) return;
-    if (lifetimeEverSats < GameConstants.endgameTargetSats) return;
+    if (lifetimeEarnings < GameConstants.maxSupplySats) return;
     hasWonGame = true;
     pendingWinCelebration = true; // drained once by the UI (not persisted)
     // During offline catch-up, defer ALL UI side effects: the loop assigns
@@ -1158,20 +1139,12 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 
-  /// Progress (0..1) toward the "own all Bitcoin" ending, on a LOGARITHMIC scale.
-  /// The target ([endgameTargetSats] ≈ 2.1e20) is ~100,000× the 21M supply, so a
-  /// LINEAR bar reads a flat 0.00% for almost the whole game. Scaling by orders
-  /// of magnitude between a sensible floor and the target makes the bar visibly
-  /// climb as the player scales up (each ~10× of cumulative-ever fills a chunk).
-  double get endgameProgress {
-    const double base = 1e9; // ~where a going concern's cumulative-ever registers
-    final double target = GameConstants.endgameTargetSats;
-    if (lifetimeEverSats >= target) return 1.0;
-    if (lifetimeEverSats <= base) return 0.0;
-    final double p =
-        (log(lifetimeEverSats) - log(base)) / (log(target) - log(base));
-    return p.clamp(0.0, 1.0);
-  }
+  /// Linear progress (0..1) of THIS era toward the full 21M supply — honest,
+  /// tops out at exactly 100% the moment the era mines out (which, the first
+  /// time, is THE LAST SATOSHI win). Replaces the old log-scaled "ALL BITCOIN"
+  /// bar that read ~56% after a single era.
+  double get supplyProgress =>
+      (lifetimeEarnings / GameConstants.maxSupplySats).clamp(0.0, 1.0);
 
   /// Drain the one-shot ending trigger after the UI has shown it.
   void clearWinCelebration() {
@@ -1369,7 +1342,6 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
-      ignoreCap: sandboxNoCap,
     );
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
@@ -1381,21 +1353,19 @@ class GameLogic with ChangeNotifier {
     final bool isCrit = playSound && _clickRng.nextDouble() < critChance;
     if (isCrit) clickSats *= GameConstants.clickCritMultiplier;
 
-    // Re-clamp to the per-era supply cap AFTER the crit multiply (mirrors
-    // _accrueMining) so a crit near the cap can't push lifetimeEarnings over
-    // maxSupplySats and flip networkDifficulty to Infinity. Skipped in sandbox.
-    if (!sandboxNoCap) {
-      final double room = GameConstants.maxSupplySats - lifetimeEarnings;
-      if (room <= 0) {
-        clickSats = 0;
-      } else if (clickSats > room) {
-        clickSats = room;
-      }
+    // Re-clamp to the inviolable per-era supply cap AFTER the crit multiply
+    // (mirrors _accrueMining) so a crit near the cap can't push lifetimeEarnings
+    // over maxSupplySats and flip networkDifficulty to Infinity.
+    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) {
+      clickSats = 0;
+    } else if (clickSats > room) {
+      clickSats = room;
     }
 
     lifetimeEarnings += clickSats;
     wallet += clickSats;
-    _creditLifetimeEver(clickSats); // cumulative-ever endgame counter + win check
+    _creditLifetimeEver(clickSats); // cumulative-ever stat + LAST SATOSHI win
     // Only a real tap makes the click sound; the AI auto-clicker stays silent
     // so it doesn't emit a click every 5 seconds on its own.
     if (playSound) {
@@ -1423,11 +1393,9 @@ class GameLogic with ChangeNotifier {
           power: GameConstants.channelSoftPower,
         );
 
-    // We can reuse MiningManager logic passing dummy 'hashRate' = clickPower?
-    // Yes, MiningManager.calculateMiningIncome handles the formula.
-    // Difficulty is ∞ only at the per-era cap OUTSIDE sandbox; in sandbox the
-    // cap is lifted so clicks still pay and the readout must show a real value.
-    if (!sandboxNoCap && networkDifficulty.isInfinite) return 0;
+    // Difficulty is ∞ once this era hits the per-era cap (income clamped to 0),
+    // so the click readout shows 0 there.
+    if (networkDifficulty.isInfinite) return 0;
 
     return _miningManager.calculateMiningIncome(
       hashRate: clickPower,
@@ -1441,7 +1409,6 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
-      ignoreCap: sandboxNoCap,
     );
   }
 
@@ -1544,42 +1511,10 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 
-  /// New Genesis (NG+): the post-win reset. Reuses the New-Blockchain wipe but
-  /// grants a PERMANENT prestige-gain trophy (winCount) instead of requiring
-  /// pending Genesis Blocks — so "start again, stronger" always works after an
-  /// ending. Endgame spine (lifetimeEverSats/hasWonGame/winCount) is preserved.
-  void newGenesisPlus({BtcClass? chosenClass}) {
-    if (!hasWonGame) return;
-    winCount++;
-    _newChainInternal(chosenClass: chosenClass);
-  }
-
-  /// Toggle the "break the chain" sandbox (uncapped mining). Only after a win.
-  ///
-  /// Turning it OFF is deliberately NON-DESTRUCTIVE: uncapped play may have
-  /// pushed this era's mined supply (lifetimeEarnings) far past the legal 21M
-  /// ceiling, so we simply clamp it back under the cap (keeping wallet, rigs,
-  /// research, prestige — everything). The player lands in the normal "you've
-  /// mined ~all 21M this era" state (income trickles to 0 at the cap) and can
-  /// prestige via the usual buttons if they want a fresh income-producing chain.
-  /// A cosmetic on/off switch must never wipe the run or mint a win trophy.
-  void toggleSandboxNoCap() {
-    if (!hasWonGame) return;
-    if (sandboxNoCap) {
-      sandboxNoCap = false;
-      // Re-enforcing the cap: pull mined-supply back just under the ceiling so
-      // it's a valid capped state (a hair of room keeps a trickle of income
-      // rather than a hard 0 that reads like a soft-lock).
-      if (lifetimeEarnings > GameConstants.maxSupplySats) {
-        lifetimeEarnings = GameConstants.maxSupplySats * 0.99;
-      }
-    } else {
-      sandboxNoCap = true;
-    }
-    _evaluateAchievements(); // unlock secret_sandbox at the moment it's toggled
-    _saveGame();
-    notifyListeners();
-  }
+  // (New Genesis+ and the "break the chain" sandbox were retired with the
+  // endgame pivot — the 21M/era cap is now inviolable and the post-credits loop
+  // is Back in Time. Post-win deep resets go through the normal newBlockchain /
+  // Back-in-Time paths.)
 
   void buyRig(String rigId) => buyRigMax(rigId, 1);
 
@@ -1697,8 +1632,6 @@ class GameLogic with ChangeNotifier {
       mastery: _classManager.masteryJson(),
       lifetimeEverSats: lifetimeEverSats,
       hasWonGame: hasWonGame,
-      sandboxNoCap: sandboxNoCap,
-      winCount: winCount,
       unlockedTech: unlockedTech,
       unlockedStash: unlockedStash,
       unlockedSkill: unlockedSkill,
@@ -1793,16 +1726,14 @@ class GameLogic with ChangeNotifier {
 
       // Endgame (Phase 5). MUST load before the offline sim below so an
       // already-won returning player has hasWonGame=true first and the offline
-      // catch-up can't falsely re-fire the ending. _normalize seeds legacy saves
-      // (lifetimeEverSats defaults from lifetimeEarnings, a conservative lower
-      // bound that stays < endgameTargetSats).
+      // catch-up can't falsely re-fire the ending. `lifetimeEverSats` is now just
+      // a cosmetic lifetime stat.
       lifetimeEverSats = _toDouble(data['lifetimeEverSats']);
       hasWonGame = data['hasWonGame'] == true;
-      sandboxNoCap = data['sandboxNoCap'] == true;
-      winCount = _toInt(data['winCount']);
-      // Self-heal + defensive invariants.
-      if (lifetimeEverSats >= GameConstants.endgameTargetSats) hasWonGame = true;
-      if (sandboxNoCap && !hasWonGame) sandboxNoCap = false;
+      // Migration: THE LAST SATOSHI win now latches when a single era fills the
+      // 21M cap. Silently latch (no replayed credits) for any legacy save already
+      // sitting at the cap. Dropped fields (sandboxNoCap, winCount) are ignored.
+      if (lifetimeEarnings >= GameConstants.maxSupplySats) hasWonGame = true;
 
       // Speed Run (wall-clock timed challenge). The start timestamp keeps the
       // clock running across a close; a missing/garbage start with an active
@@ -2001,10 +1932,9 @@ class GameLogic with ChangeNotifier {
       for (int i = 0; i < iterations; i++) {
         accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
         _advanceBlocks(timePerTick);
-        // Stop early once the per-era supply is exhausted (income is 0 past it) —
-        // but NOT in sandbox, where the cap is lifted and offline income must keep
-        // flowing the full absence (the +1e300 clamp in _accrueMining bounds it).
-        if (!sandboxNoCap && lifetimeEarnings >= GameConstants.maxSupplySats) break;
+        // Stop early once the per-era supply is exhausted (income is 0 past the
+        // inviolable 21M/era cap).
+        if (lifetimeEarnings >= GameConstants.maxSupplySats) break;
       }
     } finally {
       _inOfflineSim = false;

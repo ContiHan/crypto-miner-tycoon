@@ -32,12 +32,10 @@ class MiningManager {
   }
 
   // Calculate Network Difficulty
-  double calculateNetworkDifficulty(double totalMined, {bool noCap = false}) {
+  double calculateNetworkDifficulty(double totalMined) {
     if (totalMined >= GameConstants.maxSupplySats) {
-      // Sandbox ("break the chain"): the asymptote below divides by zero at the
-      // cap, so past it we return a plain finite linear value instead of ∞ (a
-      // finite difficulty keeps the readout + EST.CLICK sane in sandbox).
-      if (noCap) return 100.0 + totalMined / 1000.0;
+      // At the inviolable 21M/era cap the asymptote below divides by zero, so
+      // the difficulty is ∞ (income has trickled to 0 — the era is fully mined).
       return double.infinity;
     }
 
@@ -69,7 +67,6 @@ class MiningManager {
     required double chaosMultiplier,
     required double lifetimeEarnings,
     double incomeMultiplier = 1.0, // INCOME channel (research/perks/stash)
-    bool ignoreCap = false, // sandbox "break the chain": lift the per-era cap
   }) {
     if (hashRate <= 0) return 0;
 
@@ -82,12 +79,10 @@ class MiningManager {
         chaosMultiplier *
         incomeMultiplier;
 
-    // Per-era thematic cap. Skipped in sandbox mode so income runs past 21M.
-    if (!ignoreCap) {
-      final double room = GameConstants.maxSupplySats - lifetimeEarnings;
-      if (room <= 0) return 0;
-      if (incomeSats > room) incomeSats = room;
-    }
+    // Inviolable per-era 21M cap: income can never mine past the supply ceiling.
+    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) return 0;
+    if (incomeSats > room) incomeSats = room;
 
     return incomeSats;
   }

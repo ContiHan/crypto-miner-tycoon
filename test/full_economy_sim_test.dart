@@ -205,14 +205,20 @@ void main() {
         reason: 'tier-3 must not be trivially fast even with content');
     expect(firstNewChain, lessThan(days * 86400), reason: 'tier-3 reachable in $days d');
 
-    // Endgame (Phase 5): the ending is a ~1-YEAR goal (endgameTargetSats
-    // 2.1e20), so a 60-day whale run must NOT reach it yet — this guards against
-    // a regression that makes the ending trivially fast (as 2.1e17 was, ~14d).
-    // The cumulative-ever counter must still be climbing steadily toward it.
-    expect(firstWin, -1,
-        reason: 'the ending is a ~1yr goal, not reachable in $days d');
-    expect(game.hasWonGame, false);
+    // THE LAST SATOSHI: the win is the FIRST era to mine a full 21M supply
+    // (lifetimeEarnings reaching the per-era cap). This validates the pivot
+    // end-to-end: an optimal whale DOES reach it, and the economy stays healthy
+    // right through the win and long past it.
+    // [TUNE] pacing note: a maximally-optimal reinvestment bot fills the very
+    // first era (~1h18m in this run, even before its first Hard Fork). A real
+    // engaged player is far slower — but if the owner wants the win to require
+    // deeper progression, gate it (e.g. require >=1 New Blockchain) or scale the
+    // final stretch. Reachability + health are the invariants here, not a pacing
+    // floor (which is play-pattern dependent and an explicit design lever).
+    expect(firstWin, greaterThan(0),
+        reason: 'the 21M/era win is reachable for a whale within $days d');
+    expect(game.hasWonGame, true);
     expect(game.lifetimeEverSats, greaterThan(1e18),
-        reason: 'cumulative-ever climbs toward the target');
+        reason: 'cumulative-ever keeps climbing across eras');
   });
 }

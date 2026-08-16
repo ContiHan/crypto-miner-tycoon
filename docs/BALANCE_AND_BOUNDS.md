@@ -101,12 +101,13 @@ the "fast" ones from a timed-endgame pacing break into a bounded spike.
 > ✅ X6 (Prestige Yield = canonical CONSENSUS WEIGHT; OG ability Cold Storage →
 > **DEEP FREEZE** so "Cold Storage" = only the theft vault/attribute), ✅ X7
 > (formula), ✅ X8 (Steel Nerves "NOT hack" noted), ✅ X9 (aura on-channel), and
-> ✅ MASTERY DRIVE cut. **Remaining = CODE-phase:** X1 (constants.dart still has
-> the old win/sandbox — implement the redesign + migration) and X2's accrual-basis
-> switch (Mastery → per-mined-supply). Plus all `[MISSING]` caps in the checklist.
+> ✅ MASTERY DRIVE cut. **CODE-phase now DONE (2026-08-16):** ✅ X1 (THE LAST
+> SATOSHI win + sandbox/NG+ deletion + save migration shipped) and ✅ X2 (Mastery
+> → per-mined-supply). Remaining = all `[MISSING]` caps in the checklist (future
+> chaos/attributes phases).
 
-- **X1 (biggest):** `constants.dart` still encodes the OLD win (endgameTargetSats 2.1e20, perWinTrophyBonus, winCount, Sandbox) that ENDGAME_REDESIGN retires → implement the redesign + save migration (enables Tier-0 #2).
-- **X2 / Mastery:** move Mastery from per-GovToken to per-mined-supply; make "1 full supply = Mastery 1" explicit. ⚑ **MASTERY DRIVE (BUILD_DEPTH #12) contradicts this** — its per-GovToken hook no longer exists, and +50% breaks the "1 supply = 1 unit, un-farmable" identity + de-syncs ability-unlock gates → **delete it, or re-scope to a separate soft bonus excluded from the `floor(√supplies)` gate count.**
+- ✅ **X1 (biggest) — DONE:** `constants.dart` old win (endgameTargetSats 2.1e20, perWinTrophyBonus, winCount, Sandbox) DELETED; THE LAST SATOSHI win (`lifetimeEarnings >= maxSupplySats`) + save migration (legacy save at cap latches the win; dropped fields ignored) shipped. 21M is now truly inviolable.
+- ✅ **X2 / Mastery — DONE:** Mastery moved to per-mined-supply (`creditMasteryFromMining`, 1 full 21M supply = 1 XP unit = Mastery 1). MASTERY DRIVE stays cut (per-GovToken hook no longer exists).
 - **X3:** offline base is **0.70** (decided) — fix stale `0.50` references.
 - **X4:** resistance per-lever caps 0.75 vs the ≤0.70 rail → make the integrated ≤0.70 clamp (#8) authoritative; lower per-lever caps to ≤0.70 or mark them cosmetic.
 - **X5:** `TECH_REACQUISITION_QOL.md` (cumulative tree, plain REBUILD) is SUPERSEDED by BUILD_DEPTH's exclusive doctrines + build-aware auto-apply → mark it superseded so no one builds the wrong auto-buy.

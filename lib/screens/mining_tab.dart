@@ -380,10 +380,11 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                         ),
                                       ],
                                     ),
-                                    // Endgame: cumulative-ever progress toward
-                                    // "own all Bitcoin". Hidden once won / in
-                                    // sandbox.
-                                    if (!game.hasWonGame && !game.sandboxNoCap) ...[
+                                    // THE LAST SATOSHI: progress toward mining a
+                                    // full 21M supply this era (the win). Hidden
+                                    // once won (the post-game loop is Back in
+                                    // Time, which has its own timer bar).
+                                    if (!game.hasWonGame) ...[
                                       const SizedBox(height: 6),
                                       Stack(
                                         alignment: Alignment.center,
@@ -392,7 +393,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                             borderRadius:
                                                 BorderRadius.circular(4),
                                             child: LinearProgressIndicator(
-                                              value: game.endgameProgress,
+                                              value: game.supplyProgress,
                                               backgroundColor: Colors.black54,
                                               color: AppTheme.accent
                                                   .withValues(alpha: 0.6),
@@ -400,7 +401,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                             ),
                                           ),
                                           Text(
-                                            'ALL BITCOIN: ${(game.endgameProgress * 100).toStringAsFixed(1)}%',
+                                            'SUPPLY MINED: ${(game.supplyProgress * 100).toStringAsFixed(1)}% OF 21M',
                                             style: GoogleFonts.orbitron(
                                               color: Colors.white,
                                               fontSize: 10,
@@ -421,8 +422,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               ),
                               // Per-era cap reached: turn the ∞-difficulty / 0
                               // income dead-end into a clear message + CTA.
-                              if (game.networkDifficulty.isInfinite &&
-                                  !game.sandboxNoCap)
+                              if (game.networkDifficulty.isInfinite)
                                 _CapReachedBanner(
                                   game: game,
                                   onNewBlockchain: widget.onNewBlockchain,
@@ -893,8 +893,8 @@ class _LockedRigTeaser extends StatelessWidget {
 
 /// Shown when a single era's entire 21M supply is mined (networkDifficulty is ∞,
 /// income clamped to 0). Replaces the "looks broken" dead-end with a clear
-/// message + the right next step: enter Sandbox (if the game is won), else start
-/// a New Blockchain, else Hard Fork.
+/// message + the right next step to move on to a fresh era: start a New
+/// Blockchain if one is banked, else Hard Fork (always available at the cap).
 class _CapReachedBanner extends StatelessWidget {
   final GameLogic game;
   final VoidCallback? onNewBlockchain;
@@ -910,10 +910,7 @@ class _CapReachedBanner extends StatelessWidget {
   Widget build(BuildContext context) {
     String cta;
     VoidCallback? action;
-    if (game.hasWonGame) {
-      cta = 'BREAK THE CHAIN (SANDBOX)';
-      action = game.toggleSandboxNoCap;
-    } else if (game.pendingGenesis > 0 && onNewBlockchain != null) {
+    if (game.pendingGenesis > 0 && onNewBlockchain != null) {
       cta = 'START NEW BLOCKCHAIN';
       action = onNewBlockchain;
     } else {

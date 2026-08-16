@@ -153,7 +153,7 @@ void main() {
       expect((data['mastery'] as Map).isEmpty, true);
     });
 
-    test('persists endgame state (Phase 5) round-trip', () async {
+    test('persists endgame state (THE LAST SATOSHI) round-trip', () async {
       await gameRepo.saveGameState(
         wallet: 0,
         lifetimeEarnings: 0,
@@ -170,39 +170,34 @@ void main() {
         bitcoinExchangeRate: 1.0,
         lifetimeEverSats: 2.5e17,
         hasWonGame: true,
-        sandboxNoCap: true,
-        winCount: 2,
       );
 
       final data = await gameRepo.loadGameState();
       expect((data['lifetimeEverSats'] as num).toDouble(), 2.5e17);
       expect(data['hasWonGame'], true);
-      expect(data['sandboxNoCap'], true);
-      expect(data['winCount'], 2);
     });
 
-    test('legacy save (pre-Phase-5) defaults endgame + seeds ever from earnings',
+    test('legacy save (pre-pivot) defaults endgame + seeds ever from earnings',
         () async {
       SharedPreferences.setMockInitialValues({
         'game_save_v2':
             jsonEncode({'version': 2, 'wallet': 5.0, 'lifetimeEarnings': 1.0e12}),
       });
       final data = await GameRepository().loadGameState();
-      // Conservative seed from per-era earnings; well below the win target.
+      // Conservative seed from per-era earnings; well below the 21M cap.
       expect((data['lifetimeEverSats'] as num).toDouble(), 1.0e12);
       expect(data['hasWonGame'], false);
-      expect(data['sandboxNoCap'], false);
-      expect(data['winCount'], 0);
     });
 
-    test('self-heals hasWonGame when lifetimeEverSats already >= target',
+    test('self-heals hasWonGame when lifetimeEarnings already >= the 21M cap',
         () async {
       SharedPreferences.setMockInitialValues({
         'game_save_v2': jsonEncode(
-            {'version': 2, 'lifetimeEverSats': GameConstants.endgameTargetSats}),
+            {'version': 2, 'lifetimeEarnings': GameConstants.maxSupplySats}),
       });
       final data = await GameRepository().loadGameState();
-      expect(data['hasWonGame'], true, reason: 'crossed target => won on load');
+      expect(data['hasWonGame'], true,
+          reason: 'a full 21M era => won on load');
     });
 
     test('non-finite lifetimeEverSats is coerced finite on save (sandbox safety)',

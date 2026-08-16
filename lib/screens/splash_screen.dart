@@ -67,7 +67,7 @@ class SplashScreen extends StatelessWidget {
             // Android 12+ cold-start splash (the launcher ₿ icon) eats the first
             // seconds and this Flutter splash only shows briefly, so the text was
             // barely visible. It now lives on the CREDITS & THANKS screen
-            // (Settings → Credits, and the GENESIS COMPLETE ending finale).
+            // (Settings → Credits, and the THE LAST SATOSHI ending finale).
           ],
         ),
       ),

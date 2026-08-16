@@ -1,11 +1,10 @@
 // ignore_for_file: avoid_print
-// Long-horizon endgame-pacing sim. The full_economy_sim runs 60 days; the "own
-// all Bitcoin" ending is meant to take ~1 YEAR of engaged play, which that
-// window can't measure. This drives the REAL GameLogic whale far longer (coarse
-// step for speed) and reports WHEN cumulative-ever crosses candidate win
-// targets, so GameConstants.endgameTargetSats can be tuned to land ~1 year.
+// Long-horizon endgame-pacing sim. THE LAST SATOSHI win is the first era to mine
+// a full 21,000,000-BTC supply (lifetimeEarnings reaching the per-era cap). This
+// drives the REAL GameLogic whale over a long horizon (coarse step for speed)
+// and reports WHEN that first win lands, plus how cumulative-ever climbs, so the
+// win pacing can be sanity-checked against the intended multi-day milestone.
 import 'package:flutter_test/flutter_test.dart';
-import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'test_helper.dart';
@@ -54,7 +53,7 @@ void _buyPerks(GameLogic g) {
 }
 
 void main() {
-  test('MEASURE cumulative-ever pacing over a long horizon', () async {
+  test('MEASURE time-to-first-win + cumulative-ever pacing', () async {
     final game = createTestGameLogic(startTimers: false, loadOnStart: false);
     await game.loadGame();
     game.wallet = 100;
@@ -63,9 +62,10 @@ void main() {
     const days = 500;
     final totalSteps = days * 86400 ~/ step;
 
-    // Candidate win targets to time (sats).
+    // Cumulative-ever milestones to time (sats), for a general accrual curve.
     final targets = <double>[2.1e17, 1e18, 3e18, 1e19, 3e19, 1e20, 3e20, 1e21];
     final crossedDay = <double, double>{};
+    double? firstWinDay; // when the first era mines a full 21M supply
 
     int lastBuyStep = 0, lastForkStep = 0;
 
@@ -105,6 +105,7 @@ void main() {
           crossedDay[target] = t / 86400.0;
         }
       }
+      if (firstWinDay == null && game.hasWonGame) firstWinDay = t / 86400.0;
     }
 
     String d(double? day) =>
@@ -117,12 +118,12 @@ void main() {
           '  ->  ${d(crossedDay[target])}');
     }
     print('final cumulative-ever : ${game.lifetimeEverSats.toStringAsExponential(2)} sats');
-    print('current target        : ${GameConstants.endgameTargetSats.toStringAsExponential(1)} '
-        '-> crossed ${d(crossedDay[GameConstants.endgameTargetSats])}');
+    print('THE LAST SATOSHI win  : ${d(firstWinDay)} '
+        '(first era to mine the full 21M supply)');
     print('==========================================================\n');
 
     // Measurement tool only (no pacing assertion — pacing is play-pattern
-    // dependent; endgameTargetSats is a documented [TUNE]).
+    // dependent). Kept skipped; run explicitly when tuning the endgame.
     expect(game.lifetimeEverSats, greaterThan(0));
   }, skip: 'slow manual measurement — run explicitly when tuning the endgame');
 }

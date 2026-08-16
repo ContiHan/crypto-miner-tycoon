@@ -38,8 +38,8 @@ List<String> classEffectBullets(ClassDef def) {
 /// One-line join of [classEffectBullets] for the compact picker cards.
 String classEffectSummary(ClassDef def) => classEffectBullets(def).join(' · ');
 
-/// Shared class-selection dialog, reused by the SKILL tab (early, ongoing pick),
-/// New Blockchain, and New Genesis. Confirm is disabled until a class is chosen;
+/// Shared class-selection dialog, reused by the SKILL tab (early, ongoing pick)
+/// and New Blockchain. Confirm is disabled until a class is chosen;
 /// [onConfirm] receives the picked class.
 void showClassPicker(
   BuildContext context, {

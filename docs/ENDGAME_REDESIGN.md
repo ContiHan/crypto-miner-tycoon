@@ -1,6 +1,10 @@
 # Endgame + Prestige Redesign — "THE LAST SATOSHI"
 
-Status: **DESIGN (not yet implemented)** — awaiting owner sign-off.
+Status: **IMPLEMENTED** (2026-08-16). The win is now the first era to mine a full
+21M supply (`lifetimeEarnings >= maxSupplySats`); Sandbox / New Genesis+ /
+`winCount` / `trophyGainMultiplier` / `endgameTargetSats` / `endgameProgress` are
+deleted; the post-credits loop is Back in Time (speed run). Mastery is per-mined
+supply; chips are permanent. See §"What changes in code" — all rows shipped.
 Produced via a multi-agent design pass (3 independent designs → synthesis →
 adversarial review, verdict *ship-with-fixes*; the fixes are folded in below).
 

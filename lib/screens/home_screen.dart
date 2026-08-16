@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
-import '../core/constants.dart';
 import '../theme/app_theme.dart';
 import '../widgets/class_picker.dart';
 import '../widgets/first_visit_tip.dart';
@@ -30,7 +29,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   // fresh offlineEarningsAmount + notifies) can't stack a second dialog over an
   // un-dismissed first one.
   bool _offlineDialogOpen = false;
-  // Guards the once-per-crossing GENESIS COMPLETE ending overlay.
+  // Guards the once-per-crossing THE LAST SATOSHI ending overlay.
   bool _endingShown = false;
   // Re-entrancy guard for the (repeatable) SPEED RUN COMPLETE overlay.
   bool _speedRunOverlayOpen = false;
@@ -143,7 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ));
   }
 
-  /// Fire the GENESIS COMPLETE ending exactly once when the win first crosses.
+  /// Fire the THE LAST SATOSHI ending exactly once when the win first crosses.
   void _maybeShowEnding(GameLogic game) {
     if (!game.pendingWinCelebration || _endingShown) return;
     // Don't stack over the WELCOME BACK dialog (an offline catch-up can trigger
@@ -154,14 +153,13 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showEndingOverlay(
       context,
       game,
-      onNewGenesis: () => _showNewGenesisPicker(context, game),
-      onBreakChain: () => game.toggleSandboxNoCap(),
+      onBackInTime: () => game.startSpeedRun(),
     );
   }
 
   /// Show the SPEED RUN COMPLETE overlay when a run finishes. Repeatable (each
   /// run), so it uses a re-entrancy guard rather than a permanent latch. Defers
-  /// behind the WELCOME BACK dialog and the (higher-priority) GENESIS COMPLETE
+  /// behind the WELCOME BACK dialog and the (higher-priority) THE LAST SATOSHI
   /// ending; both re-invoke this on dismissal / the next tick.
   void _maybeShowSpeedRunComplete(GameLogic game) {
     if (!game.pendingSpeedRunCelebration || _speedRunOverlayOpen) return;
@@ -436,27 +434,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
           '→ x${nextMultiplier.toStringAsFixed(1)}$classHint',
       onConfirm: (c) => game.newBlockchain(chosenClass: c),
-    );
-  }
-
-  /// New Genesis (NG+): the post-win "start again, stronger" reset. Same class
-  /// picker, but grants the permanent trophy multiplier instead of Genesis.
-  void _showNewGenesisPicker(BuildContext context, GameLogic game) {
-    final nextTrophy =
-        1.0 + GameConstants.perWinTrophyBonus * (game.winCount + 1);
-    showClassPicker(
-      context,
-      game: game,
-      title: 'NEW GENESIS (NG+)',
-      titleColor: AppTheme.accent,
-      confirmLabel: 'ASCEND',
-      confirmColor: AppTheme.accent,
-      headerLabel: 'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
-      info: 'Begin a fresh chain, keeping your Stash, Mastery and trophies. '
-          'Every ending makes all future prestige gains permanently stronger.\n\n'
-          'Prestige-gain trophy: x${game.trophyGainMultiplier.toStringAsFixed(1)} '
-          '→ x${nextTrophy.toStringAsFixed(1)}',
-      onConfirm: (c) => game.newGenesisPlus(chosenClass: c),
     );
   }
 

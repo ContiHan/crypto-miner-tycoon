@@ -1,11 +1,10 @@
-import '../core/constants.dart';
-
 /// A snapshot of the game stats achievements are evaluated against. Built once
 /// per evaluation by GameLogic so the (data-driven) achievement conditions stay
 /// pure functions of state.
 class AchStats {
   final double lifetimeEarnings;
-  final double lifetimeEverSats; // cumulative-ever mined (endgame win metric)
+  final double lifetimeEverSats; // cosmetic cumulative-ever mined (all eras)
+  final bool hasWonGame; // THE LAST SATOSHI: mined a full 21M in one era
   final double totalGovTokensEver;
   final int govTokens;
   final int consensus;
@@ -34,12 +33,13 @@ class AchStats {
   final int totalMasteryLevel;
   final int masteredClassCount; // real classes at Mastery >= 1
   final int Function(String className) classMasteryLevel;
-  final int winCount; // endings reached (New Genesis count)
-  final bool inSandbox; // "break the chain" active
+  // Back in Time (post-win timed re-mine): best completed time in ms, 0 = none.
+  final int speedRunBestMs;
 
   const AchStats({
     required this.lifetimeEarnings,
     required this.lifetimeEverSats,
+    required this.hasWonGame,
     required this.totalGovTokensEver,
     required this.govTokens,
     required this.consensus,
@@ -67,8 +67,7 @@ class AchStats {
     required this.totalMasteryLevel,
     required this.masteredClassCount,
     required this.classMasteryLevel,
-    required this.winCount,
-    required this.inSandbox,
+    required this.speedRunBestMs,
   });
 }
 
@@ -362,12 +361,12 @@ final List<Achievement> kAchievements = [
   ),
   Achievement(
     id: 'meta_genesis_complete',
-    title: 'Genesis Complete',
-    // The true ending: mine more Bitcoin than will ever exist — a cumulative
-    // total, across every chain, of ~100,000x the entire 21M supply.
-    description: 'Mine more BTC than will ever exist — the true ending.',
+    title: 'The Last Satoshi',
+    // The true ending: mine one whole 21,000,000-coin supply within a single
+    // era — every satoshi that will ever exist, in one run.
+    description: 'Mine a full 21,000,000 BTC in one era — the true ending.',
     category: AchCategory.meta,
-    condition: (s) => s.lifetimeEverSats >= GameConstants.endgameTargetSats,
+    condition: (s) => s.hasWonGame,
   ),
 
   // --- RPG classes / Mastery (the "play them all" hook) ---
@@ -415,20 +414,21 @@ final List<Achievement> kAchievements = [
   ),
   Achievement(
     id: 'ng_plus',
-    title: 'New Genesis',
-    description: 'Begin a New Genesis (NG+) after winning.',
+    title: 'Back in Time',
+    description: 'Complete a Back in Time run after winning the game.',
     category: AchCategory.prestige,
-    condition: (s) => s.winCount >= 1,
+    condition: (s) => s.speedRunBestMs > 0,
   ),
 
   // --- Secret / endgame ---
   Achievement(
     id: 'secret_sandbox',
-    title: 'Reality Breaker',
-    description: 'Break the chain — mine with no supply cap.',
+    title: 'Blitz of the Blocks',
+    description: 'Re-mine all 21,000,000 in under an hour, Back in Time.',
     category: AchCategory.secret,
     secret: true,
-    condition: (s) => s.inSandbox,
+    // 0 = never completed; only a real sub-hour record trips this.
+    condition: (s) => s.speedRunBestMs > 0 && s.speedRunBestMs < 3600000,
   ),
 
   // --- Secret / shadow (no Notoriety, hidden until earned) ---

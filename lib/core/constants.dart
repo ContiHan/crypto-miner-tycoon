@@ -1,26 +1,12 @@
 class GameConstants {
   // Economy
-  static const double maxSupplySats = 2100000000000000; // per-era thematic cap
+  static const double maxSupplySats = 2100000000000000; // 21M BTC in sats
 
-  // Endgame (RPG Phase 5): the true "own all the Bitcoin" win is a MONOTONIC
-  // cumulative-ever counter (lifetimeEverSats) that survives every prestige
-  // reset — distinct from the per-era maxSupplySats soft-wall above. Framed as
-  // "mine more BTC than will ever exist" (a huge multiple of the 21M supply).
-  //
-  // Tuned so an ENGAGED player takes ~1 YEAR to reach the ending. At 2.1e17 a
-  // whale crossed it in only ~14 sim-days (too fast — owner feedback), so the
-  // target was raised to 2.1e20 (~100,000x the 21M supply). This is a [TUNE]
-  // estimate from the late-game accrual rate — pacing is play-pattern-dependent
-  // (a very active player is far faster than a casual check-in one), so refine
-  // it against real playtest data; bump higher if the ending still comes too
-  // soon. INVARIANT: must stay > maxSupplySats so a legacy save (seeded from
-  // lifetimeEarnings <= 2.1e15) can never falsely win and >=1 prestige is
-  // always required to finish.
-  static const double endgameTargetSats = 2.1e20;
-
-  // Each ending reached grants a permanent New Genesis (NG+) prestige-gain
-  // bonus: trophyGainMultiplier = 1 + perWinTrophyBonus * winCount. [TUNE]
-  static const double perWinTrophyBonus = 0.10;
+  // THE LAST SATOSHI (endgame). The win is thematically honest to Bitcoin:
+  // mine one full 21,000,000-coin supply within a SINGLE era. The per-era income
+  // cap (maxSupplySats) is inviolable, so the win latches the instant a run's
+  // lifetimeEarnings reaches it — no "own a multiple of all Bitcoin" counter.
+  // After the credits, the post-game loop is Back in Time (a timed re-mine).
   static const double initialBlockReward = 50.0 * 100000000; // 50 BTC in Sats
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 

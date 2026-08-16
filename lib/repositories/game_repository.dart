@@ -74,8 +74,6 @@ class GameRepository {
     Map<String, dynamic> mastery = const {},
     double lifetimeEverSats = 0,
     bool hasWonGame = false,
-    bool sandboxNoCap = false,
-    int winCount = 0,
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -133,8 +131,6 @@ class GameRepository {
       'mastery': mastery,
       'lifetimeEverSats': fin(lifetimeEverSats),
       'hasWonGame': hasWonGame,
-      'sandboxNoCap': sandboxNoCap,
-      'winCount': winCount,
       'unlockedTech': unlockedTech,
       'unlockedStash': unlockedStash,
       'unlockedSkill': unlockedSkill,
@@ -254,19 +250,17 @@ class GameRepository {
       'currentClass':
           m['currentClass'] is String ? m['currentClass'] : 'prospector',
       'mastery': m['mastery'] is Map ? m['mastery'] : const {},
-      // Endgame (Phase 5). Legacy saves (no lifetimeEverSats) seed it from the
-      // per-era lifetimeEarnings — a conservative lower bound that, since it is
-      // capped at maxSupplySats < endgameTargetSats, can never falsely win.
+      // THE LAST SATOSHI endgame. `lifetimeEverSats` is now a cosmetic lifetime
+      // stat (legacy saves without it seed from lifetimeEarnings). The win latches
+      // the moment a single era fills the 21M cap — GameLogic.loadGame() also
+      // re-latches it defensively for any legacy save already at the ceiling.
+      // Dropped fields (sandboxNoCap, winCount) from the retired sandbox/NG+ are
+      // ignored on load.
       'lifetimeEverSats': m.containsKey('lifetimeEverSats')
           ? asDouble(m['lifetimeEverSats'], 0)
           : asDouble(m['lifetimeEarnings'], 0),
       'hasWonGame': (m['hasWonGame'] == true) ||
-          ((m.containsKey('lifetimeEverSats')
-                  ? asDouble(m['lifetimeEverSats'], 0)
-                  : asDouble(m['lifetimeEarnings'], 0)) >=
-              GameConstants.endgameTargetSats),
-      'sandboxNoCap': m['sandboxNoCap'] == true,
-      'winCount': asInt(m['winCount'], 0),
+          (asDouble(m['lifetimeEarnings'], 0) >= GameConstants.maxSupplySats),
       // Progressive-disclosure tab unlocks (sticky bools; default false, then
       // GameLogic re-derives from loaded progress silently).
       'unlockedTech': m['unlockedTech'] == true,

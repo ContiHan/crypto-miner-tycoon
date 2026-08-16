@@ -193,6 +193,7 @@ void main() {
     AchStats statsAtCap() => AchStats(
           lifetimeEarnings: GameConstants.maxSupplySats,
           lifetimeEverSats: GameConstants.maxSupplySats,
+          hasWonGame: true,
           totalGovTokensEver: 0,
           govTokens: 0,
           consensus: 0,
@@ -220,8 +221,7 @@ void main() {
           totalMasteryLevel: 0,
           masteredClassCount: 0,
           classMasteryLevel: (_) => 0,
-          winCount: 0,
-          inSandbox: false,
+          speedRunBestMs: 0,
         );
 
     test('every earnings achievement is satisfiable at the per-era cap', () {
