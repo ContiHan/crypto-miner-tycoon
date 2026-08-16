@@ -18,15 +18,23 @@ class EconomyService {
 
   /// Rig cost after a total additive [costDiscount] (0.10 == 10% off), coming
   /// from the RIG_COST channel (perks + research + stash), clamped to a hard 95%
-  /// max discount, then the chaos cost multiplier.
+  /// max discount, then the chaos cost multiplier and any [abilityCostMultiplier]
+  /// (e.g. HOSTILE TAKEOVER's ×0.5). The FINAL PRODUCT of every cost multiplier is
+  /// floored at 0.05 (BALANCE_AND_BOUNDS #6): the channel discount alone is capped
+  /// at 95% off, but 0.05 × CHEAP-ENERGY 0.7 × a future ability 0.5 would reach
+  /// ~1.75% of base — so we clamp the whole product so a rig can never cost less
+  /// than 5% of its sticker price no matter how the discounts stack.
   double calculateRigCost(
     Rig rig,
     double costDiscount,
-    double chaosCostMultiplier,
-  ) {
+    double chaosCostMultiplier, {
+    double abilityCostMultiplier = 1.0,
+  }) {
     double factor = 1.0 - costDiscount;
-    if (factor < 0.05) factor = 0.05; // hard cap: 95% max total discount
-    return rig.currentCost * factor * chaosCostMultiplier;
+    if (factor < 0.05) factor = 0.05; // channel discount hard cap (95% max)
+    double product = factor * chaosCostMultiplier * abilityCostMultiplier;
+    if (product < 0.05) product = 0.05; // FINAL product floor (#6)
+    return rig.currentCost * product;
   }
 
   /// Global hash rate: summed per-rig base (with the per-rig-type Chip Fab

@@ -1320,9 +1320,10 @@ class GameLogic with ChangeNotifier {
   ClickResult clickMine({bool playSound = true}) {
     final ch = buildChannels();
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
-    clickPower *= _stash.getClickPowerMultiplier();
+    // Stash click power is folded into Channel.click (see stash.contributeChannels)
+    // so it shares the click softcap instead of being a raw out-of-band multiplier.
     clickPower *= ch.multiplier(
-      // CLICK channel (perks/etc.), soft-capped past a generous threshold.
+      // CLICK channel (perks + stash + class), soft-capped past a generous threshold.
       Channel.click,
       softStart: GameConstants.clickSoftStart,
       power: GameConstants.channelSoftPower,
@@ -1386,7 +1387,6 @@ class GameLogic with ChangeNotifier {
     final ch = buildChannels();
     double clickPower =
         _economy.calculateClickPower(_perkManager.perks) *
-        _stash.getClickPowerMultiplier() *
         ch.multiplier(
           Channel.click,
           softStart: GameConstants.clickSoftStart,

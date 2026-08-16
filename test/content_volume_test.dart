@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/perk_manager.dart';
@@ -89,7 +90,17 @@ void main() {
       // enforce a game cap.
       expect(ch.sum(Channel.hash), lessThan(40));
       expect(ch.sum(Channel.income), lessThan(6));
-      expect(ch.sum(Channel.click), lessThan(4));
+      // Click now includes stash click power (folded into the channel, #19), so
+      // the raw sum tracks the whole click catalogue. It's bounded near that
+      // total (catches a stray typo) AND — the real rail — the softcapped
+      // multiplier the economy actually applies stays tame (3.0/0.6 softcap).
+      expect(ch.sum(Channel.click), lessThan(30));
+      expect(
+        ch.multiplier(Channel.click,
+            softStart: GameConstants.clickSoftStart,
+            power: GameConstants.channelSoftPower),
+        lessThan(15),
+      );
       expect(ch.sum(Channel.rigCost), lessThan(6));
     });
   });
@@ -165,25 +176,26 @@ void main() {
       expect(game.estimatedClickValue, greaterThan(base));
     });
 
-    test('stash click power flows into earnings and stacks with the click '
-        'channel (no double-count)', () async {
+    test('stash click power flows into earnings via the click channel '
+        '(additive within the channel, no double-count)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       final base = game.estimatedClickValue;
 
-      // Stash click power is applied separately from the click CHANNEL, via
-      // StashService.getClickPowerMultiplier. Whitepaper = +100% (x2.0).
+      // Stash click power now folds into Channel.click (#19). Whitepaper = +100%
+      // → click channel 1 + 1.0 = x2.0 (below the 3.0 softStart, untouched).
       game.stashService.ownedArtifacts['satoshi_whitepaper'] = 1;
       expect(game.estimatedClickValue, closeTo(base * 2.0, base * 1e-4),
-          reason: 'stash click multiplier must reach earnings');
+          reason: 'stash click must reach earnings through the click channel');
 
-      // Add a click-CHANNEL source (+25%): the two mechanisms multiply
-      // (x2.0 * x1.25 = x2.5), not double-count.
+      // Add a click-CHANNEL source (+25%): they SUM within the channel
+      // (1 + 1.0 + 0.25 = x2.25), not multiply — additive-within-channel, no
+      // double-count.
       game.researchNodes
           .firstWhere((n) => n.id == ResearchIds.ergonomicRig)
           .isCompleted = true;
-      expect(game.estimatedClickValue, closeTo(base * 2.5, base * 1e-4),
-          reason: 'stash click and click channel stack multiplicatively');
+      expect(game.estimatedClickValue, closeTo(base * 2.25, base * 1e-4),
+          reason: 'stash click and click channel are additive within the channel');
     });
   });
 

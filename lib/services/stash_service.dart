@@ -250,7 +250,11 @@ class StashService {
     return total; 
   }
 
-  double getClickPowerMultiplier() {
+  /// Raw additive click-power bonus from owned artifacts (0.20 == +20% click).
+  /// Fed into [Channel.click] so it shares the click softcap with perks/TECH
+  /// (BALANCE_AND_BOUNDS #19 — it must NOT be a raw 1+Σ multiplier outside the
+  /// softcap, or a stack of mythic click artifacts becomes an uncapped lane).
+  double getClickPowerBonus() {
     double total = 0.0;
     _ownedArtifacts.forEach((id, count) {
       final artifact = _getArtifact(id);
@@ -258,7 +262,7 @@ class StashService {
         total += artifact.baseBonus * count;
       }
     });
-    return 1.0 + total;
+    return total;
   }
 
   /// Raw additive Luck bonus from owned artifacts (0.05 == +5% luck).
@@ -273,12 +277,14 @@ class StashService {
     return total;
   }
 
-  /// Adds owned-artifact hash, rig-cost & luck bonuses to the shared channel
-  /// model. (Click power stays applied via getClickPowerMultiplier.)
+  /// Adds owned-artifact hash, rig-cost, luck & click bonuses to the shared
+  /// channel model — everything routes through the softcapped channels (no raw
+  /// out-of-band multipliers).
   void contributeChannels(Channels ch) {
     ch.add(Channel.hash, getTotalHashBonus() - 1.0); // getTotalHashBonus = 1+sum
     ch.add(Channel.rigCost, getMainCostDiscount()); // already a raw sum
     ch.add(Channel.luck, getTotalLuckBonus()); // raw sum
+    ch.add(Channel.click, getClickPowerBonus()); // raw sum, now softcapped (#19)
   }
   
   // === LOOT LOGIC ===

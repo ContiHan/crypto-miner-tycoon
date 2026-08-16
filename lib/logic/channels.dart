@@ -16,7 +16,8 @@ enum Channel {
   prestige, // prestige/GovToken income bonus
   luck, // crit chance, SWEEP UTXO winnings (capped), crate/anomaly odds
   volatility, // chaos event frequency/severity (wired in a later phase)
-  special, // catch-all / utility
+  offline, // offline-earning fraction (base 0.70, hard cap 1.0 = live parity)
+  special, // crit PAYOUT only (BLOCK REWARD attribute): critMult = 5 + 5·softcap(Σspecial)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].
