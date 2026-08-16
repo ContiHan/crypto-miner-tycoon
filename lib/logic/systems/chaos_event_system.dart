@@ -199,6 +199,23 @@ class ChaosEventSystem {
     }
   }
 
+  /// Force a Bull Run (OG WHALE ORDER ability): income ×3 for 3 min, with the
+  /// ticker banner + positive cue. Resistances don't apply to a positive event.
+  void forceBullRun() {
+    const income = 3.0;
+    const duration = 180;
+    _applyChaos(income, 1.0, duration);
+    final pool = NewsFlavor.byType[EventType.bullRun]!;
+    showNews(NewsEvent(
+      message: pool[_random.nextInt(pool.length)],
+      type: EventType.bullRun,
+      value: 200,
+      durationSeconds: duration,
+      color: Colors.greenAccent,
+    ));
+    onEventSound(true);
+  }
+
   /// Test seam for the per-axis apply/expiry logic (avoids relying on the random
   /// event roll). Not used in production.
   @visibleForTesting

@@ -864,6 +864,14 @@ class GameLogic with ChangeNotifier {
     final now = _nowMs();
     _abilities.activate(def, now);
 
+    // Instant bespoke effects.
+    if (def.forceBullRun) _events.forceBullRun(); // OG WHALE ORDER
+    if (def.freeCrate) {
+      _stash.openCrate(tier: CrateTier.standard, fortune: fortuneBonus);
+      cratesOpened++;
+      _soundService.playCrate();
+    }
+
     // Instant income lump (Corp): snapshot the live per-second rate and bank it,
     // supply-clamped. Credits wallet + lifetime only (never speedRunMinedSats).
     if (def.instantIncomeSeconds > 0) {

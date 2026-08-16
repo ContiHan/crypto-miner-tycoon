@@ -114,5 +114,25 @@ void main() {
       expect(game.wallet, greaterThan(before),
           reason: '30 min of income banked instantly');
     });
+
+    test('OG WHALE ORDER forces a Bull Run (income multiplier jumps)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.debugSelectClass(BtcClass.btcOg);
+      expect(game.chaosIncomeMultiplier, closeTo(1.0, 1e-9));
+      expect(game.castAbility('og_whale_order'), true);
+      expect(game.chaosIncomeMultiplier, greaterThan(1.5),
+          reason: 'Whale Order pumps income ×3');
+    });
+
+    test('Solo LUCKY NONCE opens a free crate', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugCreditMastery(BtcClass.soloMiner, 40000); // Mastery 2 -> basic2 open
+      final crates = game.cratesOpened;
+      expect(game.castAbility('solo_lucky_nonce'), true);
+      expect(game.cratesOpened, crates + 1);
+    });
   });
 }

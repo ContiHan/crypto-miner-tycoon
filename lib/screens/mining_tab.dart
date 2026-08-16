@@ -7,6 +7,7 @@ import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
 import '../widgets/rig_list_item.dart';
+import '../widgets/abilities_bar.dart';
 import '../widgets/pulse_button.dart';
 import '../widgets/floating_text.dart';
 import '../widgets/binary_particle.dart';
@@ -617,6 +618,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                     ],
                   ),
                 ),
+                // Abilities Bar — docked just above the sticky HACK button.
+                const AbilitiesBar(),
                 // Wide Action Button (Bottom Sticky)
                 Padding(
                   padding: const EdgeInsets.all(16.0),
