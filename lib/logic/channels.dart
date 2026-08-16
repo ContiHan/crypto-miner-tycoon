@@ -18,6 +18,7 @@ enum Channel {
   volatility, // chaos event frequency/severity (wired in a later phase)
   offline, // offline-earning fraction (base 0.70, hard cap 1.0 = live parity)
   special, // crit PAYOUT only (BLOCK REWARD attribute): critMult = 5 + 5·softcap(Σspecial)
+  fortune, // crate drop-quality: chance to bump a roll up one rarity (cap 0.25)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

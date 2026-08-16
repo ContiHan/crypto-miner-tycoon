@@ -117,6 +117,7 @@ const Map<BtcClass, ClassDef> kClasses = {
       Channel.income: 0.08,
       Channel.luck: 0.10,
       Channel.volatility: -0.25, // low variance: fewest events
+      Channel.fortune: 0.05, // co-op collective: better crate drop quality
     },
   ),
 };

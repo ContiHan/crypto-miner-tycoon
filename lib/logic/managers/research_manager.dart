@@ -375,6 +375,42 @@ class ResearchManager {
       effectChannel: Channel.special,
       effectValue: 0.50,
     ),
+
+    // --- CONSENSUS WEIGHT branch (prestige gain, Channel.prestige) ---
+    // Multiplies Consensus + GovToken GAIN (softcapped, feedback-safe).
+    ResearchNode(
+      id: ResearchIds.consensusProtocol,
+      name: 'Consensus Protocol',
+      description: '+25% Prestige Gain',
+      cost: 5000000,
+      icon: Icons.how_to_vote,
+      requirements: [ResearchIds.highFrequencyTrading],
+      effectChannel: Channel.prestige,
+      effectValue: 0.25,
+    ),
+    ResearchNode(
+      id: ResearchIds.governanceCartel,
+      name: 'Governance Cartel',
+      description: '+50% Prestige Gain',
+      cost: 200000000,
+      icon: Icons.gavel,
+      requirements: [ResearchIds.consensusProtocol],
+      effectChannel: Channel.prestige,
+      effectValue: 0.50,
+    ),
+
+    // --- PROSPECTOR'S EYE branch (crate drop-quality, Channel.fortune) ---
+    // Chance to bump each crate roll up one rarity (hard-capped combined at 25%).
+    ResearchNode(
+      id: ResearchIds.assayLab,
+      name: 'Assay Lab',
+      description: '+10% Drop Quality',
+      cost: 8000000,
+      icon: Icons.biotech,
+      requirements: [ResearchIds.chipFab],
+      effectChannel: Channel.fortune,
+      effectValue: 0.10,
+    ),
   ];
 
   void reset() {

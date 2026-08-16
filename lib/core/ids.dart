@@ -50,6 +50,9 @@ class ResearchIds {
   static const String autonomousDaemons = 'autonomous_daemons';
   static const String miningDaemonSwarm = 'mining_daemon_swarm';
   static const String precisionHashing = 'precision_hashing'; // crit payout (special)
+  static const String consensusProtocol = 'consensus_protocol'; // prestige gain
+  static const String governanceCartel = 'governance_cartel'; // prestige gain
+  static const String assayLab = 'assay_lab'; // fortune / drop quality
 }
 
 class PerkIds {

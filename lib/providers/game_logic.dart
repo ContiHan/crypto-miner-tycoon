@@ -452,6 +452,13 @@ class GameLogic with ChangeNotifier {
               softcap(buildChannels().sum(Channel.special), 1.0, 0.5))
       .clamp(0.0, GameConstants.critPayoutMax);
 
+  /// PROSPECTOR'S EYE: the per-crate-roll chance to bump the rolled rarity up one
+  /// step. Additive `fortune` sources, hard-capped at fortuneMaxTierShiftChance
+  /// (#22) so loot can never be dominated (and never a guaranteed top rarity).
+  double get fortuneBonus => buildChannels()
+      .sum(Channel.fortune)
+      .clamp(0.0, GameConstants.fortuneMaxTierShiftChance);
+
   // Fire-and-forget haptics that never throw (no platform channel in tests) and
   // honour the user's haptics toggle. Typed by intensity so call sites read
   // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
@@ -696,9 +703,18 @@ class GameLogic with ChangeNotifier {
   double get classPrestigeGainMultiplier =>
       _classManager.prestigeGainMultiplier;
 
-  /// Total multiplier applied to Consensus + GovToken gain (currently just the
-  /// class scalar — the NG+ trophy multiplier was retired with the endgame pivot).
-  double get prestigeGainMultiplier => classPrestigeGainMultiplier;
+  /// CONSENSUS WEIGHT: a buildable multiplier on prestige gain from the `prestige`
+  /// channel (softcapped, params pinned 1.0/0.5). 1.0 with no sources.
+  double get consensusWeightMultiplier =>
+      buildChannels().multiplier(Channel.prestige, softStart: 1.0, power: 0.5);
+
+  /// Total multiplier applied to Consensus + GovToken gain: the class scalar ×
+  /// CONSENSUS WEIGHT, clamped at prestigeGainMax so the prestige feedback loop
+  /// can never diverge (#17). (The NG+ trophy multiplier was retired with the
+  /// endgame pivot.)
+  double get prestigeGainMultiplier =>
+      (classPrestigeGainMultiplier * consensusWeightMultiplier)
+          .clamp(0.0, GameConstants.prestigeGainMax);
 
   // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
   final PrestigeSystem _prestige = PrestigeSystem();
@@ -1603,7 +1619,7 @@ class GameLogic with ChangeNotifier {
     final int cost = crateDef(tier).cost;
     if (chips < cost) return null;
     chips -= cost;
-    final won = _stash.openCrate(tier: tier);
+    final won = _stash.openCrate(tier: tier, fortune: fortuneBonus);
     cratesOpened++;
     _soundService.playCrate();
     _evaluateAchievements();

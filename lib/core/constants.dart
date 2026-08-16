@@ -106,6 +106,21 @@ class GameConstants {
   static const double clickCritPayoutSpecialScale = 5.0;
   static const double critPayoutMax = 55.0;
 
+  // CONSENSUS WEIGHT attribute — a buildable multiplier on Consensus + GovToken
+  // GAIN via the `prestige` channel: gainMult ×= multiplier(prestige, 1.0, 0.5)
+  // (softcap params pinned per BALANCE_AND_BOUNDS X7). The TOTAL prestige-gain
+  // multiplier (class scalar × Consensus Weight × future keystones/abilities) is
+  // clamped at [prestigeGainMax] (#17) so the Consensus↔GovToken feedback loop
+  // can never diverge; the concave CX/GT accrual + softcap keep it well under this
+  // in practice (the paper worst-case full stack is ~x58).
+  static const double prestigeGainMax = 60.0;
+
+  // PROSPECTOR'S EYE attribute (Fortune / drop quality). Each crate roll has a
+  // fortuneBonus chance to bump its rolled rarity UP one step (never the top by
+  // guarantee — only +1, and only on a successful roll). Hard-capped so it can
+  // never dominate loot (#22). Additive `fortune`-channel sources feed it.
+  static const double fortuneMaxTierShiftChance = 0.25;
+
   // Luck scales SWEEP winnings up, but the realized average return per stake is
   // clamped to this ceiling so even maxed Luck can't make it absurd. Set above
   // the base EVs (~1.36–1.65) so Luck still meaningfully boosts winnings. The

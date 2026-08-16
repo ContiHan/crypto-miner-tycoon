@@ -12,6 +12,7 @@ enum BonusType {
   luck, // Luck: crit chance + SWEEP winnings (capped) + crate/anomaly odds
   vcInterval, // legacy, unused
   critPayout, // BLOCK REWARD attribute: crit PAYOUT via Channel.special
+  fortune, // PROSPECTOR'S EYE attribute: crate drop-quality via Channel.fortune
 }
 
 class Artifact {
@@ -209,6 +210,10 @@ class StashService {
     Artifact(id: 'golden_hash', name: 'Golden Hash', description: '+20% Block Reward', rarity: ArtifactRarity.rare, bonusType: BonusType.critPayout, baseBonus: 0.20),
     Artifact(id: 'jackpot_seed', name: 'Jackpot Seed', description: '+50% Block Reward', rarity: ArtifactRarity.epic, bonusType: BonusType.critPayout, baseBonus: 0.50),
     Artifact(id: 'genesis_coinbase', name: 'Genesis Coinbase', description: '+120% Block Reward', rarity: ArtifactRarity.legendary, bonusType: BonusType.critPayout, baseBonus: 1.20),
+
+    // --- PROSPECTOR'S EYE (crate drop-quality, Channel.fortune) ---
+    Artifact(id: 'divining_rod', name: 'Divining Rod', description: '+5% Drop Quality', rarity: ArtifactRarity.uncommon, bonusType: BonusType.fortune, baseBonus: 0.05),
+    Artifact(id: 'prospectors_loupe', name: "Prospector's Loupe", description: '+10% Drop Quality', rarity: ArtifactRarity.rare, bonusType: BonusType.fortune, baseBonus: 0.10),
   ];
 
 
@@ -296,8 +301,21 @@ class StashService {
     return total;
   }
 
-  /// Adds owned-artifact hash, rig-cost, luck & click bonuses to the shared
-  /// channel model — everything routes through the softcapped channels (no raw
+  /// Raw additive Fortune bonus from owned artifacts (PROSPECTOR'S EYE), fed into
+  /// the `fortune` channel (crate drop-quality). 0.05 == +5% tier-shift chance.
+  double getTotalFortuneBonus() {
+    double total = 0.0;
+    _ownedArtifacts.forEach((id, count) {
+      final artifact = _getArtifact(id);
+      if (artifact != null && artifact.bonusType == BonusType.fortune) {
+        total += artifact.baseBonus * count;
+      }
+    });
+    return total;
+  }
+
+  /// Adds owned-artifact hash, rig-cost, luck, click, crit & fortune bonuses to
+  /// the shared channel model — everything routes through the channels (no raw
   /// out-of-band multipliers).
   void contributeChannels(Channels ch) {
     ch.add(Channel.hash, getTotalHashBonus() - 1.0); // getTotalHashBonus = 1+sum
@@ -305,6 +323,7 @@ class StashService {
     ch.add(Channel.luck, getTotalLuckBonus()); // raw sum
     ch.add(Channel.click, getClickPowerBonus()); // raw sum, now softcapped (#19)
     ch.add(Channel.special, getTotalCritPayoutBonus()); // crit payout (BLOCK REWARD)
+    ch.add(Channel.fortune, getTotalFortuneBonus()); // drop quality (PROSPECTOR'S EYE)
   }
   
   // === LOOT LOGIC ===
@@ -328,10 +347,21 @@ class StashService {
     return weights.keys.last;
   }
 
-  // Returns the allocated Artifact.
-  Artifact openCrate({required CrateTier tier}) {
-    final random = Random();
-    final electedRarity = _rollRarity(random, crateDef(tier).weights);
+  // Returns the allocated Artifact. [fortune] (PROSPECTOR'S EYE) is the chance to
+  // bump the rolled rarity up ONE step (never a guaranteed top rarity). [random]
+  // is injectable for deterministic tests.
+  Artifact openCrate({required CrateTier tier, double fortune = 0.0, Random? random}) {
+    final rng = random ?? Random();
+    ArtifactRarity electedRarity = _rollRarity(rng, crateDef(tier).weights);
+
+    // PROSPECTOR'S EYE: on a successful fortune roll, promote the rolled rarity by
+    // one step (capped at the top rarity, so it never *guarantees* mythic — #22).
+    const rarities = ArtifactRarity.values;
+    if (fortune > 0 &&
+        electedRarity != rarities.last &&
+        rng.nextDouble() < fortune) {
+      electedRarity = rarities[electedRarity.index + 1];
+    }
 
     // Draw from that rarity's pool only; fall back down the ladder if a rarity
     // has no items defined yet.
@@ -343,7 +373,7 @@ class StashService {
     }
     if (candidates.isEmpty) candidates = allArtifacts.toList();
 
-    final picked = candidates[random.nextInt(candidates.length)];
+    final picked = candidates[rng.nextInt(candidates.length)];
     addArtifact(picked.id);
     return picked;
   }

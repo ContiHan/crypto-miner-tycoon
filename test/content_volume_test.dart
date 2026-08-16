@@ -13,10 +13,10 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 35,
-          reason: 'lab nodes (+2 OFFLINE YIELD, +1 BLOCK REWARD)');
-      expect(StashService.allArtifacts.length, 82,
-          reason: 'stash artifacts (+4 BLOCK REWARD crit-payout)');
+      expect(ResearchManager().researchNodes.length, 38,
+          reason: 'lab nodes (+2 OFFLINE, +1 BLOCK REWARD, +2 CONSENSUS, +1 FORTUNE)');
+      expect(StashService.allArtifacts.length, 84,
+          reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
 
     test('every stash artifact id is unique', () {
@@ -228,6 +228,7 @@ void main() {
         BonusType.clickPower,
         BonusType.luck, // consumed via Channel.luck (crit + casino RTP)
         BonusType.critPayout, // consumed via Channel.special (BLOCK REWARD)
+        BonusType.fortune, // consumed via Channel.fortune (crate drop quality)
       };
       for (final a in StashService.allArtifacts) {
         expect(consumed.contains(a.bonusType), true,
@@ -236,11 +237,12 @@ void main() {
     });
 
     test('perk & lab channel effects only use consumed channels', () {
-      // hash/rigCost/income/click/luck/offline/special are consumed by the
-      // economy (luck via luckMultiplier → crit + SWEEP + anomaly/crate odds;
-      // offline via offlineFraction; special via critPayoutMultiplier). volatility
-      // is scaled by class sources not nodes; prestige is wired next slice. A null
-      // channel is an explicitly-handled special (flat click perk, Chip Fab, AI).
+      // hash/rigCost/income/click/luck/offline/special/prestige are consumed by
+      // the economy (luck via luckMultiplier → crit + SWEEP + anomaly/crate odds;
+      // offline via offlineFraction; special via critPayoutMultiplier; prestige
+      // via consensusWeightMultiplier → CX/GT gain). volatility is scaled by class
+      // sources not nodes. A null channel is an explicitly-handled special (flat
+      // click perk, Chip Fab, AI).
       const consumed = {
         Channel.hash,
         Channel.rigCost,
@@ -249,6 +251,8 @@ void main() {
         Channel.luck,
         Channel.offline,
         Channel.special,
+        Channel.prestige,
+        Channel.fortune,
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {
