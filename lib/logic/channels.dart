@@ -32,6 +32,7 @@ enum Channel {
   halvingResist, // STOCK-TO-FLOW — halving income cut (cap 0.60, never cancels)
   durationResist, // STEEL NERVES — crash/cost-spike DURATION only (cap 0.60)
   theftResist, // COLD STORAGE — breach loss (cap 0.70; theft lands in Phase 5)
+  haste, // RIG COOLING — ability cooldown reduction (cap 0.40)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

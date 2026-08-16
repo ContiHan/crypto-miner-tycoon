@@ -614,6 +614,7 @@ class ResearchManager {
         return 'Fortress';
       case Channel.luck:
       case Channel.volatility:
+      case Channel.haste:
         return 'Wildcard';
     }
   }

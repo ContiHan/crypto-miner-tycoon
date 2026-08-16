@@ -213,6 +213,7 @@ class FakeGameRepository implements GameRepository {
     List<Map<String, dynamic>> techPresets = const [],
     int activeTechPreset = -1,
     bool autoApplyPresets = true,
+    Map<String, int> abilityCooldowns = const {},
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -254,6 +255,7 @@ class FakeGameRepository implements GameRepository {
     data['techPresets'] = techPresets;
     data['activeTechPreset'] = activeTechPreset;
     data['autoApplyPresets'] = autoApplyPresets;
+    data['abilityCooldowns'] = abilityCooldowns;
     data['unlockedTech'] = unlockedTech;
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;

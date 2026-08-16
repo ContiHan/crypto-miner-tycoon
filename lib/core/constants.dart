@@ -41,6 +41,28 @@ class GameConstants {
   // ~2-3% early, ~24% by n=12, → 40% cap. A specialisation dividend, not power.
   static const double blueprintMaxDiscount = 0.40;
   static const double blueprintDivisor = 6.0;
+
+  // ABILITIES (Phase 4). Wall-clock cooldowns; buffs are foreground-only (never
+  // re-applied in the offline sim). Base cooldowns: basics 30min / 2h, ults ~22h
+  // (owner: deliberately UNDER 24h so a daily player always finds the ult ready).
+  static const int abilityCdBasic1Ms = 30 * 60 * 1000; // 30 min
+  static const int abilityCdBasic2Ms = 2 * 60 * 60 * 1000; // 2 h
+  static const int abilityCdUltimateMs = 22 * 60 * 60 * 1000; // ~22 h
+  // RIG COOLING (Haste/CDR): shortens cooldowns, hard-capped, with absolute floors.
+  static const double hasteCap = 0.40; // max 40% CDR (aggregate)
+  static const int abilityCdFloorBasicMs = 18 * 60 * 1000; // basics never < ~18 min
+  static const int abilityCdFloorUltMs = 13 * 60 * 60 * 1000; // ult never < ~13 h
+  // OVERCHARGE: ability buff MAGNITUDE + grant-seconds scaling (NOT durations).
+  static const double overchargeCap = 0.50; // +50% max
+  // AGGREGATE temp-multiplier ceiling per channel (#10) — the PRODUCT of the
+  // outside-softcap temp lane (ability buffs × chaos market lane) is clamped so a
+  // stacked buff window stays auditable. [TUNE].
+  static const double incomeTempMax = 6.0;
+  static const double hashTempMax = 5.0;
+  static const double clickTempMax = 4.0;
+  // Progressive unlock: basic-1 on class pick, basic-2 at Mastery 1, ult at Mastery 2.
+  static const int abilityMasteryForBasic2 = 1;
+  static const int abilityMasteryForUltimate = 2;
   // Combined TECH-cost FLOOR (#3): a node's cost never drops below this fraction
   // of base no matter how discounts stack (blueprint + a future R&D −80% doctrine
   // would otherwise reach a negative price).

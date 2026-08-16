@@ -51,6 +51,7 @@ class GameRepository {
     List<Map<String, dynamic>> techPresets = const [], // PRESETS (permanent)
     int activeTechPreset = -1,
     bool autoApplyPresets = true,
+    Map<String, int> abilityCooldowns = const {}, // ability last-used (wall-clock)
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -114,6 +115,7 @@ class GameRepository {
       'techPresets': techPresets,
       'activeTechPreset': activeTechPreset,
       'autoApplyPresets': autoApplyPresets,
+      'abilityCooldowns': abilityCooldowns,
       'stash': stash,
       'networkDifficulty': fin(networkDifficulty),
       'blockReward': fin(blockReward),
@@ -309,6 +311,9 @@ class GameRepository {
     }
     if (m['autoApplyPresets'] != null) {
       normalized['autoApplyPresets'] = m['autoApplyPresets'];
+    }
+    if (m['abilityCooldowns'] != null) {
+      normalized['abilityCooldowns'] = m['abilityCooldowns'];
     }
 
     return normalized;

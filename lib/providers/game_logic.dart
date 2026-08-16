@@ -28,6 +28,7 @@ import '../logic/managers/research_manager.dart';
 import '../logic/managers/perk_manager.dart';
 import '../logic/managers/achievement_manager.dart';
 import '../logic/managers/class_manager.dart';
+import '../logic/systems/ability_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -669,6 +670,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
     _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
+    _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -835,6 +837,88 @@ class GameLogic with ChangeNotifier {
   int get currentClassMasteryLevel =>
       _classManager.masteryLevel(_classManager.current);
 
+  // --- Abilities (Phase 4) -------------------------------------------------
+  final AbilitySystem _abilities = AbilitySystem();
+  int _nowMs() => DateTime.now().millisecondsSinceEpoch;
+
+  /// RIG COOLING (Haste/CDR): fraction shaved off ability cooldowns, capped.
+  double get abilityHaste =>
+      buildChannels().sum(Channel.haste).clamp(0.0, GameConstants.hasteCap);
+
+  List<AbilityDef> get currentClassAbilities =>
+      _abilities.abilitiesFor(_classManager.current);
+  bool isAbilityUnlocked(AbilityDef def) =>
+      _abilities.isUnlocked(def, _classManager.current, currentClassMasteryLevel);
+  bool isAbilityReady(AbilityDef def) =>
+      _abilities.isReady(def, _nowMs(), abilityHaste);
+  int abilityCooldownRemainingMs(AbilityDef def) =>
+      _abilities.cooldownRemainingMs(def, _nowMs(), abilityHaste);
+
+  /// Fires an ability by id. No-op (returns false) if not the owning class, not
+  /// unlocked, or still on cooldown. Buffs are foreground-only.
+  bool castAbility(String id) {
+    final def = _abilities.byId(id);
+    if (def == null) return false;
+    if (!isAbilityUnlocked(def)) return false;
+    if (!isAbilityReady(def)) return false;
+    final now = _nowMs();
+    _abilities.activate(def, now);
+
+    // Instant income lump (Corp): snapshot the live per-second rate and bank it,
+    // supply-clamped. Credits wallet + lifetime only (never speedRunMinedSats).
+    if (def.instantIncomeSeconds > 0) {
+      final perSec = _baseIncomePerSecond();
+      double lump = perSec * def.instantIncomeSeconds;
+      final room = GameConstants.maxSupplySats - lifetimeEarnings;
+      if (room > 0) {
+        if (lump > room) lump = room;
+        wallet += lump;
+        lifetimeEarnings += lump;
+        _creditLifetimeEver(lump);
+      }
+    }
+    _soundService.playUnlock();
+    _hapticHeavy();
+    notifyListeners();
+    _saveGame();
+    return true;
+  }
+
+  /// The current per-second passive income at the BASE rate (no ability temp
+  /// buffs) — used to size instant lumps so a lump can't compound a buff.
+  double _baseIncomePerSecond() {
+    final hashRate = _baseGlobalHashRate();
+    if (hashRate <= 0) return 0;
+    return _miningManager.calculateMiningIncome(
+      hashRate: hashRate,
+      difficulty: networkDifficulty,
+      prestigeMultiplier: prestigeMultiplier,
+      chaosMultiplier: 1.0,
+      lifetimeEarnings: lifetimeEarnings,
+      incomeMultiplier: buildChannels().multiplier(Channel.income,
+              softStart: GameConstants.incomeSoftStart,
+              power: GameConstants.channelSoftPower) *
+          notorietyMultiplier,
+      halvingResist: halvingResistance,
+    );
+  }
+
+  /// Outside-softcap temp income multiplier from active ability buffs, foreground
+  /// only (offline sim excludes it). Capped as part of the aggregate ceiling.
+  double get abilityIncomeMult =>
+      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.income, _nowMs());
+  double get abilityHashMult =>
+      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.hash, _nowMs());
+  double get abilityClickMult =>
+      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.click, _nowMs());
+
+  /// Combined live income temp lane (chaos market × ability buffs) clamped to the
+  /// aggregate income ceiling (#10). Debuffs below 1 (a crash) pass through.
+  double _liveIncomeTempMult() {
+    final p = chaosIncomeMultiplier * abilityIncomeMult;
+    return p > GameConstants.incomeTempMax ? GameConstants.incomeTempMax : p;
+  }
+
   /// Pick the active class from the SKILL tab. Available as the FIRST choice as
   /// soon as SKILL unlocks (the first Hard Fork), so the player doesn't wait for
   /// a far-off New Blockchain. But the choice is a COMMITMENT: once a real class
@@ -873,11 +957,13 @@ class GameLogic with ChangeNotifier {
       buildChannels().multiplier(Channel.prestige, softStart: 1.0, power: 0.5);
 
   /// Total multiplier applied to Consensus + GovToken gain: the class scalar ×
-  /// CONSENSUS WEIGHT, clamped at prestigeGainMax so the prestige feedback loop
-  /// can never diverge (#17). (The NG+ trophy multiplier was retired with the
-  /// endgame pivot.)
+  /// CONSENSUS WEIGHT × any active DEEP FREEZE buff, clamped at prestigeGainMax so
+  /// the prestige feedback loop can never diverge (#17). (The NG+ trophy
+  /// multiplier was retired with the endgame pivot.)
   double get prestigeGainMultiplier =>
-      (classPrestigeGainMultiplier * consensusWeightMultiplier)
+      (classPrestigeGainMultiplier *
+              consensusWeightMultiplier *
+              (_inOfflineSim ? 1.0 : _abilities.activePrestigeGainMult(_nowMs())))
           .clamp(0.0, GameConstants.prestigeGainMax);
 
   // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
@@ -1142,7 +1228,9 @@ class GameLogic with ChangeNotifier {
     return ch;
   }
 
-  double get globalHashRate {
+  /// Hash rate from rigs × the softcapped HASH channel — WITHOUT ability temp
+  /// buffs (used to size instant lumps and as the base for [globalHashRate]).
+  double _baseGlobalHashRate() {
     return _economy.calculateGlobalHashRate(
       rigs,
       _researchManager.isResearched(ResearchIds.chipFab),
@@ -1152,6 +1240,16 @@ class GameLogic with ChangeNotifier {
         power: GameConstants.channelSoftPower,
       ),
     );
+  }
+
+  double get globalHashRate {
+    // Ability hash buffs (SPIN UP / SATOSHI MODE / CONSENSUS RALLY) apply on the
+    // outside-softcap temp lane, clamped to the aggregate hash ceiling (#10).
+    final temp = abilityHashMult;
+    final capped = temp > GameConstants.hashTempMax
+        ? GameConstants.hashTempMax
+        : temp;
+    return _baseGlobalHashRate() * capped;
   }
 
   // Fractional block accumulator, shared by the live tick and offline catch-up.
@@ -1230,7 +1328,7 @@ class GameLogic with ChangeNotifier {
     }
 
     if (globalHashRate <= 0) return;
-    _accrueMining(1, chaosMultiplier: chaosIncomeMultiplier);
+    _accrueMining(1, chaosMultiplier: _liveIncomeTempMult());
     if (_advanceBlocks(1)) {
       _triggerHalving();
       _soundService.playHalving();
@@ -1534,6 +1632,12 @@ class GameLogic with ChangeNotifier {
       softStart: GameConstants.clickSoftStart,
       power: GameConstants.channelSoftPower,
     );
+    // Ability click buffs (OVERCLOCK / BLOCK RACE) on the outside-softcap temp
+    // lane, clamped to the aggregate click ceiling (#10).
+    final double clickTemp = abilityClickMult;
+    clickPower *= clickTemp > GameConstants.clickTempMax
+        ? GameConstants.clickTempMax
+        : clickTemp;
 
     double diff = networkDifficulty;
 
@@ -1557,8 +1661,16 @@ class GameLogic with ChangeNotifier {
     // Luck scales the crit chance up to a hard cap.
     final double critChance = (GameConstants.clickCritChance * critLuckMultiplier)
         .clamp(0.0, GameConstants.clickCritChanceCap);
-    final bool isCrit = playSound && _clickRng.nextDouble() < critChance;
-    if (isCrit) clickSats *= critPayoutMultiplier;
+    // OVERCLOCK / BLOCK RACE: every REAL tap is a guaranteed crit at the ability's
+    // payout (auto-taps never crit — loop safety). Otherwise roll the chance and
+    // pay the BLOCK REWARD crit multiplier.
+    final double gCrit =
+        _inOfflineSim ? 0 : _abilities.activeGuaranteedCritMult(_nowMs());
+    final bool isCrit =
+        playSound && (gCrit > 0 || _clickRng.nextDouble() < critChance);
+    if (isCrit) {
+      clickSats *= (gCrit > 0 ? gCrit : critPayoutMultiplier);
+    }
 
     // Re-clamp to the inviolable per-era supply cap AFTER the crit multiply
     // (mirrors _accrueMining) so a crit near the cap can't push lifetimeEarnings
@@ -1755,11 +1867,17 @@ class GameLogic with ChangeNotifier {
 
   double getRigCostInCredits(Rig rig) {
     // Total rig-cost discount (perks + cooling/solar research + stash) comes
-    // from the RIG_COST channel; calculateRigCost applies the 95% hard cap.
+    // from the RIG_COST channel; calculateRigCost applies the 95% channel cap and
+    // the 5% final-product floor. Ability cost buffs (HOSTILE TAKEOVER ×0.5) feed
+    // abilityCostMultiplier; a COST FREEZE (Pool) pins to the sticker price.
+    final bool frozen =
+        !_inOfflineSim && _abilities.anyActive(_nowMs(), (d) => d.costFreeze);
+    if (frozen) return rig.currentCost;
     return _economy.calculateRigCost(
       rig,
       buildChannels().sum(Channel.rigCost),
       chaosCostMultiplier,
+      abilityCostMultiplier: _inOfflineSim ? 1.0 : _abilities.rigCostMult(_nowMs()),
     );
   }
 
@@ -1815,6 +1933,7 @@ class GameLogic with ChangeNotifier {
       techPresets: _researchManager.presetsJson(), // PRESETS
       activeTechPreset: _researchManager.activePreset,
       autoApplyPresets: _researchManager.autoApplyPresets,
+      abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -2062,6 +2181,8 @@ class GameLogic with ChangeNotifier {
       // PRESETS: saved TECH builds + active index + auto-apply flag.
       _researchManager.loadPresets(data['techPresets'],
           data['activeTechPreset'], data['autoApplyPresets']);
+      // Ability cooldowns (wall-clock; persist across resets, wiped on full wipe).
+      _abilities.loadLastUsed(data['abilityCooldowns']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).
