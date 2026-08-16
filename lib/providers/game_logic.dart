@@ -30,6 +30,7 @@ import '../logic/managers/achievement_manager.dart';
 import '../logic/managers/class_manager.dart';
 import '../logic/systems/ability_system.dart';
 import '../logic/systems/proc_system.dart';
+import '../logic/systems/aura_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -758,6 +759,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
     _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
     _procs.clear(); // clears proc ICDs + active buffs
+    _auras.reset(); // full wipe: unequip stance + auras
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -1368,7 +1370,42 @@ class GameLogic with ChangeNotifier {
     _perkManager.contributeChannels(ch, _classManager.current);
     _stash.contributeChannels(ch);
     _classManager.contributeChannels(ch); // class weightings + permanent Mastery
+    // Auras/stances are ON-CHANNEL: active (condition-true) equipped ones add here
+    // and get softcapped with everything else (no outside lane).
+    _auras.contributeChannels(
+        ch, _auraContext(), _classManager.current, currentClassMasteryLevel);
     return ch;
+  }
+
+  // --- Auras / stances (Phase 7) -----------------------------------------
+  final AuraSystem _auras = AuraSystem();
+
+  /// Live snapshot for aura conditions (cheap; reads flags, not buildChannels).
+  AuraContext _auraContext() => AuraContext(
+        goodEvent: chaosIncomeMultiplier > 1.001 || chaosCostMultiplier < 0.999,
+        badEvent: chaosIncomeMultiplier < 0.999 || chaosCostMultiplier > 1.001,
+        breachPending: _breachPending,
+        supplyProgress: supplyProgress,
+      );
+
+  List<AuraDef> availableAuras() =>
+      _auras.availableFor(_classManager.current, currentClassMasteryLevel);
+  String? get equippedStance => _auras.equippedStance;
+  List<String> get equippedAuras => List.unmodifiable(_auras.equippedAuras);
+  int auraSwitchCooldownMs() => _auras.switchCooldownRemainingMs(_nowMs());
+
+  void equipStance(String? id) {
+    if (_auras.setStance(id, _nowMs())) {
+      notifyListeners();
+      _saveGame();
+    }
+  }
+
+  void toggleAura(String id) {
+    if (_auras.toggleAura(id, _nowMs())) {
+      notifyListeners();
+      _saveGame();
+    }
   }
 
   /// Hash rate from rigs × the softcapped HASH channel — WITHOUT ability temp
@@ -2093,6 +2130,7 @@ class GameLogic with ChangeNotifier {
       autoApplyPresets: _researchManager.autoApplyPresets,
       abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
       firstBreachDone: _firstBreachDone, // THE BREACH drill spent
+      auras: _auras.toJson(), // equipped stance + auras
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -2344,6 +2382,8 @@ class GameLogic with ChangeNotifier {
       _abilities.loadLastUsed(data['abilityCooldowns']);
       // THE BREACH: whether the one-time 0-loss drill has been spent.
       _firstBreachDone = data['firstBreachDone'] == true;
+      // Auras/stances loadout (persists across resets; full wipe clears).
+      _auras.loadFrom(data['auras']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).

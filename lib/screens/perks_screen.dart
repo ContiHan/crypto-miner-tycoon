@@ -10,6 +10,7 @@ import '../utils/formatter.dart';
 import '../widgets/tech_graph.dart';
 import '../widgets/graph_node_sheet.dart';
 import '../widgets/class_picker.dart';
+import '../logic/systems/aura_system.dart';
 
 /// SKILL — the active class's BESPOKE skill tree, rendered as a left→right depth
 /// tree (elbow edges, same clean look as TECH). Each class has its own tailored
@@ -110,6 +111,7 @@ class PerksScreen extends StatelessWidget {
                 // Live overview: passive racials + bonuses from SKILL nodes
                 // bought this run + Mastery (so you can always see the class state).
                 if (game.hasChosenClass) _classOverview(context, game),
+                if (game.hasChosenClass) _AurasPanel(game: game),
               ],
             ),
           ),
@@ -508,6 +510,102 @@ class PerksScreen extends StatelessWidget {
       canAfford: canAfford,
       buyLabel: 'UPGRADE',
       onBuy: () => game.buyPerk(id),
+    );
+  }
+}
+
+/// Minimal AURAS/STANCE loadout panel (functional; polish later). One exclusive
+/// stance + up to 3 auras; a 60s switch lockout blocks flicker. Auras are live
+/// conditional passives (e.g. "while a bad event hits: +income").
+class _AurasPanel extends StatelessWidget {
+  final GameLogic game;
+  const _AurasPanel({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final available = game.availableAuras();
+    if (available.isEmpty) return const SizedBox.shrink();
+    final stances = available.where((a) => a.kind == AuraKind.stance).toList();
+    final auras = available.where((a) => a.kind == AuraKind.aura).toList();
+    final locked = game.auraSwitchCooldownMs() > 0;
+
+    Widget chip(AuraDef d, bool on) => Padding(
+          padding: const EdgeInsets.only(right: 6, bottom: 6),
+          child: Tooltip(
+            message: d.description,
+            child: GestureDetector(
+              onTap: () => d.kind == AuraKind.stance
+                  ? game.equipStance(d.id)
+                  : game.toggleAura(d.id),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+                decoration: BoxDecoration(
+                  color: on
+                      ? AppTheme.accent.withValues(alpha: 0.18)
+                      : AppTheme.background,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: on ? AppTheme.accent : Colors.white24),
+                ),
+                child: Text(d.name,
+                    style: TextStyle(
+                        fontSize: 11,
+                        color: on ? AppTheme.accent : Colors.white70)),
+              ),
+            ),
+          ),
+        );
+
+    return Container(
+      margin: const EdgeInsets.only(top: 10),
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white12),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Text('AURAS & STANCE',
+                  style: TextStyle(
+                      color: AppTheme.accent,
+                      fontWeight: FontWeight.bold,
+                      fontSize: 12,
+                      letterSpacing: 1)),
+              const Spacer(),
+              if (locked)
+                Text('switch in ${(game.auraSwitchCooldownMs() / 1000).ceil()}s',
+                    style:
+                        const TextStyle(color: Colors.white38, fontSize: 10)),
+            ],
+          ),
+          const SizedBox(height: 6),
+          const Text('STANCE (pick one)',
+              style: TextStyle(color: Colors.white54, fontSize: 10)),
+          const SizedBox(height: 4),
+          Wrap(
+              children: [
+            for (final s in stances) chip(s, game.equippedStance == s.id)
+          ]),
+          const SizedBox(height: 4),
+          Text('AURAS (${game.equippedAuras.length}/3)',
+              style: const TextStyle(color: Colors.white54, fontSize: 10)),
+          const SizedBox(height: 4),
+          Wrap(
+              children: [
+            for (final a in auras) chip(a, game.equippedAuras.contains(a.id))
+          ]),
+          const SizedBox(height: 2),
+          const Text(
+            'Conditional passives — active only while their condition holds.',
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+        ],
+      ),
     );
   }
 }

@@ -53,6 +53,7 @@ class GameRepository {
     bool autoApplyPresets = true,
     Map<String, int> abilityCooldowns = const {}, // ability last-used (wall-clock)
     bool firstBreachDone = false, // THE BREACH: the one-time 0-loss drill is spent
+    Map<String, dynamic> auras = const {}, // equipped stance + auras (loadout)
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -118,6 +119,7 @@ class GameRepository {
       'autoApplyPresets': autoApplyPresets,
       'abilityCooldowns': abilityCooldowns,
       'firstBreachDone': firstBreachDone,
+      'auras': auras,
       'stash': stash,
       'networkDifficulty': fin(networkDifficulty),
       'blockReward': fin(blockReward),
@@ -318,6 +320,7 @@ class GameRepository {
       normalized['abilityCooldowns'] = m['abilityCooldowns'];
     }
     normalized['firstBreachDone'] = m['firstBreachDone'] == true;
+    if (m['auras'] != null) normalized['auras'] = m['auras'];
 
     return normalized;
   }
