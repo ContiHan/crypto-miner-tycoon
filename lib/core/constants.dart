@@ -16,6 +16,13 @@ class GameConstants {
   // clamp(offlineBaseFraction + Σ(offline), 0, offlineFractionCap).
   static const double offlineBaseFraction = 0.70;
   static const double offlineFractionCap = 1.0;
+
+  // IDLE CAPACITY attribute — how long an absence keeps accruing offline income.
+  // Base 8h, extended by the `idle` channel (sources add HOURS) up to a hard 24h
+  // FINAL cap (#16). A returning player banks at most this many hours of offline
+  // mining regardless of how long they were away.
+  static const double offlineWindowBaseHours = 8.0;
+  static const double offlineWindowMaxHours = 24.0;
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 
   // Income model (Phase 1 redesign): income/sec =

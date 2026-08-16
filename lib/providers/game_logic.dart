@@ -345,7 +345,7 @@ class GameLogic with ChangeNotifier {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    return _casino.spinSlots(bet, _casinoRng, luck: luckMultiplier);
+    return _casino.spinSlots(bet, _casinoRng, luck: sweepLuckMultiplier);
   }
 
   /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30×
@@ -362,7 +362,7 @@ class GameLogic with ChangeNotifier {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    return _casino.flip(bet, _casinoRng, luck: luckMultiplier);
+    return _casino.flip(bet, _casinoRng, luck: sweepLuckMultiplier);
   }
 
   /// Relay a packet for [bet] UTXO (one-shot). Null if unaffordable or capped.
@@ -378,7 +378,7 @@ class GameLogic with ChangeNotifier {
     if (bet <= 0 || chips < bet) return null;
     if (!_beginSweep()) return null;
     chips -= bet;
-    return _casino.dropPlinko(bet, _casinoRng, luck: luckMultiplier);
+    return _casino.dropPlinko(bet, _casinoRng, luck: sweepLuckMultiplier);
   }
 
   /// Commit a RESOLVED sweep outcome (the stake was already deducted by the
@@ -426,10 +426,39 @@ class GameLogic with ChangeNotifier {
   double get notorietyBonus => _achievements.notorietyBonus;
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
 
-  /// Aggregate Luck factor (>=1, softcapped) from all channel sources. Scales
-  /// crit chance and SWEEP winnings (the latter clamped to the EV ceiling).
+  /// Aggregate (shared) Luck factor (>=1, softcapped). Kept for the STASH readout;
+  /// the three effect sites use the decoupled facet getters below.
   double get luckMultiplier =>
       buildChannels().multiplier(Channel.luck, softStart: 1.5, power: 0.5);
+
+  /// Combined luck for one facet: shared `luck` + the facet's own sources, run
+  /// through the luck softcap. Shared luck (classes/perks) lifts all three facets;
+  /// facet sources (TECH/TALENT/STASH) let a build specialise crit / SWEEP /
+  /// anomaly luck independently (the "luck decouple").
+  double _combinedLuck(Channel facet) {
+    final ch = buildChannels();
+    final raw = 1 + ch.sum(Channel.luck) + ch.sum(facet);
+    return softcap(raw < 0.01 ? 0.01 : raw, 1.5, 0.5);
+  }
+
+  /// NONCE PRECISION — luck applied to crit CHANCE (clamped to the 25% cap).
+  double get critLuckMultiplier => _combinedLuck(Channel.nonce);
+
+  /// WHALE'S FAVOR — luck applied to SWEEP payouts (bounded by the EV ceiling;
+  /// the 400/24h net cap is immutable and never touched here).
+  double get sweepLuckMultiplier => _combinedLuck(Channel.sweepLuck);
+
+  /// UTXO MAGNETISM — luck applied to anomaly spawn chance (clamped to 30%/tick).
+  double get anomalyLuckMultiplier => _combinedLuck(Channel.magnetism);
+
+  /// IDLE CAPACITY — the offline-accrual WINDOW in seconds. Base 8h + `idle`
+  /// sources (in hours), hard-capped at 24h (#16). A longer absence still only
+  /// banks this many hours of offline mining.
+  double get idleCapacitySeconds =>
+      (GameConstants.offlineWindowBaseHours + buildChannels().sum(Channel.idle))
+          .clamp(GameConstants.offlineWindowBaseHours,
+              GameConstants.offlineWindowMaxHours) *
+      3600.0;
 
   /// Aggregate Volatility factor (1.0 with no sources) — scales chaos-event
   /// frequency. Sources arrive with classes (Pool lowers it, others raise it).
@@ -862,7 +891,7 @@ class GameLogic with ChangeNotifier {
         _evaluateAchievements();
         _saveGame();
       },
-      luckFactor: () => luckMultiplier,
+      luckFactor: () => anomalyLuckMultiplier,
     );
 
     _events = ChaosEventSystem(
@@ -1385,8 +1414,7 @@ class GameLogic with ChangeNotifier {
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
     // crit — the silent auto-clicker never rolls, so it can't secretly pump.
     // Luck scales the crit chance up to a hard cap.
-    final double critChance = (GameConstants.clickCritChance *
-            ch.multiplier(Channel.luck, softStart: 1.5, power: 0.5))
+    final double critChance = (GameConstants.clickCritChance * critLuckMultiplier)
         .clamp(0.0, GameConstants.clickCritChanceCap);
     final bool isCrit = playSound && _clickRng.nextDouble() < critChance;
     if (isCrit) clickSats *= critPayoutMultiplier;
@@ -1950,7 +1978,10 @@ class GameLogic with ChangeNotifier {
 
   void _simulateOfflineMining(int totalSeconds, {bool announce = true}) {
     if (totalSeconds <= 0) return;
-    if (totalSeconds > 31536000) totalSeconds = 31536000; // 1-year cap
+    // IDLE CAPACITY: an absence banks at most the offline WINDOW (base 8h, up to
+    // 24h with `idle` sources), not the full time away.
+    final int windowCap = idleCapacitySeconds.floor();
+    if (totalSeconds > windowCap) totalSeconds = windowCap;
     if (globalHashRate <= 0) return;
 
     // Chunk long absences to bound the loop; income AND blocks both scale by

@@ -19,6 +19,12 @@ enum Channel {
   offline, // offline-earning fraction (base 0.70, hard cap 1.0 = live parity)
   special, // crit PAYOUT only (BLOCK REWARD attribute): critMult = 5 + 5·softcap(Σspecial)
   fortune, // crate drop-quality: chance to bump a roll up one rarity (cap 0.25)
+  // Luck facets (decoupled from `luck`): each combines with shared `luck` at its
+  // own consumption site, so a build can specialise one facet.
+  nonce, // NONCE PRECISION — crit CHANCE luck (cap 25%)
+  sweepLuck, // WHALE'S FAVOR — SWEEP payout luck (EV cap 2.5, net cap immutable)
+  magnetism, // UTXO MAGNETISM — anomaly spawn luck (cap 30%/tick)
+  idle, // IDLE CAPACITY — offline duration window (base 8h, cap 24h)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

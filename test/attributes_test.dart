@@ -4,6 +4,8 @@ import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
+import 'package:crypto_miner_tycoon/providers/game_logic.dart';
+import 'package:crypto_miner_tycoon/services/economy_service.dart';
 import 'package:crypto_miner_tycoon/services/stash_service.dart';
 import 'test_helper.dart';
 import 'fakes.dart';
@@ -196,6 +198,82 @@ void main() {
       // Even at max fortune it is a per-roll +1 chance, never a mythic guarantee:
       // the mean stays far below the top rarity index.
       expect(with25, lessThan(ArtifactRarity.values.last.index.toDouble()));
+    });
+  });
+
+  group('Luck decouple (NONCE PRECISION / WHALE\'S FAVOR / UTXO MAGNETISM)', () {
+    test('facets are independent; shared luck lifts all three', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      final baseCrit = game.critLuckMultiplier;
+      final baseSweep = game.sweepLuckMultiplier;
+      final baseAnom = game.anomalyLuckMultiplier;
+      expect(baseCrit, closeTo(baseSweep, 1e-9));
+      expect(baseCrit, closeTo(baseAnom, 1e-9)); // all equal with no sources
+
+      // A crit-luck (nonce) source lifts ONLY crit luck.
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.noncePrediction)
+          .isCompleted = true;
+      expect(game.critLuckMultiplier, greaterThan(baseCrit));
+      expect(game.sweepLuckMultiplier, closeTo(baseSweep, 1e-9));
+      expect(game.anomalyLuckMultiplier, closeTo(baseAnom, 1e-9));
+
+      // Pool's shared luck + SWEEP lean lifts SWEEP most, but shared luck also
+      // lifts the others above their bare base.
+      game.debugSelectClass(BtcClass.poolMember); // luck +0.10 shared, sweep +0.10
+      expect(game.sweepLuckMultiplier, greaterThan(game.anomalyLuckMultiplier));
+      expect(game.anomalyLuckMultiplier, greaterThan(baseAnom)); // shared luck
+    });
+  });
+
+  group('IDLE CAPACITY attribute (offline window)', () {
+    test('base 8h, extends with idle sources, hard-caps at 24h', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      expect(game.idleCapacitySeconds, closeTo(8 * 3600, 1e-6));
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.batteryBank)
+          .isCompleted = true; // +8h -> 16h
+      expect(game.idleCapacitySeconds, closeTo(16 * 3600, 1e-6));
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.gridStorage)
+          .isCompleted = true; // +8h -> 24h cap
+      expect(game.idleCapacitySeconds, closeTo(24 * 3600, 1e-6));
+    });
+
+    test('an absence longer than the window banks only the window', () async {
+      Future<double> offlineForGap(Duration gap) async {
+        final repo = FakeGameRepository();
+        repo.data.addAll({
+          'rigs': [
+            {'id': 'cpu_rig', 'amount': 10},
+          ],
+          'last_save_time':
+              DateTime.now().subtract(gap).millisecondsSinceEpoch,
+        });
+        final game = GameLogic(
+          gameRepository: repo,
+          settingsRepository: FakeSettingsRepository(),
+          economyService: EconomyService(),
+          stashService: StashService(),
+          soundService: FakeSoundService(),
+          startTimers: false,
+          loadOnStart: false,
+        )..clickRng = NoCritRandom();
+        await game.loadGame();
+        return game.offlineEarningsAmount ?? 0;
+      }
+
+      final off4h = await offlineForGap(const Duration(hours: 4));
+      final off8h = await offlineForGap(const Duration(hours: 8));
+      final off48h = await offlineForGap(const Duration(hours: 48));
+
+      expect(off4h, greaterThan(0));
+      // 4h is under the 8h base window → not capped, so it earns less than 8h.
+      expect(off4h, lessThan(off8h));
+      // 48h is clamped to the same 8h window → identical to the 8h absence.
+      expect(off48h, closeTo(off8h, off8h * 1e-6));
     });
   });
 }

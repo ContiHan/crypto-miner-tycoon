@@ -53,6 +53,12 @@ class ResearchIds {
   static const String consensusProtocol = 'consensus_protocol'; // prestige gain
   static const String governanceCartel = 'governance_cartel'; // prestige gain
   static const String assayLab = 'assay_lab'; // fortune / drop quality
+  // Luck-decouple facets (Phase 1)
+  static const String noncePrediction = 'nonce_prediction'; // crit chance (nonce)
+  static const String mempoolSniffer = 'mempool_sniffer'; // SWEEP luck
+  static const String utxoMagnet = 'utxo_magnet'; // anomaly luck (magnetism)
+  static const String batteryBank = 'battery_bank'; // idle capacity +8h
+  static const String gridStorage = 'grid_storage'; // idle capacity +8h
 }
 
 class PerkIds {

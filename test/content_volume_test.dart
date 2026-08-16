@@ -13,8 +13,8 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 38,
-          reason: 'lab nodes (+2 OFFLINE, +1 BLOCK REWARD, +2 CONSENSUS, +1 FORTUNE)');
+      expect(ResearchManager().researchNodes.length, 43,
+          reason: 'lab nodes (Phase 0: +6; Phase 1: +3 luck facets +2 idle)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
@@ -253,6 +253,10 @@ void main() {
         Channel.special,
         Channel.prestige,
         Channel.fortune,
+        Channel.nonce, // crit-chance luck facet (consumed via critLuckMultiplier)
+        Channel.sweepLuck, // SWEEP luck facet (consumed via sweepLuckMultiplier)
+        Channel.magnetism, // anomaly luck facet (consumed via anomalyLuckMultiplier)
+        Channel.idle, // offline window (consumed via idleCapacitySeconds)
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {

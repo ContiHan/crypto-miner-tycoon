@@ -411,6 +411,60 @@ class ResearchManager {
       effectChannel: Channel.fortune,
       effectValue: 0.10,
     ),
+
+    // --- LUCK-FACET branches (crit / SWEEP / anomaly luck; Phase 1 decouple) ---
+    ResearchNode(
+      id: ResearchIds.noncePrediction,
+      name: 'Nonce Prediction',
+      description: '+10% Crit Chance Luck',
+      cost: 3000000,
+      icon: Icons.casino,
+      requirements: [ResearchIds.ergonomicRig],
+      effectChannel: Channel.nonce,
+      effectValue: 0.10,
+    ),
+    ResearchNode(
+      id: ResearchIds.mempoolSniffer,
+      name: 'Mempool Sniffer',
+      description: '+10% SWEEP Luck',
+      cost: 3000000,
+      icon: Icons.travel_explore,
+      requirements: [ResearchIds.marketAnalytics],
+      effectChannel: Channel.sweepLuck,
+      effectValue: 0.10,
+    ),
+    ResearchNode(
+      id: ResearchIds.utxoMagnet,
+      name: 'UTXO Magnet',
+      description: '+10% Anomaly Luck',
+      cost: 3000000,
+      icon: Icons.explore,
+      requirements: [ResearchIds.chipFab],
+      effectChannel: Channel.magnetism,
+      effectValue: 0.10,
+    ),
+
+    // --- IDLE CAPACITY branch (offline window, base 8h → cap 24h) ---
+    ResearchNode(
+      id: ResearchIds.batteryBank,
+      name: 'Battery Bank',
+      description: '+8h Idle Capacity',
+      cost: 4000000,
+      icon: Icons.battery_charging_full,
+      requirements: [ResearchIds.solarPower],
+      effectChannel: Channel.idle,
+      effectValue: 8.0, // hours
+    ),
+    ResearchNode(
+      id: ResearchIds.gridStorage,
+      name: 'Grid Storage',
+      description: '+8h Idle Capacity',
+      cost: 60000000,
+      icon: Icons.ev_station,
+      requirements: [ResearchIds.batteryBank],
+      effectChannel: Channel.idle,
+      effectValue: 8.0, // hours (base 8 + 8 + 8 -> 24h cap)
+    ),
   ];
 
   void reset() {

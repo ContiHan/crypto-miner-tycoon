@@ -71,6 +71,8 @@ const Map<BtcClass, ClassDef> kClasses = {
       Channel.rigCost: 0.20, // rigs 20% cheaper
       Channel.click: 0.15,
       Channel.luck: 0.10,
+      Channel.nonce: 0.10, // hands-on: luckier critical taps
+      Channel.magnetism: 0.10, // luckier anomaly/glitch finds
     },
   ),
   BtcClass.corporation: ClassDef(
@@ -118,6 +120,7 @@ const Map<BtcClass, ClassDef> kClasses = {
       Channel.luck: 0.10,
       Channel.volatility: -0.25, // low variance: fewest events
       Channel.fortune: 0.05, // co-op collective: better crate drop quality
+      Channel.sweepLuck: 0.10, // better SWEEP odds
     },
   ),
 };
