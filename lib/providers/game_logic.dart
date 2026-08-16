@@ -29,6 +29,7 @@ import '../logic/managers/perk_manager.dart';
 import '../logic/managers/achievement_manager.dart';
 import '../logic/managers/class_manager.dart';
 import '../logic/systems/ability_system.dart';
+import '../logic/systems/proc_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -756,6 +757,7 @@ class GameLogic with ChangeNotifier {
     _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
     _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
     _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
+    _procs.clear(); // clears proc ICDs + active buffs
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -975,6 +977,7 @@ class GameLogic with ChangeNotifier {
     }
     _soundService.playUnlock();
     _hapticHeavy();
+    _fireProcs(ProcEvent.onAbilityCast);
     notifyListeners();
     _saveGame();
     return true;
@@ -1001,12 +1004,49 @@ class GameLogic with ChangeNotifier {
 
   /// Outside-softcap temp income multiplier from active ability buffs, foreground
   /// only (offline sim excludes it). Capped as part of the aggregate ceiling.
-  double get abilityIncomeMult =>
-      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.income, _nowMs());
-  double get abilityHashMult =>
-      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.hash, _nowMs());
-  double get abilityClickMult =>
-      _inOfflineSim ? 1.0 : _abilities.tempMult(Channel.click, _nowMs());
+  // --- Procs / triggers (Phase 6) ----------------------------------------
+  final ProcSystem _procs = ProcSystem();
+
+  /// Roll the proc engine for [event] and apply whatever fires. FOREGROUND-ONLY
+  /// (never rolls in the offline sim); [synthetic] events (proc-produced or an
+  /// auto-tap) fire nothing (GOLDEN RULE). GRANTs are wallet/UTXO only (never
+  /// touch lifetime/supply/prestige — safe by construction); BUFFs feed the
+  /// merged temp axis (see the temp*Mult getters).
+  void _fireProcs(ProcEvent event, {bool synthetic = false}) {
+    if (_inOfflineSim) return;
+    final results = _procs.roll(event,
+        currentClass: _classManager.current,
+        synthetic: synthetic,
+        nowMs: _nowMs(),
+        rng: _clickRng);
+    if (results.isEmpty) return;
+    for (final r in results) {
+      switch (r.signal.kind) {
+        case ProcEffectKind.grantSats:
+          // Spendable-only bonus: wallet, not lifetime → can't touch the win.
+          wallet += _baseIncomePerSecond() * r.signal.magnitude;
+          break;
+        case ProcEffectKind.grantUtxo:
+          chips += r.signal.magnitude.toInt();
+          break;
+        case ProcEffectKind.buff:
+          break; // applied live via _procs.tempMult in the temp getters
+      }
+    }
+  }
+
+  double get abilityIncomeMult => _inOfflineSim
+      ? 1.0
+      : _abilities.tempMult(Channel.income, _nowMs()) *
+          _procs.tempMult(Channel.income, _nowMs());
+  double get abilityHashMult => _inOfflineSim
+      ? 1.0
+      : _abilities.tempMult(Channel.hash, _nowMs()) *
+          _procs.tempMult(Channel.hash, _nowMs());
+  double get abilityClickMult => _inOfflineSim
+      ? 1.0
+      : _abilities.tempMult(Channel.click, _nowMs()) *
+          _procs.tempMult(Channel.click, _nowMs());
 
   /// Combined live income temp lane (chaos market × ability buffs) clamped to the
   /// aggregate income ceiling (#10). Debuffs below 1 (a crash) pass through.
@@ -1219,8 +1259,12 @@ class GameLogic with ChangeNotifier {
         wallet += gain;
         return gain;
       },
-      onEventSound: (good) =>
-          good ? _soundService.playEventGood() : _soundService.playEventBad(),
+      onEventSound: (good) {
+        good ? _soundService.playEventGood() : _soundService.playEventBad();
+        // Chaos procs (OG Market Whisper / Pool Hedge Payout) fire off the real
+        // event's good/bad polarity.
+        _fireProcs(good ? ProcEvent.onGoodChaos : ProcEvent.onBadChaos);
+      },
       volatilityFactor: () => volatilityMultiplier,
       applyResistances: resistEvent, // DIAMOND HANDS / FEE HEDGE / STEEL NERVES
     );
@@ -1300,7 +1344,10 @@ class GameLogic with ChangeNotifier {
   set debugTimersActive(bool v) => _timersActive = v;
 
   // Spawns anomalies randomly
-  void clickAnomaly() => _anomaly.collect();
+  void clickAnomaly() {
+    _anomaly.collect();
+    _fireProcs(ProcEvent.onAnomalyCollect);
+  }
 
   void _startGameLoop() {
     _gameTimer = Timer.periodic(const Duration(seconds: 1), (timer) {
@@ -1435,7 +1482,9 @@ class GameLogic with ChangeNotifier {
       _triggerHalving();
       _soundService.playHalving();
       _hapticHeavy();
+      _fireProcs(ProcEvent.onHalving);
     }
+    _fireProcs(ProcEvent.onBlockFound); // HOT tier (ICD-gated to ~once/8s)
     // AUTO-APPLY: rebuild the active TECH preset as income allows (fast no-op once
     // the build is complete or if auto-apply is off / no preset).
     _maybeAutoApplyPreset();
@@ -1798,6 +1847,12 @@ class GameLogic with ChangeNotifier {
       }
     }
 
+    // Procs: only a REAL tap triggers (auto-taps are synthetic → GOLDEN RULE).
+    if (playSound) {
+      _fireProcs(ProcEvent.onTap);
+      if (isCrit) _fireProcs(ProcEvent.onCrit);
+    }
+
     _evaluateAchievements();
     notifyListeners();
     return ClickResult(clickSats, isCrit);
@@ -2011,6 +2066,7 @@ class GameLogic with ChangeNotifier {
     final won = _stash.openCrate(tier: tier, fortune: fortuneBonus);
     cratesOpened++;
     _soundService.playCrate();
+    _fireProcs(ProcEvent.onCrateOpen);
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
