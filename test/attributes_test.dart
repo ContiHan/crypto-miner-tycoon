@@ -4,6 +4,8 @@ import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
+import 'package:crypto_miner_tycoon/logic/managers/mining_manager.dart';
+import 'package:crypto_miner_tycoon/models/news_event.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/services/economy_service.dart';
 import 'package:crypto_miner_tycoon/services/stash_service.dart';
@@ -274,6 +276,85 @@ void main() {
       expect(off4h, lessThan(off8h));
       // 48h is clamped to the same 8h window → identical to the 8h absence.
       expect(off48h, closeTo(off8h, off8h * 1e-6));
+    });
+  });
+
+  group('Resistance suite (Phase 2)', () {
+    test('resistance getters clamp to their per-lever caps', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      expect(game.crashResistance, 0.0);
+      // Diamond Hands node (+0.25) + Pool racial (+0.10) = 0.35.
+      game.debugSelectClass(BtcClass.poolMember);
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.diamondHands)
+          .isCompleted = true;
+      expect(game.crashResistance, closeTo(0.35, 1e-9));
+      expect(game.durationResistance, closeTo(0.10, 1e-9)); // Pool racial only
+    });
+
+    test('Diamond Hands softens a crash; Steel Nerves shortens it', () {
+      // Unresisted crash: income x0.5 for 100s.
+      var r = GameLogic.applyEventResistances(
+          EventType.marketCrash, 0.5, 1.0, 100,
+          crashR: 0.0, costR: 0.0, durR: 0.0);
+      expect(r.$1, closeTo(0.5, 1e-9));
+      expect(r.$3, 100);
+      // Diamond 0.70: drop 0.5 -> 0.5*0.3 = 0.15 -> income x0.85 (crash softened).
+      r = GameLogic.applyEventResistances(EventType.marketCrash, 0.5, 1.0, 100,
+          crashR: 0.70, costR: 0.0, durR: 0.0);
+      expect(r.$1, closeTo(0.85, 1e-9));
+      // Steel Nerves 0.60 alone: duration 100 -> 40.
+      r = GameLogic.applyEventResistances(EventType.marketCrash, 0.5, 1.0, 100,
+          crashR: 0.0, costR: 0.0, durR: 0.60);
+      expect(r.$3, 40);
+    });
+
+    test('combined crash mitigation never exceeds 0.70 (always lands >=30%)', () {
+      // Max both levers: magnitude 0.70 + duration 0.60. Naively that would be
+      // 1-(0.30*0.40)=0.88 mitigation; the cap must pull it back to <=0.70.
+      final r = GameLogic.applyEventResistances(
+          EventType.marketCrash, 0.5, 1.0, 100,
+          crashR: 0.70, costR: 0.0, durR: 0.60);
+      final incomeMult = r.$1; // 1 - 0.5*remainMag ; remainMag = 0.30
+      final durationRemain = r.$3 / 100.0;
+      // total impact remaining = magnitudeRemaining * durationRemaining
+      final magnitudeRemaining = (1 - incomeMult) / 0.5; // = remainMag
+      final totalImpactRemaining = magnitudeRemaining * durationRemain;
+      expect(totalImpactRemaining, greaterThanOrEqualTo(0.30 - 1e-9),
+          reason: 'a crash must always cost >= 30% of its base impact');
+    });
+
+    test('Steel Nerves does NOTHING to a hack (value-only event)', () {
+      final r = GameLogic.applyEventResistances(EventType.hack, 1.0, 1.0, 45,
+          crashR: 0.70, costR: 0.70, durR: 0.60);
+      expect(r.$1, 1.0);
+      expect(r.$2, 1.0);
+      expect(r.$3, 45); // untouched
+    });
+
+    test('Fee Hedge softens a cost spike surcharge', () {
+      final r = GameLogic.applyEventResistances(EventType.costSpike, 1.0, 1.5, 120,
+          crashR: 0.0, costR: 0.60, durR: 0.0);
+      // surcharge 0.5 * (1-0.60) = 0.20 -> cost x1.20.
+      expect(r.$2, closeTo(1.20, 1e-9));
+    });
+
+    test('Stock-to-Flow lifts a halved reward but never cancels the halving', () {
+      final mm = MiningManager();
+      mm.blockReward = GameConstants.initialBlockReward / 2; // one halving (f=0.5)
+      final baseline = mm.calculateMiningIncome(
+          hashRate: 1000, difficulty: 100, prestigeMultiplier: 1, chaosMultiplier: 1,
+          lifetimeEarnings: 0);
+      final resisted = mm.calculateMiningIncome(
+          hashRate: 1000, difficulty: 100, prestigeMultiplier: 1, chaosMultiplier: 1,
+          lifetimeEarnings: 0, halvingResist: 0.60);
+      final full = mm.calculateMiningIncome(
+          hashRate: 1000, difficulty: 100, prestigeMultiplier: 1, chaosMultiplier: 1,
+          lifetimeEarnings: 0)
+          * 2; // what an un-halved reward (f=1.0) would give
+      expect(resisted, greaterThan(baseline)); // softens the cut
+      expect(resisted, lessThan(full)); // but never fully cancels it
     });
   });
 }

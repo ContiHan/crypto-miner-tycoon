@@ -59,6 +59,11 @@ class ResearchIds {
   static const String utxoMagnet = 'utxo_magnet'; // anomaly luck (magnetism)
   static const String batteryBank = 'battery_bank'; // idle capacity +8h
   static const String gridStorage = 'grid_storage'; // idle capacity +8h
+  // Resistances (Phase 2)
+  static const String diamondHands = 'diamond_hands'; // crash magnitude resist
+  static const String feeHedge = 'fee_hedge'; // cost-spike surcharge resist
+  static const String stockToFlow = 'stock_to_flow'; // halving resist
+  static const String steelNerves = 'steel_nerves'; // event duration resist
 }
 
 class PerkIds {

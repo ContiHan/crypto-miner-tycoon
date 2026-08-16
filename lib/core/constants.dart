@@ -23,6 +23,16 @@ class GameConstants {
   // mining regardless of how long they were away.
   static const double offlineWindowBaseHours = 8.0;
   static const double offlineWindowMaxHours = 24.0;
+
+  // Resistances (Phase 2). Pattern: effect = penalty × (1 − R). Per-lever caps,
+  // plus an AUTHORITATIVE combined cap (#8): the total mitigation of any single
+  // event type — across magnitude + duration (+ future aura/keystone levers) —
+  // is clamped to combinedResistCap, so a crash/cost-spike/halving always lands
+  // at >= 30% of its base impact (never full immunity, never a payout).
+  static const double combinedResistCap = 0.70;
+  static const double resistCapMagnitude = 0.70; // Diamond Hands, Fee Hedge, Cold Storage
+  static const double resistCapDuration = 0.60; // Steel Nerves
+  static const double resistCapHalving = 0.60; // Stock-to-Flow (never cancels a halving)
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 
   // Income model (Phase 1 redesign): income/sec =

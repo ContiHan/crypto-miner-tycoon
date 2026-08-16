@@ -25,6 +25,13 @@ enum Channel {
   sweepLuck, // WHALE'S FAVOR — SWEEP payout luck (EV cap 2.5, net cap immutable)
   magnetism, // UTXO MAGNETISM — anomaly spawn luck (cap 30%/tick)
   idle, // IDLE CAPACITY — offline duration window (base 8h, cap 24h)
+  // Resistances (Phase 2). Each R in [0, per-lever cap]; combined per event type
+  // is clamped to 0.70 so an event always lands >= 30%.
+  crashResist, // DIAMOND HANDS — market-crash magnitude (cap 0.70)
+  costResist, // FEE HEDGE — cost-spike surcharge (cap 0.70)
+  halvingResist, // STOCK-TO-FLOW — halving income cut (cap 0.60, never cancels)
+  durationResist, // STEEL NERVES — crash/cost-spike DURATION only (cap 0.60)
+  theftResist, // COLD STORAGE — breach loss (cap 0.70; theft lands in Phase 5)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

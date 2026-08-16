@@ -460,6 +460,58 @@ class GameLogic with ChangeNotifier {
               GameConstants.offlineWindowMaxHours) *
       3600.0;
 
+  // --- Resistances (Phase 2) ---------------------------------------------
+  // Each resistance is a `[0, per-lever cap]` value summed from its channel.
+  double get crashResistance =>
+      buildChannels().sum(Channel.crashResist).clamp(0.0, GameConstants.resistCapMagnitude);
+  double get costResistance =>
+      buildChannels().sum(Channel.costResist).clamp(0.0, GameConstants.resistCapMagnitude);
+  double get halvingResistance =>
+      buildChannels().sum(Channel.halvingResist).clamp(0.0, GameConstants.resistCapHalving);
+  double get durationResistance =>
+      buildChannels().sum(Channel.durationResist).clamp(0.0, GameConstants.resistCapDuration);
+  double get theftResistance =>
+      buildChannels().sum(Channel.theftResist).clamp(0.0, GameConstants.resistCapMagnitude);
+
+  /// Applies this run's resistances to a chaos event (thin wrapper over the pure
+  /// [applyEventResistances] using the live channel-derived resistance values).
+  (double, double, int) resistEvent(
+          EventType type, double income, double cost, int duration) =>
+      applyEventResistances(type, income, cost, duration,
+          crashR: crashResistance,
+          costR: costResistance,
+          durR: durationResistance);
+
+  /// Pure, testable resistance math. DIAMOND HANDS softens a market crash's
+  /// magnitude; FEE HEDGE softens a cost spike's surcharge; STEEL NERVES shortens
+  /// their DURATION (never hack/breach). The AUTHORITATIVE combined cap (#8) keeps
+  /// magnitude×duration mitigation ≤ combinedResistCap per event, so a crash/spike
+  /// always lands at ≥ 30% of its base impact.
+  static (double, double, int) applyEventResistances(
+      EventType type, double income, double cost, int duration,
+      {required double crashR, required double costR, required double durR}) {
+    final double minProduct = 1.0 - GameConstants.combinedResistCap; // 0.30
+    if (type == EventType.marketCrash && income < 1.0) {
+      final double remainMag = 1.0 - crashR;
+      double remainDur = 1.0 - durR;
+      if (remainMag * remainDur < minProduct) {
+        remainDur = (minProduct / remainMag).clamp(0.0, 1.0);
+      }
+      final double drop = 1.0 - income; // e.g. 0.50
+      return (1.0 - drop * remainMag, cost, (duration * remainDur).round());
+    }
+    if (type == EventType.costSpike && cost > 1.0) {
+      final double remainSur = 1.0 - costR;
+      double remainDur = 1.0 - durR;
+      if (remainSur * remainDur < minProduct) {
+        remainDur = (minProduct / remainSur).clamp(0.0, 1.0);
+      }
+      final double surcharge = cost - 1.0; // e.g. 0.50
+      return (income, 1.0 + surcharge * remainSur, (duration * remainDur).round());
+    }
+    return (income, cost, duration); // hack/airdrop/bull/cheap-energy untouched
+  }
+
   /// Aggregate Volatility factor (1.0 with no sources) — scales chaos-event
   /// frequency. Sources arrive with classes (Pool lowers it, others raise it).
   double get volatilityMultiplier =>
@@ -909,6 +961,7 @@ class GameLogic with ChangeNotifier {
       onEventSound: (good) =>
           good ? _soundService.playEventGood() : _soundService.playEventBad(),
       volatilityFactor: () => volatilityMultiplier,
+      applyResistances: resistEvent, // DIAMOND HANDS / FEE HEDGE / STEEL NERVES
     );
 
     _autoStartTimers = startTimers;
@@ -1047,6 +1100,7 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
+      halvingResist: halvingResistance,
     );
     // [yieldFactor] is the OFFLINE YIELD fraction (<=1.0) for offline catch-up;
     // the live tick passes 1.0. Applied before the supply clamp so offline still
@@ -1409,6 +1463,7 @@ class GameLogic with ChangeNotifier {
             power: GameConstants.channelSoftPower,
           ) *
           notorietyMultiplier,
+      halvingResist: halvingResistance,
     );
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can

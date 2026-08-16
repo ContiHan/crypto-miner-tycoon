@@ -13,8 +13,8 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 43,
-          reason: 'lab nodes (Phase 0: +6; Phase 1: +3 luck facets +2 idle)');
+      expect(ResearchManager().researchNodes.length, 47,
+          reason: 'lab nodes (Phase 0: +6; Phase 1: +5; Phase 2: +4 resistances)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
@@ -257,6 +257,11 @@ void main() {
         Channel.sweepLuck, // SWEEP luck facet (consumed via sweepLuckMultiplier)
         Channel.magnetism, // anomaly luck facet (consumed via anomalyLuckMultiplier)
         Channel.idle, // offline window (consumed via idleCapacitySeconds)
+        Channel.crashResist, // DIAMOND HANDS (consumed via resistEvent)
+        Channel.costResist, // FEE HEDGE (consumed via resistEvent)
+        Channel.halvingResist, // STOCK-TO-FLOW (consumed via calculateMiningIncome)
+        Channel.durationResist, // STEEL NERVES (consumed via resistEvent)
+        // theftResist is intentionally NOT consumed until Phase 5 (The Breach).
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {

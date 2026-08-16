@@ -465,6 +465,48 @@ class ResearchManager {
       effectChannel: Channel.idle,
       effectValue: 8.0, // hours (base 8 + 8 + 8 -> 24h cap)
     ),
+
+    // --- RESISTANCE branch (Phase 2 — softens negative chaos, never immune) ---
+    ResearchNode(
+      id: ResearchIds.diamondHands,
+      name: 'Diamond Hands',
+      description: '+25% Crash Resistance',
+      cost: 6000000,
+      icon: Icons.diamond,
+      requirements: [ResearchIds.coldStorage],
+      effectChannel: Channel.crashResist,
+      effectValue: 0.25,
+    ),
+    ResearchNode(
+      id: ResearchIds.feeHedge,
+      name: 'Fee Hedge',
+      description: '+25% Cost-Spike Resistance',
+      cost: 6000000,
+      icon: Icons.shield,
+      requirements: [ResearchIds.bulkProcurement],
+      effectChannel: Channel.costResist,
+      effectValue: 0.25,
+    ),
+    ResearchNode(
+      id: ResearchIds.stockToFlow,
+      name: 'Stock-to-Flow',
+      description: '+30% Halving Resistance',
+      cost: 40000000,
+      icon: Icons.stacked_line_chart,
+      requirements: [ResearchIds.diamondHands],
+      effectChannel: Channel.halvingResist,
+      effectValue: 0.30,
+    ),
+    ResearchNode(
+      id: ResearchIds.steelNerves,
+      name: 'Steel Nerves',
+      description: '+30% Event Duration Cut',
+      cost: 20000000,
+      icon: Icons.self_improvement,
+      requirements: [ResearchIds.diamondHands],
+      effectChannel: Channel.durationResist,
+      effectValue: 0.30,
+    ),
   ];
 
   void reset() {

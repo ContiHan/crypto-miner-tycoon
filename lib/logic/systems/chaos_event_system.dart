@@ -33,12 +33,19 @@ class ChaosEventSystem {
   /// classes: e.g. Pool Member lowers it, others raise it.)
   final double Function()? volatilityFactor;
 
+  /// Applies resistances to a rolled event, returning the mitigated
+  /// (income, cost, durationSeconds). Supplied by GameLogic (owns the channels +
+  /// the combined-mitigation cap). Null = no mitigation (raw event).
+  final (double, double, int) Function(
+      EventType type, double income, double cost, int durationSeconds)? applyResistances;
+
   ChaosEventSystem({
     required this.onChanged,
     required this.onHackLoss,
     required this.onAirdropGain,
     required this.onEventSound,
     this.volatilityFactor,
+    this.applyResistances,
   });
 
   void start() {
@@ -121,6 +128,16 @@ class ChaosEventSystem {
         break;
       case EventType.info:
         break; // never rolled (excluded above); here only for exhaustiveness
+    }
+
+    // Apply resistances (Diamond Hands / Fee Hedge / Steel Nerves) before the
+    // event lands — softens crash magnitude / cost surcharge and shortens their
+    // duration, always leaving >= 30% of the base impact (combined cap).
+    if (applyResistances != null) {
+      final r = applyResistances!(type, income, cost, duration);
+      income = r.$1;
+      cost = r.$2;
+      duration = r.$3;
     }
 
     // Pick a random flavour line for this event type.

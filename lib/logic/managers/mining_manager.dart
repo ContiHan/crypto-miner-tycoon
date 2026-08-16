@@ -67,11 +67,16 @@ class MiningManager {
     required double chaosMultiplier,
     required double lifetimeEarnings,
     double incomeMultiplier = 1.0, // INCOME channel (research/perks/stash)
+    double halvingResist = 0.0, // STOCK-TO-FLOW: softens the halving cut (<=0.60)
   }) {
     if (hashRate <= 0) return 0;
 
-    final double blockRewardFactor =
-        blockReward / GameConstants.initialBlockReward; // 1.0 -> 0.5 -> ...
+    // 1.0 -> 0.5 -> 0.25 ... STOCK-TO-FLOW lifts a halved factor back toward 1.0
+    // (f' = f + R·(1−f)) but never cancels a halving (R capped < 1).
+    double blockRewardFactor = blockReward / GameConstants.initialBlockReward;
+    if (halvingResist > 0 && blockRewardFactor < 1.0) {
+      blockRewardFactor += halvingResist * (1.0 - blockRewardFactor);
+    }
     double incomeSats = hashRate *
         GameConstants.satPerHash *
         blockRewardFactor *

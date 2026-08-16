@@ -121,6 +121,8 @@ const Map<BtcClass, ClassDef> kClasses = {
       Channel.volatility: -0.25, // low variance: fewest events
       Channel.fortune: 0.05, // co-op collective: better crate drop quality
       Channel.sweepLuck: 0.10, // better SWEEP odds
+      Channel.crashResist: 0.10, // softer crashes (resistance identity)
+      Channel.durationResist: 0.10, // shorter bad events
     },
   ),
 };
