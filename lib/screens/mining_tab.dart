@@ -346,6 +346,21 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                           ),
                                           Colors.amber,
                                         ),
+                                        Container(
+                                          width: 1,
+                                          height: 30,
+                                          color: Colors.white24,
+                                        ),
+                                        // THE POWER BILL: spendable share of gross
+                                        // mining income (upkeep taxes the wallet
+                                        // only — never the win/supply/Mastery).
+                                        _buildStatItem(
+                                          'NET KEPT',
+                                          '${(game.netIncomeFraction * 100).toStringAsFixed(0)}%',
+                                          game.upkeepRate > 0.001
+                                              ? Colors.orangeAccent
+                                              : Colors.greenAccent,
+                                        ),
                                       ],
                                     ),
                                     const SizedBox(height: 8),
@@ -617,6 +632,39 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                       ),
                     ],
                   ),
+                ),
+                // THE BREACH alert — a telegraphed threat; tap to vault (0 loss).
+                Consumer<GameLogic>(
+                  builder: (context, game, _) => game.breachPending
+                      ? Padding(
+                          padding: const EdgeInsets.fromLTRB(16, 4, 16, 0),
+                          child: GestureDetector(
+                            onTap: () => game.secureBreach(),
+                            child: Container(
+                              width: double.infinity,
+                              padding: const EdgeInsets.symmetric(vertical: 12),
+                              decoration: BoxDecoration(
+                                color: Colors.redAccent.withValues(alpha: 0.18),
+                                borderRadius: BorderRadius.circular(8),
+                                border: Border.all(color: Colors.redAccent),
+                              ),
+                              child: const Row(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  Icon(Icons.gpp_maybe,
+                                      color: Colors.redAccent, size: 20),
+                                  SizedBox(width: 8),
+                                  Text('THREAT DETECTED — TAP TO SECURE',
+                                      style: TextStyle(
+                                          color: Colors.redAccent,
+                                          fontWeight: FontWeight.bold,
+                                          letterSpacing: 1)),
+                                ],
+                              ),
+                            ),
+                          ),
+                        )
+                      : const SizedBox.shrink(),
                 ),
                 // Abilities Bar — docked just above the sticky HACK button.
                 const AbilitiesBar(),

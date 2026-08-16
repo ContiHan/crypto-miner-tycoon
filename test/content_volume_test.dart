@@ -13,8 +13,8 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 47,
-          reason: 'lab nodes (Phase 0: +6; Phase 1: +5; Phase 2: +4 resistances)');
+      expect(ResearchManager().researchNodes.length, 48,
+          reason: 'lab (Phase 0:+6, Phase 1:+5, Phase 2:+4, Phase 5:+1 Cold Storage)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
@@ -261,7 +261,7 @@ void main() {
         Channel.costResist, // FEE HEDGE (consumed via resistEvent)
         Channel.halvingResist, // STOCK-TO-FLOW (consumed via calculateMiningIncome)
         Channel.durationResist, // STEEL NERVES (consumed via resistEvent)
-        // theftResist is intentionally NOT consumed until Phase 5 (The Breach).
+        Channel.theftResist, // COLD STORAGE (consumed via resolveBreach)
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {

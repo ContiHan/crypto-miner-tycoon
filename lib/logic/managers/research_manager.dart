@@ -528,6 +528,17 @@ class ResearchManager {
       effectChannel: Channel.durationResist,
       effectValue: 0.30,
     ),
+    // COLD STORAGE — reduces THE BREACH's hot-wallet theft (Channel.theftResist).
+    ResearchNode(
+      id: ResearchIds.coldStorageVault,
+      name: 'Cold Storage Vault',
+      description: '+40% Breach Resistance',
+      cost: 30000000,
+      icon: Icons.lock,
+      requirements: [ResearchIds.feeHedge],
+      effectChannel: Channel.theftResist,
+      effectValue: 0.40,
+    ),
   ];
 
   /// BLUEPRINTS: permanent per-node completion count. Survives every prestige

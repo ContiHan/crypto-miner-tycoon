@@ -477,6 +477,91 @@ class GameLogic with ChangeNotifier {
   double get theftResistance =>
       buildChannels().sum(Channel.theftResist).clamp(0.0, GameConstants.resistCapMagnitude);
 
+  /// THE POWER BILL: the fraction of GROSS income skimmed before it reaches the
+  /// spendable wallet (0..upkeepCap). Scales with the OWNED fleet's load, reduced
+  /// by Fee Hedge, nudged by class, and swung by the energy chaos events. Only the
+  /// wallet is affected — lifetime/supply/Mastery always credit the gross.
+  double get upkeepRate {
+    double load = 0;
+    for (var i = 0; i < rigs.length; i++) {
+      load += rigs[i].amount * (i + 1); // tierWeight = ladder position
+    }
+    double raw = GameConstants.upkeepCap *
+        (1 - 1 / (1 + load / GameConstants.upkeepK));
+    // Fee Hedge (and future Energy Efficiency) reduce it.
+    raw *= (1 - costResistance.clamp(0.0, GameConstants.upkeepReductionCap));
+    // Class nudge.
+    if (currentClass == BtcClass.corporation) {
+      raw *= GameConstants.upkeepClassCorp;
+    } else if (currentClass == BtcClass.poolMember ||
+        currentClass == BtcClass.soloMiner) {
+      raw *= GameConstants.upkeepClassLean;
+    }
+    // Energy chaos events swing it (cheap energy softens, cost spike bites twice).
+    if (chaosCostMultiplier < 0.999) {
+      raw *= GameConstants.cheapEnergyUpkeepFactor;
+    } else if (chaosCostMultiplier > 1.001) {
+      raw *= GameConstants.costSpikeUpkeepFactor;
+    }
+    return raw.clamp(0.0, GameConstants.upkeepCap);
+  }
+
+  /// Spendable fraction of gross income (1 − upkeep), shown as "NET x%".
+  double get netIncomeFraction => 1.0 - upkeepRate;
+
+  // --- THE BREACH (theft, Phase 5) ---------------------------------------
+  bool _breachPending = false;
+  bool _firstBreachDone = false; // the first breach of a save is a 0-loss drill
+  double _lastBreachLoss = 0; // for the UI result readout
+  Timer? _breachTimer;
+
+  /// True while a breach threat is telegraphing (the SECURE window is open).
+  bool get breachPending => _breachPending;
+  double get lastBreachLoss => _lastBreachLoss;
+
+  /// Starts a telegraphed breach: a countdown during which the player can tap
+  /// SECURE. Only one at a time; never fires while offline (foreground event).
+  void _startBreachThreat() {
+    if (_breachPending || _inOfflineSim) return;
+    _breachPending = true;
+    _soundService.playEventBad();
+    _hapticHeavy();
+    notifyListeners();
+    _breachTimer?.cancel();
+    _breachTimer = Timer(
+      const Duration(seconds: GameConstants.breachTelegraphSeconds),
+      () => resolveBreach(secured: false),
+    );
+  }
+
+  /// Resolves a pending breach. [secured] (player tapped SECURE) = 0 loss. The
+  /// FIRST breach of a save is a 0-loss drill. Otherwise steals the HOT WALLET
+  /// ONLY: loss = wallet × breachBaseLoss × (1 − COLD STORAGE resistance).
+  /// lifetime/supply/GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER
+  /// touched.
+  void resolveBreach({required bool secured}) {
+    _breachTimer?.cancel();
+    _breachTimer = null;
+    if (!_breachPending) return;
+    _breachPending = false;
+    double loss = 0;
+    if (!secured && _firstBreachDone) {
+      loss = wallet * GameConstants.breachBaseLoss * (1 - theftResistance);
+      if (loss > 0) wallet -= loss;
+    }
+    _firstBreachDone = true; // the drill is spent (or a real breach happened)
+    _lastBreachLoss = loss;
+    notifyListeners();
+    _saveGame();
+  }
+
+  /// Player tapped SECURE within the telegraph window — vault the wallet (0 loss).
+  void secureBreach() => resolveBreach(secured: true);
+
+  /// Test seam: begin a breach threat without waiting for the random chaos roll.
+  @visibleForTesting
+  void debugStartBreach() => _startBreachThreat();
+
   /// Applies this run's resistances to a chaos event (thin wrapper over the pure
   /// [applyEventResistances] using the live channel-derived resistance values).
   (double, double, int) resistEvent(
@@ -687,6 +772,9 @@ class GameLogic with ChangeNotifier {
     // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
     lifetimeEverSats = 0;
     hasWonGame = false;
+    _firstBreachDone = false; // fresh save → the next breach is a drill again
+    _breachTimer?.cancel();
+    _breachPending = false;
     pendingWinCelebration = false;
     // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
     unlockedTech = false;
@@ -1125,11 +1213,7 @@ class GameLogic with ChangeNotifier {
 
     _events = ChaosEventSystem(
       onChanged: notifyListeners,
-      onHackLoss: () {
-        final loss = wallet * 0.15;
-        wallet -= loss;
-        return loss;
-      },
+      onBreach: _startBreachThreat, // THE BREACH: telegraphed hot-wallet theft
       onAirdropGain: () {
         final gain = wallet * 0.15; // opposite of the hack
         wallet += gain;
@@ -1166,6 +1250,10 @@ class GameLogic with ChangeNotifier {
     _autoSaveTimer?.cancel();
     _events.stop();
     _anomaly.stop();
+    // Drop any in-flight breach threat on background (no offline theft).
+    _breachTimer?.cancel();
+    _breachTimer = null;
+    _breachPending = false;
     _timersActive = false;
   }
 
@@ -1301,10 +1389,16 @@ class GameLogic with ChangeNotifier {
     final room = GameConstants.maxSupplySats - lifetimeEarnings;
     if (room <= 0) return 0;
     if (income > room) income = room;
-    wallet += income;
+    // THE POWER BILL: upkeep skims the spendable WALLET only. The gross still
+    // credits lifetime + the 21M drawdown + Mastery XP in full (via
+    // _creditLifetimeEver), so upkeep slows buying — never the win/supply/Mastery.
+    // (Manual taps are deliberately NOT taxed — they stay the full-value active
+    // reward.)
+    final double net = income * netIncomeFraction;
+    wallet += net;
     lifetimeEarnings += income;
     _creditLifetimeEver(income); // cumulative-ever stat + LAST SATOSHI win check
-    return income;
+    return net; // the spendable gain (what "WELCOME BACK" announces)
   }
 
   /// Advances the block counter by [seconds] (1 second == 1 block), carrying the
@@ -1942,6 +2036,7 @@ class GameLogic with ChangeNotifier {
       activeTechPreset: _researchManager.activePreset,
       autoApplyPresets: _researchManager.autoApplyPresets,
       abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
+      firstBreachDone: _firstBreachDone, // THE BREACH drill spent
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -2191,6 +2286,8 @@ class GameLogic with ChangeNotifier {
           data['activeTechPreset'], data['autoApplyPresets']);
       // Ability cooldowns (wall-clock; persist across resets, wiped on full wipe).
       _abilities.loadLastUsed(data['abilityCooldowns']);
+      // THE BREACH: whether the one-time 0-loss drill has been spent.
+      _firstBreachDone = data['firstBreachDone'] == true;
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).

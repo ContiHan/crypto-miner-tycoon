@@ -340,6 +340,90 @@ void main() {
       expect(r.$2, closeTo(1.20, 1e-9));
     });
 
+    test('THE POWER BILL skims the wallet only, never lifetime/supply (#15)',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.rigs.firstWhere((r) => r.id == 'cpu_rig').amount = 5000; // real load
+      expect(game.upkeepRate, greaterThan(0.03));
+      expect(game.upkeepRate, lessThanOrEqualTo(GameConstants.upkeepCap));
+
+      final lifeBefore = game.lifetimeEarnings;
+      final walletBefore = game.wallet;
+      final net = game.advanceForTest(1); // returns the spendable (net) gain
+      final gross = game.lifetimeEarnings - lifeBefore;
+      final walletGain = game.wallet - walletBefore;
+
+      expect(walletGain, closeTo(net, net * 1e-6));
+      // Wallet got LESS than the gross (upkeep skim); lifetime got the FULL gross.
+      expect(gross, greaterThan(walletGain));
+      expect(walletGain, closeTo(gross * game.netIncomeFraction, gross * 1e-6));
+    });
+
+    test('upkeep is 0 with no fleet, rises with load, capped, class-nudged',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      expect(game.upkeepRate, 0.0); // no rigs owned
+      game.rigs.firstWhere((r) => r.id == 'singularity_rig').amount = 100000;
+      expect(game.upkeepRate, lessThanOrEqualTo(GameConstants.upkeepCap));
+      game.debugSelectClass(BtcClass.corporation);
+      final corp = game.upkeepRate;
+      game.debugSelectClass(BtcClass.soloMiner);
+      final solo = game.upkeepRate;
+      expect(corp, greaterThan(solo), reason: 'Corp pays more upkeep than Solo');
+    });
+
+    test('THE BREACH: first is a 0-loss drill, then steals HOT wallet only', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      final chipsBefore = game.chips;
+      final lifeBefore = game.lifetimeEarnings;
+
+      // First breach of the save = a 0-loss DRILL.
+      game.wallet = 1000;
+      game.debugStartBreach();
+      expect(game.breachPending, true);
+      game.resolveBreach(secured: false);
+      expect(game.wallet, 1000, reason: 'first breach is a drill');
+      expect(game.breachPending, false);
+
+      // Second breach: 10% of the hot wallet (no Cold Storage yet).
+      game.wallet = 1000;
+      game.debugStartBreach();
+      game.resolveBreach(secured: false);
+      expect(game.wallet, closeTo(1000 * (1 - GameConstants.breachBaseLoss), 1e-6));
+      // NEVER touches permanent progress.
+      expect(game.chips, chipsBefore);
+      expect(game.lifetimeEarnings, lifeBefore);
+    });
+
+    test('THE BREACH: SECURE fully vaults; Cold Storage cuts the loss', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      // Spend the drill.
+      game.wallet = 1000;
+      game.debugStartBreach();
+      game.resolveBreach(secured: false);
+
+      // Tapping SECURE = 0 loss.
+      game.wallet = 1000;
+      game.debugStartBreach();
+      game.secureBreach();
+      expect(game.wallet, 1000);
+
+      // Cold Storage (+0.40 theftResist) → loss = 1000 × 0.10 × 0.60 = 60.
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.coldStorageVault)
+          .isCompleted = true;
+      expect(game.theftResistance, closeTo(0.40, 1e-9));
+      game.wallet = 1000;
+      game.debugStartBreach();
+      game.resolveBreach(secured: false);
+      expect(game.wallet,
+          closeTo(1000 - 1000 * GameConstants.breachBaseLoss * 0.60, 1e-6));
+    });
+
     test('Stock-to-Flow lifts a halved reward but never cancels the halving', () {
       final mm = MiningManager();
       mm.blockReward = GameConstants.initialBlockReward / 2; // one halving (f=0.5)

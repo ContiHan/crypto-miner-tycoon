@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
+import '../../core/constants.dart';
 import '../../models/news_event.dart';
 import '../../content/news_flavor.dart';
 
@@ -24,7 +25,7 @@ class ChaosEventSystem {
   final _random = Random();
 
   final void Function() onChanged; // notifyListeners
-  final double Function() onHackLoss; // deduct wallet, return loss amount
+  final void Function() onBreach; // start the telegraphed breach (THE BREACH)
   final double Function() onAirdropGain; // credit wallet, return gain amount
   final void Function(bool good) onEventSound;
 
@@ -41,7 +42,7 @@ class ChaosEventSystem {
 
   ChaosEventSystem({
     required this.onChanged,
-    required this.onHackLoss,
+    required this.onBreach,
     required this.onAirdropGain,
     required this.onEventSound,
     this.volatilityFactor,
@@ -110,9 +111,13 @@ class ChaosEventSystem {
         duration = 90 + _random.nextInt(60);
         break;
       case EventType.hack:
-        value = -onHackLoss();
+        // THE BREACH: a telegraphed threat, not an instant loss. GameLogic starts
+        // the countdown; the actual (hot-wallet-only) steal resolves after it,
+        // unless the player taps SECURE. The banner is the warning.
+        onBreach();
+        value = 0;
         color = Colors.red;
-        duration = 45;
+        duration = GameConstants.breachTelegraphSeconds;
         break;
       case EventType.cheapEnergy:
         cost = 0.7; // rigs 30% cheaper

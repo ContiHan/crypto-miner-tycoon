@@ -18,7 +18,7 @@ void main() {
   test('stop() clears the banner and resets multipliers (no stale news)', () {
     final sys = ChaosEventSystem(
       onChanged: () {},
-      onHackLoss: () => 0,
+      onBreach: () {},
       onAirdropGain: () => 0,
       onEventSound: (_) {},
     );
@@ -44,7 +44,7 @@ void main() {
   group('multipliers are per-axis independent', () {
     ChaosEventSystem makeSystem() => ChaosEventSystem(
           onChanged: () {},
-          onHackLoss: () => 0,
+          onBreach: () {},
           onAirdropGain: () => 0,
           onEventSound: (_) {},
         );

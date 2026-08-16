@@ -214,6 +214,7 @@ class FakeGameRepository implements GameRepository {
     int activeTechPreset = -1,
     bool autoApplyPresets = true,
     Map<String, int> abilityCooldowns = const {},
+    bool firstBreachDone = false,
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -256,6 +257,7 @@ class FakeGameRepository implements GameRepository {
     data['activeTechPreset'] = activeTechPreset;
     data['autoApplyPresets'] = autoApplyPresets;
     data['abilityCooldowns'] = abilityCooldowns;
+    data['firstBreachDone'] = firstBreachDone;
     data['unlockedTech'] = unlockedTech;
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;

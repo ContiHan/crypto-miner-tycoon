@@ -52,6 +52,7 @@ class GameRepository {
     int activeTechPreset = -1,
     bool autoApplyPresets = true,
     Map<String, int> abilityCooldowns = const {}, // ability last-used (wall-clock)
+    bool firstBreachDone = false, // THE BREACH: the one-time 0-loss drill is spent
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -116,6 +117,7 @@ class GameRepository {
       'activeTechPreset': activeTechPreset,
       'autoApplyPresets': autoApplyPresets,
       'abilityCooldowns': abilityCooldowns,
+      'firstBreachDone': firstBreachDone,
       'stash': stash,
       'networkDifficulty': fin(networkDifficulty),
       'blockReward': fin(blockReward),
@@ -315,6 +317,7 @@ class GameRepository {
     if (m['abilityCooldowns'] != null) {
       normalized['abilityCooldowns'] = m['abilityCooldowns'];
     }
+    normalized['firstBreachDone'] = m['firstBreachDone'] == true;
 
     return normalized;
   }

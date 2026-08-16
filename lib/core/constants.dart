@@ -205,6 +205,34 @@ class GameConstants {
   // and softcapped, so mastering all four is a gentle nudge, not a power spike.
   static const double masteryBonusPerLevel = 0.005; // +0.5% hash & income / level
 
+  // THE POWER BILL — upkeep (Phase 5). A skim off GROSS income that hits only the
+  // spendable WALLET: lifetime / the 21M drawdown / Mastery XP are ALL credited in
+  // full (grossMined), and only netToWallet = gross×(1−upkeepRate) reaches the
+  // wallet — so upkeep slows how fast you BUY, never the win/supply/Mastery (#15).
+  // Owner chose the GENTLER end: cap 10% (not 15%). Never a bill/bankruptcy.
+  //   load       = Σ ownedCount × tierWeight (multipliers aren't taxed; carpeting
+  //                the 500th rig is)
+  //   rawUpkeep  = upkeepCap · (1 − 1/(1 + load/upkeepK))   ~0% first rigs → cap
+  //   reduced by min(upkeepReductionCap, FeeHedge); × class mod; then clamped.
+  static const double upkeepCap = 0.10; // gentler than the 0.15 design ceiling
+  static const double upkeepK = 1500.0; // [TUNE] load at which upkeep is ~half-cap
+  static const double upkeepReductionCap = 0.75; // Fee Hedge / Energy Efficiency
+  static const double upkeepClassCorp = 1.10; // Corp pays a bit more
+  static const double upkeepClassLean = 0.90; // Pool/Solo pay a bit less
+  static const double cheapEnergyUpkeepFactor = 0.5; // CHEAP ENERGY halves upkeep
+  static const double costSpikeUpkeepFactor = 1.5; // COST SPIKE raises it (clamped)
+
+  // THE BREACH — theft (Phase 5). Replaces the old instant −15% "hack": a
+  // TELEGRAPHED steal of the HOT wallet only — NEVER lifetime/supply/GovTokens/
+  // Consensus/Genesis/Mastery/Stash/best-times/chips (#27). A THREAT DETECTED
+  // banner gives a countdown to tap SECURE (fully vault, 0 loss); ignored, it
+  // steals breachBaseLoss × (1 − COLD STORAGE resistance ≤0.70), so it always
+  // lands ≥30% of base. Owner chose the GENTLER end: base loss 10% (not 15%).
+  // The FIRST breach of a save is a 0-loss DRILL (the tutorial). AIRDROP (+15%)
+  // stays as its positive twin.
+  static const double breachBaseLoss = 0.10; // gentler than the 0.15 ceiling
+  static const int breachTelegraphSeconds = 10; // countdown to SECURE
+
   // Perks
   static const double perkBaseClickPower = 5.0;
   static const double perkClickPowerGrowth = 2.0; // +2 per level

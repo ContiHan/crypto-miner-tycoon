@@ -64,6 +64,7 @@ class ResearchIds {
   static const String feeHedge = 'fee_hedge'; // cost-spike surcharge resist
   static const String stockToFlow = 'stock_to_flow'; // halving resist
   static const String steelNerves = 'steel_nerves'; // event duration resist
+  static const String coldStorageVault = 'cold_storage_vault'; // breach/theft resist
 }
 
 class PerkIds {
