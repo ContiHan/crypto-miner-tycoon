@@ -44,17 +44,23 @@ class SettingsScreen extends StatelessWidget {
               ),
               const Divider(color: Colors.white24),
 
-              // About / Credits — always available (also the win's finale).
-              ListTile(
-                title: const Text('Credits & Thanks',
-                    style: TextStyle(
-                        color: Colors.white, fontWeight: FontWeight.bold)),
-                subtitle: const Text('About the game & the human behind it',
-                    style: TextStyle(color: Colors.white70)),
-                trailing: const Icon(Icons.favorite_border, color: AppTheme.accent),
-                onTap: () => CreditsScreen.open(context),
-              ),
-              const Divider(color: Colors.white24),
+              // About / Credits — the finale. UNLOCKED only after THE LAST SATOSHI
+              // (mining a full 21M supply in one era); hidden until then so it
+              // reads as an earned reward, not something you can peek at from the
+              // start. The ending overlay also links here on the win itself.
+              if (game.hasWonGame) ...[
+                ListTile(
+                  title: const Text('Credits & Thanks',
+                      style: TextStyle(
+                          color: Colors.white, fontWeight: FontWeight.bold)),
+                  subtitle: const Text('About the game & the human behind it',
+                      style: TextStyle(color: Colors.white70)),
+                  trailing:
+                      const Icon(Icons.favorite_border, color: AppTheme.accent),
+                  onTap: () => CreditsScreen.open(context),
+                ),
+                const Divider(color: Colors.white24),
+              ],
 
               // Danger Zone
               const Padding(
