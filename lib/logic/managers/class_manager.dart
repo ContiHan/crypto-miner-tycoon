@@ -93,14 +93,15 @@ const Map<BtcClass, ClassDef> kClasses = {
     tagline: 'Satoshi-era whale',
     description:
         'Manipulates the chain itself. The best prestige gains (Consensus / '
-        'GovTokens / Genesis) and luckier rare finds, and steadier markets — '
-        'but a slow raw start.',
+        'GovTokens / Genesis), luckier rare finds, steadier markets, and strong '
+        'offline earnings — but a slow raw start.',
     icon: Icons.workspace_premium,
     color: Colors.amberAccent,
     channelBonuses: {
       Channel.hash: 0.05, // slow raw start
       Channel.luck: 0.08,
       Channel.volatility: -0.10, // steer the chaos: fewer events
+      Channel.offline: 0.10, // Satoshi-era HODLer: earns well while away
     },
     prestigeGainMult: 1.25, // best prestige farmer
   ),

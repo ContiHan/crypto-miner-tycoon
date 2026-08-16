@@ -8,6 +8,14 @@ class GameConstants {
   // lifetimeEarnings reaches it — no "own a multiple of all Bitcoin" counter.
   // After the credits, the post-game loop is Back in Time (a timed re-mine).
   static const double initialBlockReward = 50.0 * 100000000; // 50 BTC in Sats
+
+  // OFFLINE YIELD (attribute). Fraction of the live per-second rate earned while
+  // the app is closed. Base 0.70 (owner-chosen — softer than the old implicit
+  // ~100%); the `offline` channel adds to it, hard-capped at 1.0 (offline can
+  // never out-earn active play, so no softcap needed). offlineFraction =
+  // clamp(offlineBaseFraction + Σ(offline), 0, offlineFractionCap).
+  static const double offlineBaseFraction = 0.70;
+  static const double offlineFractionCap = 1.0;
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 
   // Income model (Phase 1 redesign): income/sec =

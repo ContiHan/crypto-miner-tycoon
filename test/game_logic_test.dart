@@ -103,8 +103,10 @@ void main() {
       );
       await newGame.loadGame();
 
-      expect(newGame.offlineEarningsAmount, closeTo(100, 5));
-      expect(newGame.wallet, closeTo(100, 5));
+      // 100s of offline mining at the 0.70 OFFLINE YIELD base fraction (a fresh
+      // Prospector) ≈ 70 sats, not the full ~100 the live rate would earn.
+      expect(newGame.offlineEarningsAmount, closeTo(70, 5));
+      expect(newGame.wallet, closeTo(70, 5));
     });
 
     test('Prestige Multiplier calculation', () {

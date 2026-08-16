@@ -46,6 +46,9 @@ class ResearchIds {
   static const String centralBank = 'central_bank';
   static const String neuralInterface = 'neural_interface';
   static const String quantumReflexes = 'quantum_reflexes';
+  // Attribute-foundation nodes (Phase 0)
+  static const String autonomousDaemons = 'autonomous_daemons';
+  static const String miningDaemonSwarm = 'mining_daemon_swarm';
 }
 
 class PerkIds {

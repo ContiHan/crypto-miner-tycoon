@@ -436,6 +436,13 @@ class GameLogic with ChangeNotifier {
   double get volatilityMultiplier =>
       buildChannels().multiplier(Channel.volatility, softStart: 1.5, power: 0.5);
 
+  /// OFFLINE YIELD fraction: the share of the live per-second rate earned while
+  /// the app is closed. Base 0.70 + additive `offline` sources (TECH/class/etc.),
+  /// hard-capped at 1.0 so offline can never out-earn active play.
+  double get offlineFraction => (GameConstants.offlineBaseFraction +
+          buildChannels().sum(Channel.offline))
+      .clamp(0.0, GameConstants.offlineFractionCap);
+
   // Fire-and-forget haptics that never throw (no platform channel in tests) and
   // honour the user's haptics toggle. Typed by intensity so call sites read
   // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
@@ -970,7 +977,8 @@ class GameLogic with ChangeNotifier {
   /// Applies [seconds] of passive mining at the CURRENT hash rate and returns
   /// the income earned. Single source of truth for both the 1-second live tick
   /// and the chunked offline catch-up so the two can never diverge.
-  double _accrueMining(double seconds, {required double chaosMultiplier}) {
+  double _accrueMining(double seconds,
+      {required double chaosMultiplier, double yieldFactor = 1.0}) {
     final hashRate = globalHashRate;
     if (hashRate <= 0) return 0;
     final perSecond = _miningManager.calculateMiningIncome(
@@ -986,7 +994,10 @@ class GameLogic with ChangeNotifier {
           ) *
           notorietyMultiplier,
     );
-    double income = perSecond * seconds;
+    // [yieldFactor] is the OFFLINE YIELD fraction (<=1.0) for offline catch-up;
+    // the live tick passes 1.0. Applied before the supply clamp so offline still
+    // fills — just slower — up to the inviolable per-era cap.
+    double income = perSecond * seconds * yieldFactor;
     // The per-era 21M supply cap is now INVIOLABLE (sandbox removed): income is
     // always clamped to the room left this era, so an era mines at most one full
     // 21,000,000-BTC supply.
@@ -1043,8 +1054,9 @@ class GameLogic with ChangeNotifier {
   /// simulation drive the REAL accrual path — including research/perk/stash
   /// bonuses — in fast chunks. Returns income earned.
   @visibleForTesting
-  double advanceForTest(double seconds) {
-    final earned = _accrueMining(seconds, chaosMultiplier: 1.0);
+  double advanceForTest(double seconds, {double yieldFactor = 1.0}) {
+    final earned =
+        _accrueMining(seconds, chaosMultiplier: 1.0, yieldFactor: yieldFactor);
     if (_advanceBlocks(seconds)) _triggerHalving();
     return earned;
   }
@@ -1930,7 +1942,9 @@ class GameLogic with ChangeNotifier {
     _inOfflineSim = true;
     try {
       for (int i = 0; i < iterations; i++) {
-        accrued += _accrueMining(timePerTick, chaosMultiplier: 1.0); // no chaos offline
+        accrued += _accrueMining(timePerTick,
+            chaosMultiplier: 1.0, // no chaos offline
+            yieldFactor: offlineFraction); // OFFLINE YIELD attribute
         _advanceBlocks(timePerTick);
         // Stop early once the per-era supply is exhausted (income is 0 past the
         // inviolable 21M/era cap).

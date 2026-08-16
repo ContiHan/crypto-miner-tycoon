@@ -339,6 +339,29 @@ class ResearchManager {
       effectChannel: Channel.click,
       effectValue: 1.0,
     ),
+
+    // --- OFFLINE YIELD branch (Autonomous Daemons) ---
+    // Raise the fraction of live income earned while the app is closed (base 70%).
+    ResearchNode(
+      id: ResearchIds.autonomousDaemons,
+      name: 'Autonomous Daemons',
+      description: '+15% Offline Earnings',
+      cost: 1000000,
+      icon: Icons.smart_toy,
+      requirements: [ResearchIds.coldStorage],
+      effectChannel: Channel.offline,
+      effectValue: 0.15,
+    ),
+    ResearchNode(
+      id: ResearchIds.miningDaemonSwarm,
+      name: 'Mining Daemon Swarm',
+      description: '+15% Offline Earnings',
+      cost: 25000000,
+      icon: Icons.hive,
+      requirements: [ResearchIds.autonomousDaemons],
+      effectChannel: Channel.offline,
+      effectValue: 0.15,
+    ),
   ];
 
   void reset() {
