@@ -57,6 +57,8 @@ class ResearchTab extends StatelessWidget {
                     ),
                   ),
                 ),
+                const SizedBox(height: 10),
+                _PresetBar(game: game),
               ],
             ),
           ),
@@ -234,5 +236,116 @@ class ResearchTab extends StatelessWidget {
             : 'Requires: $missing',
       );
     }
+  }
+}
+
+/// Compact preset controls: save the current build, one-tap re-apply a saved
+/// build, and toggle auto-apply. Guide text is inline (guide-everywhere).
+class _PresetBar extends StatelessWidget {
+  final GameLogic game;
+  const _PresetBar({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    final presets = game.techPresets;
+    return Column(
+      children: [
+        Row(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            OutlinedButton.icon(
+              onPressed: () {
+                game.saveTechPreset();
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                  content: Text('Build saved'),
+                  duration: Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              },
+              style: OutlinedButton.styleFrom(
+                foregroundColor: AppTheme.accent,
+                side: const BorderSide(color: AppTheme.accent),
+                padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+                minimumSize: const Size(0, 34),
+              ),
+              icon: const Icon(Icons.bookmark_add_outlined, size: 16),
+              label: const Text('SAVE BUILD', style: TextStyle(fontSize: 12)),
+            ),
+            const SizedBox(width: 8),
+            // AUTO-APPLY toggle.
+            GestureDetector(
+              onTap: () => game.setAutoApplyPresets(!game.autoApplyPresets),
+              child: Container(
+                padding:
+                    const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
+                decoration: BoxDecoration(
+                  color: game.autoApplyPresets
+                      ? AppTheme.accent.withValues(alpha: 0.2)
+                      : Colors.transparent,
+                  borderRadius: BorderRadius.circular(6),
+                  border: Border.all(
+                      color: game.autoApplyPresets
+                          ? AppTheme.accent
+                          : Colors.white24),
+                ),
+                child: Text(
+                  game.autoApplyPresets ? 'AUTO ✓' : 'AUTO',
+                  style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.bold,
+                    color: game.autoApplyPresets
+                        ? AppTheme.accent
+                        : Colors.white54,
+                  ),
+                ),
+              ),
+            ),
+          ],
+        ),
+        if (presets.isNotEmpty) ...[
+          const SizedBox(height: 8),
+          Wrap(
+            alignment: WrapAlignment.center,
+            spacing: 6,
+            runSpacing: 6,
+            children: [
+              for (var i = 0; i < presets.length; i++)
+                ActionChip(
+                  label: Text(presets[i].name,
+                      style: const TextStyle(fontSize: 11)),
+                  avatar: Icon(
+                    i == game.activeTechPreset
+                        ? Icons.play_circle_fill
+                        : Icons.play_circle_outline,
+                    size: 15,
+                    color: AppTheme.accent,
+                  ),
+                  backgroundColor: i == game.activeTechPreset
+                      ? AppTheme.accent.withValues(alpha: 0.15)
+                      : AppTheme.background,
+                  onPressed: () {
+                    final n = game.applyTechPreset(i);
+                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                      content: Text(n > 0
+                          ? 'Applied ${presets[i].name} (+$n nodes)'
+                          : '${presets[i].name}: nothing affordable yet'),
+                      duration: const Duration(seconds: 2),
+                      behavior: SnackBarBehavior.floating,
+                    ));
+                  },
+                ),
+            ],
+          ),
+        ],
+        const SizedBox(height: 6),
+        Text(
+          game.autoApplyPresets
+              ? 'Your active build re-applies automatically after every reset. Tap a build to apply it now.'
+              : 'Auto-apply is OFF. Tap a saved build to re-tech it manually.',
+          textAlign: TextAlign.center,
+          style: const TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+      ],
+    );
   }
 }

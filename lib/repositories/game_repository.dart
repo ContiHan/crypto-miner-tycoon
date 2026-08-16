@@ -48,6 +48,9 @@ class GameRepository {
     required List<Rig> rigs,
     required List<ResearchNode> researchNodes,
     Map<String, int> researchCount = const {}, // BLUEPRINTS (permanent)
+    List<Map<String, dynamic>> techPresets = const [], // PRESETS (permanent)
+    int activeTechPreset = -1,
+    bool autoApplyPresets = true,
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -108,6 +111,9 @@ class GameRepository {
       'rigs': rigs.map((r) => r.toJson()).toList(),
       'research': researchNodes.map((r) => r.toJson()).toList(),
       'researchCount': researchCount,
+      'techPresets': techPresets,
+      'activeTechPreset': activeTechPreset,
+      'autoApplyPresets': autoApplyPresets,
       'stash': stash,
       'networkDifficulty': fin(networkDifficulty),
       'blockReward': fin(blockReward),
@@ -295,6 +301,14 @@ class GameRepository {
     // BLUEPRINTS (Phase 3): permanent per-node re-tech counts (survive resets).
     if (m['researchCount'] != null) {
       normalized['researchCount'] = m['researchCount'];
+    }
+    // PRESETS (Phase 3): saved TECH builds + active index + auto-apply flag.
+    if (m['techPresets'] != null) normalized['techPresets'] = m['techPresets'];
+    if (m['activeTechPreset'] != null) {
+      normalized['activeTechPreset'] = m['activeTechPreset'];
+    }
+    if (m['autoApplyPresets'] != null) {
+      normalized['autoApplyPresets'] = m['autoApplyPresets'];
     }
 
     return normalized;

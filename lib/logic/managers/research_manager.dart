@@ -4,6 +4,27 @@ import '../../core/constants.dart';
 import '../../core/ids.dart';
 import '../channels.dart';
 
+/// A saved TECH build: a name + the set of completed node ids. Applied by the
+/// preset auto-buy to re-tech a build after a reset. Survives prestige resets.
+class TechPreset {
+  String name;
+  final Set<String> nodeIds;
+  TechPreset({required this.name, required this.nodeIds});
+
+  Map<String, dynamic> toJson() => {'name': name, 'nodeIds': nodeIds.toList()};
+
+  static TechPreset? fromJson(dynamic j) {
+    if (j is! Map) return null;
+    final name = j['name'];
+    final ids = j['nodeIds'];
+    if (name is! String || ids is! List) return null;
+    return TechPreset(
+      name: name,
+      nodeIds: ids.whereType<String>().toSet(),
+    );
+  }
+}
+
 class ResearchManager {
   // Data-driven LAB catalog. Most nodes declare an (effectChannel, effectValue)
   // applied generically via contributeChannels — adding a channel-effect node is
@@ -537,6 +558,111 @@ class ResearchManager {
 
   /// Full Wipe Save only: clears the permanent blueprint dividend.
   void wipeBlueprints() => researchCount.clear();
+
+  // ---- Presets (Phase 3 QoL) ---------------------------------------------
+  // A saved TECH build the player can one-tap re-apply after a reset. Presets
+  // survive prestige resets (only a full Wipe clears them). Capped at 3 slots.
+
+  final List<TechPreset> presets = [];
+  int activePreset = -1; // index into [presets]; -1 = none
+  bool autoApplyPresets = true; // owner: default ON, opt-out
+
+  static const int maxPresets = 3;
+
+  /// Themed auto-name from the dominant effect-channel of a completed set.
+  String autoNameFor(Set<String> nodeIds) {
+    final counts = <Channel, int>{};
+    for (final id in nodeIds) {
+      final node = researchNodes.firstWhere((n) => n.id == id,
+          orElse: () => ResearchNode(id: ''));
+      final ch = node.effectChannel;
+      if (ch != null) counts[ch] = (counts[ch] ?? 0) + 1;
+    }
+    if (counts.isEmpty) return 'Custom Build';
+    final dominant =
+        counts.entries.reduce((a, b) => a.value >= b.value ? a : b).key;
+    switch (dominant) {
+      case Channel.hash:
+        return 'Hash Whale';
+      case Channel.income:
+        return 'Yield Farmer';
+      case Channel.rigCost:
+        return 'Lean Machine';
+      case Channel.click:
+        return 'Click Tapper';
+      case Channel.prestige:
+        return 'Prestige Farmer';
+      case Channel.offline:
+        return 'HODLer';
+      case Channel.special:
+        return 'Crit Tapper';
+      case Channel.fortune:
+        return 'Fortune Hunter';
+      case Channel.nonce:
+        return 'Sharp Shooter';
+      case Channel.sweepLuck:
+        return 'High Roller';
+      case Channel.magnetism:
+        return 'Anomaly Hunter';
+      case Channel.idle:
+        return 'Deep Sleeper';
+      case Channel.crashResist:
+      case Channel.costResist:
+      case Channel.halvingResist:
+      case Channel.durationResist:
+      case Channel.theftResist:
+        return 'Fortress';
+      case Channel.luck:
+      case Channel.volatility:
+        return 'Wildcard';
+    }
+  }
+
+  /// Snapshot the currently-completed nodes into a new preset (auto-named),
+  /// making it the active one. Capped at [maxPresets] (drops the oldest).
+  /// No-op if nothing is completed. Returns the saved preset (or null).
+  TechPreset? savePreset() {
+    final ids = researchNodes
+        .where((n) => n.isCompleted)
+        .map((n) => n.id)
+        .toSet();
+    if (ids.isEmpty) return null;
+    final preset = TechPreset(name: autoNameFor(ids), nodeIds: ids);
+    presets.add(preset);
+    while (presets.length > maxPresets) {
+      presets.removeAt(0);
+    }
+    activePreset = presets.length - 1;
+    return preset;
+  }
+
+  void renamePreset(int index, String name) {
+    if (index >= 0 && index < presets.length && name.trim().isNotEmpty) {
+      presets[index].name = name.trim();
+    }
+  }
+
+  List<Map<String, dynamic>> presetsJson() =>
+      presets.map((p) => p.toJson()).toList();
+
+  void loadPresets(dynamic data, dynamic active, dynamic auto) {
+    presets.clear();
+    if (data is List) {
+      for (final e in data) {
+        final p = TechPreset.fromJson(e);
+        if (p != null) presets.add(p);
+      }
+    }
+    activePreset = (active is num) ? active.toInt() : -1;
+    if (activePreset >= presets.length) activePreset = presets.length - 1;
+    autoApplyPresets = auto is bool ? auto : true;
+  }
+
+  void wipePresets() {
+    presets.clear();
+    activePreset = -1;
+    autoApplyPresets = true;
+  }
 
   void reset() {
     for (var node in researchNodes) {

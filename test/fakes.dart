@@ -210,6 +210,9 @@ class FakeGameRepository implements GameRepository {
     double lifetimeEverSats = 0,
     bool hasWonGame = false,
     Map<String, int> researchCount = const {},
+    List<Map<String, dynamic>> techPresets = const [],
+    int activeTechPreset = -1,
+    bool autoApplyPresets = true,
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -248,6 +251,9 @@ class FakeGameRepository implements GameRepository {
     data['lifetimeEverSats'] = lifetimeEverSats;
     data['hasWonGame'] = hasWonGame;
     data['researchCount'] = researchCount;
+    data['techPresets'] = techPresets;
+    data['activeTechPreset'] = activeTechPreset;
+    data['autoApplyPresets'] = autoApplyPresets;
     data['unlockedTech'] = unlockedTech;
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;

@@ -668,6 +668,7 @@ class GameLogic with ChangeNotifier {
     _perkManager.reset();
     _researchManager.reset();
     _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
+    _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -721,6 +722,84 @@ class GameLogic with ChangeNotifier {
   }
 
   bool isResearched(String id) => _researchManager.isResearched(id);
+
+  // ---- TECH presets (Phase 3 QoL) ---------------------------------------
+  List<TechPreset> get techPresets => _researchManager.presets;
+  int get activeTechPreset => _researchManager.activePreset;
+  bool get autoApplyPresets => _researchManager.autoApplyPresets;
+
+  /// Snapshot the current TECH build into a preset (auto-named), cap 3.
+  void saveTechPreset() {
+    final p = _researchManager.savePreset();
+    if (p == null) return;
+    notifyListeners();
+    _saveGame();
+  }
+
+  void renameTechPreset(int index, String name) {
+    _researchManager.renamePreset(index, name);
+    notifyListeners();
+    _saveGame();
+  }
+
+  void setAutoApplyPresets(bool value) {
+    _researchManager.autoApplyPresets = value;
+    notifyListeners();
+    _saveGame();
+  }
+
+  /// One-tap re-tech: makes [index] the active preset and buys toward it as far
+  /// as the wallet allows (dependency-ordered). Returns how many nodes bought.
+  int applyTechPreset(int index) {
+    if (index < 0 || index >= _researchManager.presets.length) return 0;
+    _researchManager.activePreset = index;
+    final bought = _rebuildFromPreset(_researchManager.presets[index]);
+    notifyListeners();
+    _saveGame();
+    return bought;
+  }
+
+  /// Buys every affordable, unlocked, still-incomplete node in [preset], cheapest
+  /// first, repeating until a full pass buys nothing (so deeper nodes unlock as
+  /// their prereqs complete). Batches one save/notify (unlike per-node buyResearch).
+  int _rebuildFromPreset(TechPreset preset) {
+    int bought = 0;
+    final ids = preset.nodeIds.toList()
+      ..sort((a, b) => getResearchCost(a).compareTo(getResearchCost(b)));
+    bool progress = true;
+    while (progress) {
+      progress = false;
+      for (final id in ids) {
+        final cost = _researchManager.tryBuy(
+            id, wallet, _miningManager.bitcoinExchangeRate);
+        if (cost > 0) {
+          wallet -= cost;
+          bought++;
+          progress = true;
+        }
+      }
+    }
+    return bought;
+  }
+
+  /// AUTO-APPLY: on the tick / after a reset, rebuild the active preset as income
+  /// allows (owner: default ON, opt-out). Fast-exits once the build is complete.
+  void _maybeAutoApplyPreset() {
+    if (!_researchManager.autoApplyPresets) return;
+    final i = _researchManager.activePreset;
+    if (i < 0 || i >= _researchManager.presets.length) return;
+    final preset = _researchManager.presets[i];
+    final anyIncomplete = preset.nodeIds.any((id) {
+      final n = _researchManager.researchNodes
+          .firstWhere((r) => r.id == id, orElse: () => ResearchNode(id: ''));
+      return n.id.isNotEmpty && !n.isCompleted;
+    });
+    if (!anyIncomplete) return;
+    if (_rebuildFromPreset(preset) > 0) {
+      notifyListeners();
+      _saveGame();
+    }
+  }
 
   double getResearchCost(String researchId) {
     var node = _researchManager.researchNodes.firstWhere(
@@ -1157,6 +1236,9 @@ class GameLogic with ChangeNotifier {
       _soundService.playHalving();
       _hapticHeavy();
     }
+    // AUTO-APPLY: rebuild the active TECH preset as income allows (fast no-op once
+    // the build is complete or if auto-apply is off / no preset).
+    _maybeAutoApplyPreset();
     _evaluateAchievements();
     notifyListeners();
   }
@@ -1730,6 +1812,9 @@ class GameLogic with ChangeNotifier {
       rigs: rigs,
       researchNodes: _researchManager.researchNodes,
       researchCount: _researchManager.researchCountJson(), // BLUEPRINTS
+      techPresets: _researchManager.presetsJson(), // PRESETS
+      activeTechPreset: _researchManager.activePreset,
+      autoApplyPresets: _researchManager.autoApplyPresets,
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -1974,6 +2059,9 @@ class GameLogic with ChangeNotifier {
       }
       // BLUEPRINTS: permanent per-node re-tech counts (survive every reset).
       _researchManager.loadResearchCounts(data['researchCount']);
+      // PRESETS: saved TECH builds + active index + auto-apply flag.
+      _researchManager.loadPresets(data['techPresets'],
+          data['activeTechPreset'], data['autoApplyPresets']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).
