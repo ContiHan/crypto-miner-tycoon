@@ -1,10 +1,22 @@
 # Master Feasibility, Consistency & Bounds Audit
 
-Status: **PLANNING — authoritative bounds/consistency reference.** Multi-agent
-audit (consistency + worst-case bounds + multiplicative-stacking stress) →
-synthesis → adversarial review. **Verdict: FEASIBLE-WITH-CAPS** — the design is
-buildable and rail-safe *once the cap/floor checklist below is enforced in code*.
-This doc is the single source of truth for caps; the feature docs own the designs.
+Status: **BUILT & VALIDATED (Slice 10, 2026-08-16).** Multi-agent audit
+(consistency + worst-case bounds + multiplicative-stacking stress) → synthesis →
+adversarial review → **runtime validation**. **Verdict: FEASIBLE-WITH-CAPS** — the
+design is buildable and rail-safe once the cap/floor checklist below is enforced in
+code, and it now is. This doc is the single source of truth for caps; the feature
+docs own the designs.
+
+> **Slice-10 runtime validation:** [`test/build_matrix_sim_test.dart`](../test/build_matrix_sim_test.dart)
+> drives the real `GameLogic` across all **65 (class × keystone) builds** to the
+> 21M win and asserts, per build: no NaN/Infinity, wallet ≥ 0, THE POWER BILL
+> net-kept ∈ **[0.90, 1.0]** (Furnace Farm pins the 0.90 floor), and reachability
+> for every build except the documented loot/SWEEP-luck keystones a pure-mining
+> sim can't credit. Class balance measured at a **1.18× spread** (per-class
+> Back-in-Time baseline). Heatmap artifact:
+> [`docs/balance/build_matrix_heatmap.html`](balance/build_matrix_heatmap.html).
+> Runtime pacing guards also live in `full_economy_sim` / `prestige_loop_sim` /
+> `class_balance_sim`.
 
 ## Executive summary
 
