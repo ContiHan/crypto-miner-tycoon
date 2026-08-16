@@ -31,6 +31,7 @@ import '../logic/managers/class_manager.dart';
 import '../logic/systems/ability_system.dart';
 import '../logic/systems/proc_system.dart';
 import '../logic/systems/aura_system.dart';
+import '../logic/systems/keystone_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -444,7 +445,9 @@ class GameLogic with ChangeNotifier {
   double _combinedLuck(Channel facet) {
     final ch = buildChannels();
     final raw = 1 + ch.sum(Channel.luck) + ch.sum(facet);
-    return softcap(raw < 0.01 ? 0.01 : raw, 1.5, 0.5);
+    // DEGENERATE GAMBLER ×2 / ASIC MONOCULTURE ×0.4 — keystone luck lever applied
+    // outside the softcap so it can genuinely swing loot/SWEEP odds.
+    return softcap(raw < 0.01 ? 0.01 : raw, 1.5, 0.5) * keystoneMods.luckMult;
   }
 
   /// NONCE PRECISION — luck applied to crit CHANCE (clamped to the 25% cap).
@@ -460,30 +463,40 @@ class GameLogic with ChangeNotifier {
   /// IDLE CAPACITY — the offline-accrual WINDOW in seconds. Base 8h + `idle`
   /// sources (in hours), hard-capped at 24h (#16). A longer absence still only
   /// banks this many hours of offline mining.
-  double get idleCapacitySeconds =>
-      (GameConstants.offlineWindowBaseHours + buildChannels().sum(Channel.idle))
-          .clamp(GameConstants.offlineWindowBaseHours,
-              GameConstants.offlineWindowMaxHours) *
-      3600.0;
+  double get idleCapacitySeconds {
+    // COLD-WALLET DISCIPLINE ×2 (or Sweat Equity ×0.5) scales the window, but the
+    // 24h FINAL cap still binds (#16).
+    final hours = ((GameConstants.offlineWindowBaseHours +
+                buildChannels().sum(Channel.idle)) *
+            keystoneMods.idleMult)
+        .clamp(0.0, GameConstants.offlineWindowMaxHours);
+    return hours * 3600.0;
+  }
 
   // --- Resistances (Phase 2) ---------------------------------------------
-  // Each resistance is a `[0, per-lever cap]` value summed from its channel.
+  // Each resistance is a `[0, per-lever cap]` value summed from its channel, then
+  // scaled by any keystone resist lever (FORT KNOX ×1.3 toward the cap / MARKET
+  // MAKER ×0.5), still clamped to its per-lever cap so the ≤0.70 rail holds.
+  double _resist(Channel ch, double cap) =>
+      (buildChannels().sum(ch) * keystoneMods.resistMult).clamp(0.0, cap);
   double get crashResistance =>
-      buildChannels().sum(Channel.crashResist).clamp(0.0, GameConstants.resistCapMagnitude);
+      _resist(Channel.crashResist, GameConstants.resistCapMagnitude);
   double get costResistance =>
-      buildChannels().sum(Channel.costResist).clamp(0.0, GameConstants.resistCapMagnitude);
+      _resist(Channel.costResist, GameConstants.resistCapMagnitude);
   double get halvingResistance =>
-      buildChannels().sum(Channel.halvingResist).clamp(0.0, GameConstants.resistCapHalving);
+      _resist(Channel.halvingResist, GameConstants.resistCapHalving);
   double get durationResistance =>
-      buildChannels().sum(Channel.durationResist).clamp(0.0, GameConstants.resistCapDuration);
+      _resist(Channel.durationResist, GameConstants.resistCapDuration);
   double get theftResistance =>
-      buildChannels().sum(Channel.theftResist).clamp(0.0, GameConstants.resistCapMagnitude);
+      _resist(Channel.theftResist, GameConstants.resistCapMagnitude);
 
   /// THE POWER BILL: the fraction of GROSS income skimmed before it reaches the
   /// spendable wallet (0..upkeepCap). Scales with the OWNED fleet's load, reduced
   /// by Fee Hedge, nudged by class, and swung by the energy chaos events. Only the
   /// wallet is affected — lifetime/supply/Mastery always credit the gross.
   double get upkeepRate {
+    // FURNACE FARM pins upkeep to the cap (Fee Hedge/Efficiency do nothing).
+    if (keystoneMods.upkeepPinned) return GameConstants.upkeepCap;
     double load = 0;
     for (var i = 0; i < rigs.length; i++) {
       load += rigs[i].amount * (i + 1); // tierWeight = ladder position
@@ -525,6 +538,8 @@ class GameLogic with ChangeNotifier {
   /// SECURE. Only one at a time; never fires while offline (foreground event).
   void _startBreachThreat() {
     if (_breachPending || _inOfflineSim) return;
+    // COLD MINER treats a breach as a negative event it's simply immune to.
+    if (keystoneMods.immuneNegatives) return;
     _breachPending = true;
     _soundService.playEventBad();
     _hapticHeavy();
@@ -548,7 +563,11 @@ class GameLogic with ChangeNotifier {
     _breachPending = false;
     double loss = 0;
     if (!secured && _firstBreachDone) {
-      loss = wallet * GameConstants.breachBaseLoss * (1 - theftResistance);
+      // FORT KNOX ×0.2 (nearly nullified) / JUNKYARD RIGS ×1.5 (hits harder).
+      loss = wallet *
+          GameConstants.breachBaseLoss *
+          (1 - theftResistance) *
+          keystoneMods.breachLossMult;
       if (loss > 0) wallet -= loss;
     }
     _firstBreachDone = true; // the drill is spent (or a real breach happened)
@@ -567,11 +586,41 @@ class GameLogic with ChangeNotifier {
   /// Applies this run's resistances to a chaos event (thin wrapper over the pure
   /// [applyEventResistances] using the live channel-derived resistance values).
   (double, double, int) resistEvent(
-          EventType type, double income, double cost, int duration) =>
-      applyEventResistances(type, income, cost, duration,
-          crashR: crashResistance,
-          costR: costResistance,
-          durR: durationResistance);
+      EventType type, double income, double cost, int duration) {
+    // Keystone steering happens FIRST (COLD MINER immunity/suppression, MARKET
+    // MAKER ±50% amplification), THEN the normal resistance mitigation.
+    final s = _steerEventByKeystones(type, income, cost, duration);
+    return applyEventResistances(type, s.$1, s.$2, s.$3,
+        crashR: crashResistance,
+        costR: costResistance,
+        durR: durationResistance);
+  }
+
+  /// Folds the equipped keystones' chaos levers into a raw (income, cost, duration)
+  /// event tuple. COLD MINER nullifies negatives / suppresses positives; MARKET
+  /// MAKER deepens both a crash's drop and a bull's boost by ±50%.
+  (double, double, int) _steerEventByKeystones(
+      EventType type, double income, double cost, int duration) {
+    final k = keystoneMods;
+    switch (type) {
+      case EventType.marketCrash:
+        if (k.immuneNegatives) return (1.0, cost, duration);
+        return (1.0 - (1.0 - income) * k.chaosNegativeMult, cost, duration);
+      case EventType.costSpike:
+        if (k.immuneNegatives) return (income, 1.0, duration);
+        return (income, 1.0 + (cost - 1.0) * k.chaosNegativeMult, duration);
+      case EventType.bullRun:
+        if (k.suppressPositives) return (1.0, cost, duration);
+        return (1.0 + (income - 1.0) * k.chaosPositiveMult, cost, duration);
+      case EventType.cheapEnergy:
+        if (k.suppressPositives) return (income, 1.0, duration);
+        return (income, 1.0 - (1.0 - cost) * k.chaosPositiveMult, duration);
+      case EventType.airdrop:
+      case EventType.hack:
+      case EventType.info:
+        return (income, cost, duration); // handled at their own callbacks
+    }
+  }
 
   /// Pure, testable resistance math. DIAMOND HANDS softens a market crash's
   /// magnitude; FEE HEDGE softens a cost spike's surcharge; STEEL NERVES shortens
@@ -611,17 +660,22 @@ class GameLogic with ChangeNotifier {
   /// OFFLINE YIELD fraction: the share of the live per-second rate earned while
   /// the app is closed. Base 0.70 + additive `offline` sources (TECH/class/etc.),
   /// hard-capped at 1.0 so offline can never out-earn active play.
-  double get offlineFraction => (GameConstants.offlineBaseFraction +
-          buildChannels().sum(Channel.offline))
-      .clamp(0.0, GameConstants.offlineFractionCap);
+  double get offlineFraction {
+    // LOW TIME PREFERENCE / COLD-WALLET DISCIPLINE force full offline parity.
+    if (keystoneMods.offlineForceParity) return GameConstants.offlineFractionCap;
+    return (GameConstants.offlineBaseFraction +
+            buildChannels().sum(Channel.offline))
+        .clamp(0.0, GameConstants.offlineFractionCap);
+  }
 
   /// BLOCK REWARD: the crit PAYOUT multiplier. Base 5x, raised (concavely) by the
   /// `special` channel and hard-capped at critPayoutMax so stacked crit-power can
   /// never produce an absurd per-tap payout (#11). With no sources it is exactly
   /// the base 5x.
-  double get critPayoutMultiplier => (GameConstants.clickCritMultiplier +
-          GameConstants.clickCritPayoutSpecialScale *
-              softcap(buildChannels().sum(Channel.special), 1.0, 0.5))
+  double get critPayoutMultiplier => ((GameConstants.clickCritMultiplier +
+              GameConstants.clickCritPayoutSpecialScale *
+                  softcap(buildChannels().sum(Channel.special), 1.0, 0.5)) *
+          keystoneMods.critPayoutMult) // LASER EYES ×2
       .clamp(0.0, GameConstants.critPayoutMax);
 
   /// PROSPECTOR'S EYE: the per-crate-roll chance to bump the rolled rarity up one
@@ -760,6 +814,7 @@ class GameLogic with ChangeNotifier {
     _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
     _procs.clear(); // clears proc ICDs + active buffs
     _auras.reset(); // full wipe: unequip stance + auras
+    _keystones.reset(); // full wipe: unequip keystones
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -822,7 +877,26 @@ class GameLogic with ChangeNotifier {
   bool isResearchDoctrineLocked(String id) =>
       _researchManager.isDoctrineLocked(id);
   int get committedDoctrinePairs => _researchManager.committedPairCount();
+  Set<Doctrine> committedDoctrines() => _researchManager.committedDoctrines();
   static const int doctrineCommitmentBudget = ResearchManager.commitmentBudget;
+
+  // ---- Keystones (Phase 8) ----------------------------------------------
+  final KeystoneSystem _keystones = KeystoneSystem();
+
+  /// The aggregate modifier of the equipped keystones (neutral when none). Cached
+  /// per access — it folds a Set of <=2, cheap.
+  KeystoneModifiers get keystoneMods => _keystones.aggregate();
+
+  List<KeystoneDef> availableKeystones() =>
+      _keystones.availableFor(committedDoctrines());
+  bool isKeystoneEquipped(String id) => _keystones.isEquipped(id);
+  int get equippedKeystoneCount => _keystones.equipped.length;
+
+  void toggleKeystone(String id) {
+    _keystones.toggle(id, committedDoctrines());
+    notifyListeners();
+    _saveGame();
+  }
 
   // ---- TECH presets (Phase 3 QoL) ---------------------------------------
   List<TechPreset> get techPresets => _researchManager.presets;
@@ -1108,6 +1182,7 @@ class GameLogic with ChangeNotifier {
   double get prestigeGainMultiplier =>
       (classPrestigeGainMultiplier *
               consensusWeightMultiplier *
+              keystoneMods.prestigeGainMult * // LOW TIME PREFERENCE ×1.5
               (_inOfflineSim ? 1.0 : _abilities.activePrestigeGainMult(_nowMs())))
           .clamp(0.0, GameConstants.prestigeGainMax);
 
@@ -1264,7 +1339,10 @@ class GameLogic with ChangeNotifier {
       onChanged: notifyListeners,
       onBreach: _startBreachThreat, // THE BREACH: telegraphed hot-wallet theft
       onAirdropGain: () {
-        final gain = wallet * 0.15; // opposite of the hack
+        // COLD MINER suppresses the airdrop entirely; MARKET MAKER swells it +50%.
+        final k = keystoneMods;
+        if (k.suppressPositives) return 0.0;
+        final gain = wallet * 0.15 * k.chaosPositiveMult; // opposite of the hack
         wallet += gain;
         return gain;
       },
@@ -1436,7 +1514,9 @@ class GameLogic with ChangeNotifier {
     final capped = temp > GameConstants.hashTempMax
         ? GameConstants.hashTempMax
         : temp;
-    return _baseGlobalHashRate() * capped;
+    // Keystone hash lever (permanent build state; e.g. ASIC Monoculture ×2,
+    // Sweat Equity ×0.5) applies on top of everything, offline included.
+    return _baseGlobalHashRate() * capped * keystoneMods.hashMult;
   }
 
   // Fractional block accumulator, shared by the live tick and offline catch-up.
@@ -1472,8 +1552,9 @@ class GameLogic with ChangeNotifier {
     );
     // [yieldFactor] is the OFFLINE YIELD fraction (<=1.0) for offline catch-up;
     // the live tick passes 1.0. Applied before the supply clamp so offline still
-    // fills — just slower — up to the inviolable per-era cap.
-    double income = perSecond * seconds * yieldFactor;
+    // fills — just slower — up to the inviolable per-era cap. The keystone income
+    // lever (e.g. Low Time Preference ×0.70) is a real permanent income change.
+    double income = perSecond * seconds * yieldFactor * keystoneMods.incomeMult;
     // The per-era 21M supply cap is now INVIOLABLE (sandbox removed): income is
     // always clamped to the room left this era, so an era mines at most one full
     // 21,000,000-BTC supply.
@@ -1807,7 +1888,11 @@ class GameLogic with ChangeNotifier {
   // economy service so partial token progress is preserved, matching Consensus.
   int get pendingGovTokens => _economy.calculatePendingGovTokens(
     lifetimeEarnings,
-    gainMultiplier: _prestige.genesisGainMultiplier * prestigeGainMultiplier,
+    // PAPER HANDS ×2 applies only to the GovToken (Hard Fork) yield, not to the
+    // Tier-1 Consensus gain, so it lives here rather than in prestigeGainMultiplier.
+    gainMultiplier: _prestige.genesisGainMultiplier *
+        prestigeGainMultiplier *
+        keystoneMods.govTokenGainMult,
   );
 
   // Injectable so tests can force a crit / no-crit deterministically.
@@ -1833,6 +1918,8 @@ class GameLogic with ChangeNotifier {
     clickPower *= clickTemp > GameConstants.clickTempMax
         ? GameConstants.clickTempMax
         : clickTemp;
+    // SWEAT EQUITY ×2.5 / LASER EYES ×0.5 — keystone click lever (outside softcap).
+    clickPower *= keystoneMods.clickMult;
 
     double diff = networkDifficulty;
 
@@ -1861,8 +1948,11 @@ class GameLogic with ChangeNotifier {
     // pay the BLOCK REWARD crit multiplier.
     final double gCrit =
         _inOfflineSim ? 0 : _abilities.activeGuaranteedCritMult(_nowMs());
-    final bool isCrit =
-        playSound && (gCrit > 0 || _clickRng.nextDouble() < critChance);
+    // ASIC MONOCULTURE / COLD WALLET / FORT KNOX forbid crits entirely — the
+    // taps-never-crit half of their bargain.
+    final bool isCrit = !keystoneMods.noCrits &&
+        playSound &&
+        (gCrit > 0 || _clickRng.nextDouble() < critChance);
     if (isCrit) {
       clickSats *= (gCrit > 0 ? gCrit : critPayoutMultiplier);
     }
@@ -2074,9 +2164,11 @@ class GameLogic with ChangeNotifier {
     final bool frozen =
         !_inOfflineSim && _abilities.anyActive(_nowMs(), (d) => d.costFreeze);
     if (frozen) return rig.currentCost;
+    // JUNKYARD RIGS adds +0.95 into the rig-cost discount channel, slamming rigs to
+    // the −95% floor; calculateRigCost still enforces that cap + the 5% floor.
     return _economy.calculateRigCost(
       rig,
-      buildChannels().sum(Channel.rigCost),
+      buildChannels().sum(Channel.rigCost) + keystoneMods.rigCostBonus,
       chaosCostMultiplier,
       abilityCostMultiplier: _inOfflineSim ? 1.0 : _abilities.rigCostMult(_nowMs()),
     );
@@ -2138,6 +2230,7 @@ class GameLogic with ChangeNotifier {
       abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
       firstBreachDone: _firstBreachDone, // THE BREACH drill spent
       auras: _auras.toJson(), // equipped stance + auras
+      keystones: _keystones.toJson(), // equipped keystones (≤2)
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -2391,6 +2484,8 @@ class GameLogic with ChangeNotifier {
       _firstBreachDone = data['firstBreachDone'] == true;
       // Auras/stances loadout (persists across resets; full wipe clears).
       _auras.loadFrom(data['auras']);
+      // Keystones loadout (persists across resets; full wipe clears).
+      _keystones.loadFrom(data['keystones']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).

@@ -54,6 +54,7 @@ class GameRepository {
     Map<String, int> abilityCooldowns = const {}, // ability last-used (wall-clock)
     bool firstBreachDone = false, // THE BREACH: the one-time 0-loss drill is spent
     Map<String, dynamic> auras = const {}, // equipped stance + auras (loadout)
+    List<dynamic> keystones = const [], // equipped keystones (≤2, loadout)
     // Economy 2.0
     required double networkDifficulty,
     required double blockReward,
@@ -120,6 +121,7 @@ class GameRepository {
       'abilityCooldowns': abilityCooldowns,
       'firstBreachDone': firstBreachDone,
       'auras': auras,
+      'keystones': keystones,
       'stash': stash,
       'networkDifficulty': fin(networkDifficulty),
       'blockReward': fin(blockReward),
@@ -321,6 +323,7 @@ class GameRepository {
     }
     normalized['firstBreachDone'] = m['firstBreachDone'] == true;
     if (m['auras'] != null) normalized['auras'] = m['auras'];
+    if (m['keystones'] != null) normalized['keystones'] = m['keystones'];
 
     return normalized;
   }

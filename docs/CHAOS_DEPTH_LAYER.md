@@ -1,7 +1,11 @@
 # Maxi-Chaos Depth Layer — Procs, Auras, Keystones, Power Bill & The Breach
 
-Status: **PLANNING ONLY.** No code. Multi-agent design + adversarial review
-(verdict *ship-with-fixes*; must-fixes folded in below ⚑). Sits on top of
+Status: **IMPLEMENTED** (Slices 5–9, 2026-08-16). Procs, auras, 12 keystones,
+the Power Bill (upkeep), and The Breach (theft) are all live and test-covered;
+the aggregate temp-mult ceilings, upkeep net-band, wallet-only theft, and
+keystone equip-cap-2 sim-guards are wired. Was: PLANNING ONLY. Multi-agent design
++ adversarial review (verdict *ship-with-fixes*; must-fixes folded in below ⚑).
+Sits on top of
 [BUILD_DEPTH.md](BUILD_DEPTH.md) (25 attributes + doctrines + 5 keystones) and
 [ATTRIBUTES_AND_ABILITIES.md](ATTRIBUTES_AND_ABILITIES.md) (abilities).
 
@@ -112,7 +116,14 @@ doesn't bite the idle build that wants it; give it a cost the beneficiary pays.
 
 ---
 
-## C. KEYSTONES (12 — 2 per doctrine capstone, pick one)
+## C. KEYSTONES (12 — 2 per doctrine capstone, pick one) — ✅ IMPLEMENTED
+
+Live in [`keystone_system.dart`](../lib/logic/systems/keystone_system.dart)
+(`KeystoneDef`/`KeystoneModifiers`/`kKeystones`/`KeystoneSystem`), wired into
+`GameLogic` at every consumption site (hash/income/click/luck/crit-payout/
+prestige/GovToken/idle/rigCost/resist/breach/chaos-steering/upkeep-pin), equipped
+from the SKILL tab's KEYSTONES panel, persisted (loadout survives forks; full wipe
+clears), and covered by [`keystone_test.dart`](../test/keystone_test.dart).
 
 Each = one bounded lever + a symmetric real cost. **Equip ≤2** (commitment budget
 = 2 pairs → reach ≤2 capstones). Pair-exclusivity makes the scariest same-axis
