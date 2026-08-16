@@ -154,11 +154,18 @@ class ResearchTab extends StatelessWidget {
       final p = pos[n.id]!;
       final costSats = game.getResearchCost(n.id);
       final canAfford = game.wallet >= costSats;
+      // Doctrine exclusivity: a requirement-unlocked node whose pair is closed
+      // (sibling committed, or the 2-pair budget is spent) is LOCKED for the run.
+      final doctrineLocked =
+          n.isUnlocked && !n.isCompleted && game.isResearchDoctrineLocked(n.id);
       GraphNodeState state;
       String sublabel;
       if (n.isCompleted) {
         state = GraphNodeState.owned;
         sublabel = 'ACTIVE';
+      } else if (doctrineLocked) {
+        state = GraphNodeState.available; // name/icon shown, but not buyable
+        sublabel = 'LOCKED';
       } else if (n.isUnlocked) {
         state = GraphNodeState.available;
         sublabel = game.showFiatPrices
@@ -174,12 +181,13 @@ class ResearchTab extends StatelessWidget {
         y: p.dy,
         label: n.name.toUpperCase(),
         sublabel: sublabel,
-        icon: n.icon,
+        icon: doctrineLocked ? Icons.lock_outline : n.icon,
         state: state,
-        canAfford: canAfford,
+        canAfford: canAfford && !doctrineLocked,
         isGenesis: n.requirements.isEmpty,
-        onTap: () =>
-            _openResearchSheet(context, game, n, costSats, canAfford, state),
+        onTap: () => doctrineLocked
+            ? _openDoctrineLockedSheet(context, game, n)
+            : _openResearchSheet(context, game, n, costSats, canAfford, state),
       ));
       for (final r in n.requirements) {
         final req = byId[r];
@@ -193,6 +201,23 @@ class ResearchTab extends StatelessWidget {
       graphSize: Size(canvasW, 90 + maxDepth * _levelH + 160),
       initialFocus: Offset(centerX, 90), // centre on the root (top)
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing for the tree
+    );
+  }
+
+  void _openDoctrineLockedSheet(
+      BuildContext context, GameLogic game, ResearchNode n) {
+    final atBudget =
+        game.committedDoctrinePairs >= GameLogic.doctrineCommitmentBudget;
+    showGraphNodeSheet(
+      context,
+      title: n.name.toUpperCase(),
+      description: n.description,
+      lockedHint: atBudget
+          ? 'DOCTRINE LOCKED — you\'ve committed your '
+              '${GameLogic.doctrineCommitmentBudget} doctrine pairs. This branch '
+              'frees up when TECH resets at your next fork.'
+          : 'DOCTRINE LOCKED — you committed the opposing doctrine in this pair. '
+              'Only one side per pair; it frees up at your next fork.',
     );
   }
 

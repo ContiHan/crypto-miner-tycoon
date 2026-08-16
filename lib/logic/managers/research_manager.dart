@@ -25,6 +25,44 @@ class TechPreset {
   }
 }
 
+/// TECH doctrines. TRUNK (the shared cheap on-ramp) + META (never-lockable
+/// utility) are always available. The other six form three OPPOSED PAIRS
+/// (megaHash⟂leanRig, hodler⟂degenYield, degenLuck⟂coldStorage): committing one
+/// (buying any of its nodes) LOCKS its sibling for the run, and you may commit at
+/// most [ResearchManager.commitmentBudget] pairs. Keystones live at each
+/// doctrine's capstone.
+enum Doctrine {
+  trunk,
+  meta,
+  megaHash,
+  leanRig,
+  hodler,
+  degenYield,
+  degenLuck,
+  coldStorage,
+}
+
+/// The sibling doctrine within a pair (null for trunk/meta, which never lock).
+Doctrine? doctrineSibling(Doctrine d) {
+  switch (d) {
+    case Doctrine.megaHash:
+      return Doctrine.leanRig;
+    case Doctrine.leanRig:
+      return Doctrine.megaHash;
+    case Doctrine.hodler:
+      return Doctrine.degenYield;
+    case Doctrine.degenYield:
+      return Doctrine.hodler;
+    case Doctrine.degenLuck:
+      return Doctrine.coldStorage;
+    case Doctrine.coldStorage:
+      return Doctrine.degenLuck;
+    case Doctrine.trunk:
+    case Doctrine.meta:
+      return null;
+  }
+}
+
 class ResearchManager {
   // Data-driven LAB catalog. Most nodes declare an (effectChannel, effectValue)
   // applied generically via contributeChannels — adding a channel-effect node is
@@ -685,6 +723,103 @@ class ResearchManager {
     // permanent across prestige resets.
   }
 
+  // ---- Doctrines / exclusivity (Phase 3) ---------------------------------
+  // Owner: commitment budget = 2 pairs. Membership is a single central map so
+  // the requirement graph stays self-consistent: every doctrine node's prereqs
+  // are TRUNK (shared hubs) or same-doctrine, so committing a doctrine never
+  // strands a reachable node.
+  static const int commitmentBudget = 2;
+
+  static const Map<String, Doctrine> _doctrineOf = {
+    // META (never lockable)
+    ResearchIds.aiManager: Doctrine.meta,
+    // MEGA-HASH
+    ResearchIds.advancedOverclock: Doctrine.megaHash,
+    ResearchIds.neuralNet: Doctrine.megaHash,
+    ResearchIds.distributedComputing: Doctrine.megaHash,
+    ResearchIds.quantumEntanglement: Doctrine.megaHash,
+    ResearchIds.quantumOverclock: Doctrine.megaHash,
+    ResearchIds.fusionOverclock: Doctrine.megaHash,
+    ResearchIds.plasmaOverclock: Doctrine.megaHash,
+    ResearchIds.antimatterCores: Doctrine.megaHash,
+    ResearchIds.zeroPointHash: Doctrine.megaHash,
+    // LEAN-RIG
+    ResearchIds.geothermalCooling: Doctrine.leanRig,
+    ResearchIds.nanofabrication: Doctrine.leanRig,
+    ResearchIds.orbitalLogistics: Doctrine.leanRig,
+    ResearchIds.selfReplicatingRigs: Doctrine.leanRig,
+    ResearchIds.macroScripts: Doctrine.leanRig,
+    ResearchIds.neuralInterface: Doctrine.leanRig,
+    ResearchIds.quantumReflexes: Doctrine.leanRig,
+    // DEGEN-YIELD
+    ResearchIds.defiYield: Doctrine.degenYield,
+    ResearchIds.taxHaven: Doctrine.degenYield,
+    ResearchIds.liquidityMining: Doctrine.degenYield,
+    ResearchIds.algorithmicTrading: Doctrine.degenYield,
+    ResearchIds.hedgeFund: Doctrine.degenYield,
+    ResearchIds.centralBank: Doctrine.degenYield,
+    // HODLER
+    ResearchIds.autonomousDaemons: Doctrine.hodler,
+    ResearchIds.miningDaemonSwarm: Doctrine.hodler,
+    ResearchIds.consensusProtocol: Doctrine.hodler,
+    ResearchIds.governanceCartel: Doctrine.hodler,
+    // DEGEN-LUCK
+    ResearchIds.precisionHashing: Doctrine.degenLuck,
+    ResearchIds.noncePrediction: Doctrine.degenLuck,
+    ResearchIds.mempoolSniffer: Doctrine.degenLuck,
+    ResearchIds.utxoMagnet: Doctrine.degenLuck,
+    ResearchIds.assayLab: Doctrine.degenLuck,
+    // COLD-STORAGE
+    ResearchIds.diamondHands: Doctrine.coldStorage,
+    ResearchIds.stockToFlow: Doctrine.coldStorage,
+    ResearchIds.steelNerves: Doctrine.coldStorage,
+    ResearchIds.coldStorageVault: Doctrine.coldStorage,
+    ResearchIds.batteryBank: Doctrine.coldStorage,
+    ResearchIds.gridStorage: Doctrine.coldStorage,
+    // everything else (basicOverclock, chipFab, betterCooling, solarPower,
+    // marketAnalytics, ergonomicRig, coldStorage(income), bulkProcurement,
+    // highFrequencyTrading) is TRUNK by default.
+  };
+
+  Doctrine doctrineOf(String id) => _doctrineOf[id] ?? Doctrine.trunk;
+
+  /// Doctrines the run has committed to (any completed node), excluding trunk/meta.
+  Set<Doctrine> committedDoctrines() {
+    final s = <Doctrine>{};
+    for (final n in researchNodes) {
+      if (!n.isCompleted) continue;
+      final d = doctrineOf(n.id);
+      if (d != Doctrine.trunk && d != Doctrine.meta) s.add(d);
+    }
+    return s;
+  }
+
+  /// How many opposed PAIRS have a committed doctrine (0..3).
+  int committedPairCount() {
+    final c = committedDoctrines();
+    var pairs = 0;
+    if (c.contains(Doctrine.megaHash) || c.contains(Doctrine.leanRig)) pairs++;
+    if (c.contains(Doctrine.hodler) || c.contains(Doctrine.degenYield)) pairs++;
+    if (c.contains(Doctrine.degenLuck) || c.contains(Doctrine.coldStorage)) {
+      pairs++;
+    }
+    return pairs;
+  }
+
+  /// A node is doctrine-locked when its sibling doctrine is committed, or when
+  /// entering its (not-yet-committed) pair would exceed the commitment budget.
+  /// trunk/meta are never locked.
+  bool isDoctrineLocked(String id) {
+    final d = doctrineOf(id);
+    if (d == Doctrine.trunk || d == Doctrine.meta) return false;
+    final committed = committedDoctrines();
+    if (committed.contains(d)) return false; // already in this doctrine
+    final sib = doctrineSibling(d);
+    if (sib != null && committed.contains(sib)) return true; // chose the other side
+    if (committedPairCount() >= commitmentBudget) return true; // budget spent
+    return false;
+  }
+
   /// Re-derives unlock state from completed nodes. Called after loading a save so
   /// that nodes ADDED after that save was written (whose prerequisites are
   /// already completed) become purchasable instead of being stuck as locked
@@ -711,6 +846,8 @@ class ResearchManager {
 
     ResearchNode node = researchNodes[index];
     if (node.isCompleted) return 0;
+    // Exclusive doctrines: can't buy into a locked sibling / a 3rd pair.
+    if (isDoctrineLocked(researchId)) return 0;
 
     double costSats = getCostInSats(node, bitcoinExchangeRate);
 

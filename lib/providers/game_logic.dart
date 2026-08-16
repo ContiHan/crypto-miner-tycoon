@@ -817,6 +817,13 @@ class GameLogic with ChangeNotifier {
 
   bool isResearched(String id) => _researchManager.isResearched(id);
 
+  // ---- TECH doctrines (Phase 3) -----------------------------------------
+  Doctrine researchDoctrine(String id) => _researchManager.doctrineOf(id);
+  bool isResearchDoctrineLocked(String id) =>
+      _researchManager.isDoctrineLocked(id);
+  int get committedDoctrinePairs => _researchManager.committedPairCount();
+  static const int doctrineCommitmentBudget = ResearchManager.commitmentBudget;
+
   // ---- TECH presets (Phase 3 QoL) ---------------------------------------
   List<TechPreset> get techPresets => _researchManager.presets;
   int get activeTechPreset => _researchManager.activePreset;
