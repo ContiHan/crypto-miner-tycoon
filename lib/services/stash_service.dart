@@ -11,7 +11,7 @@ enum BonusType {
   clickPower, // Click Power Multiplier
   luck, // Luck: crit chance + SWEEP winnings (capped) + crate/anomaly odds
   vcInterval, // legacy, unused
-  criticalChance, // legacy, unused (superseded by luck)
+  critPayout, // BLOCK REWARD attribute: crit PAYOUT via Channel.special
 }
 
 class Artifact {
@@ -203,6 +203,12 @@ class StashService {
     Artifact(id: 'antimatter_reactor', name: 'Antimatter Reactor', description: '+275% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 2.75),
     Artifact(id: 'time_machine', name: 'Time Machine', description: '+350% Hash Rate', rarity: ArtifactRarity.mythic, bonusType: BonusType.hashRate, baseBonus: 3.5),
     Artifact(id: 'philosophers_stone', name: "Philosopher's Stone", description: '+450% Click Power', rarity: ArtifactRarity.mythic, bonusType: BonusType.clickPower, baseBonus: 4.5),
+
+    // --- BLOCK REWARD (crit payout, Channel.special) ---
+    Artifact(id: 'lucky_nonce', name: 'Lucky Nonce', description: '+8% Block Reward', rarity: ArtifactRarity.uncommon, bonusType: BonusType.critPayout, baseBonus: 0.08),
+    Artifact(id: 'golden_hash', name: 'Golden Hash', description: '+20% Block Reward', rarity: ArtifactRarity.rare, bonusType: BonusType.critPayout, baseBonus: 0.20),
+    Artifact(id: 'jackpot_seed', name: 'Jackpot Seed', description: '+50% Block Reward', rarity: ArtifactRarity.epic, bonusType: BonusType.critPayout, baseBonus: 0.50),
+    Artifact(id: 'genesis_coinbase', name: 'Genesis Coinbase', description: '+120% Block Reward', rarity: ArtifactRarity.legendary, bonusType: BonusType.critPayout, baseBonus: 1.20),
   ];
 
 
@@ -277,6 +283,19 @@ class StashService {
     return total;
   }
 
+  /// Raw additive crit-PAYOUT bonus from owned artifacts, fed into the `special`
+  /// channel (BLOCK REWARD attribute). 1.0 == +1 unit of Σspecial.
+  double getTotalCritPayoutBonus() {
+    double total = 0.0;
+    _ownedArtifacts.forEach((id, count) {
+      final artifact = _getArtifact(id);
+      if (artifact != null && artifact.bonusType == BonusType.critPayout) {
+        total += artifact.baseBonus * count;
+      }
+    });
+    return total;
+  }
+
   /// Adds owned-artifact hash, rig-cost, luck & click bonuses to the shared
   /// channel model — everything routes through the softcapped channels (no raw
   /// out-of-band multipliers).
@@ -285,6 +304,7 @@ class StashService {
     ch.add(Channel.rigCost, getMainCostDiscount()); // already a raw sum
     ch.add(Channel.luck, getTotalLuckBonus()); // raw sum
     ch.add(Channel.click, getClickPowerBonus()); // raw sum, now softcapped (#19)
+    ch.add(Channel.special, getTotalCritPayoutBonus()); // crit payout (BLOCK REWARD)
   }
   
   // === LOOT LOGIC ===

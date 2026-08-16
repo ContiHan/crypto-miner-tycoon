@@ -443,6 +443,15 @@ class GameLogic with ChangeNotifier {
           buildChannels().sum(Channel.offline))
       .clamp(0.0, GameConstants.offlineFractionCap);
 
+  /// BLOCK REWARD: the crit PAYOUT multiplier. Base 5x, raised (concavely) by the
+  /// `special` channel and hard-capped at critPayoutMax so stacked crit-power can
+  /// never produce an absurd per-tap payout (#11). With no sources it is exactly
+  /// the base 5x.
+  double get critPayoutMultiplier => (GameConstants.clickCritMultiplier +
+          GameConstants.clickCritPayoutSpecialScale *
+              softcap(buildChannels().sum(Channel.special), 1.0, 0.5))
+      .clamp(0.0, GameConstants.critPayoutMax);
+
   // Fire-and-forget haptics that never throw (no platform channel in tests) and
   // honour the user's haptics toggle. Typed by intensity so call sites read
   // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
@@ -1364,7 +1373,7 @@ class GameLogic with ChangeNotifier {
             ch.multiplier(Channel.luck, softStart: 1.5, power: 0.5))
         .clamp(0.0, GameConstants.clickCritChanceCap);
     final bool isCrit = playSound && _clickRng.nextDouble() < critChance;
-    if (isCrit) clickSats *= GameConstants.clickCritMultiplier;
+    if (isCrit) clickSats *= critPayoutMultiplier;
 
     // Re-clamp to the inviolable per-era supply cap AFTER the crit multiply
     // (mirrors _accrueMining) so a crit near the cap can't push lifetimeEarnings

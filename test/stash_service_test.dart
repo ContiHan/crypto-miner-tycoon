@@ -11,7 +11,7 @@ void main() {
 
     test('Initial State is empty', () {
       expect(stash.ownedArtifacts, isEmpty);
-      expect(stash.getClickPowerMultiplier(), 1.0);
+      expect(stash.getClickPowerBonus(), 0.0); // raw Σ (folded into Channel.click)
       expect(stash.getTotalHashBonus(), 1.0);
       // Only 5.0% cap minimum is tested in economy, but stash returns discount sum.
       expect(stash.getMainCostDiscount(), 0.0);
@@ -27,19 +27,18 @@ void main() {
       expect(stash.ownedArtifacts['old_hdd'], 1);
     });
 
-    test('Click Power Multiplier Calculation', () {
-      // 'satoshi_whitepaper' gives +100% click power (x2.0)
+    test('Click Power Bonus Calculation (raw Σ into Channel.click)', () {
+      // 'satoshi_whitepaper' gives +100% click power (raw +1.0).
       stash.loadStash({
         'artifacts': {'satoshi_whitepaper': 1},
       });
-      // 1.0 + (1 * 1.0) = 2.0
-      expect(stash.getClickPowerMultiplier(), 2.0);
+      expect(stash.getClickPowerBonus(), 1.0);
 
-      // Stack: 2 papers -> x3.0
+      // Stack: 2 papers -> +2.0 (additive within the click channel).
       stash.loadStash({
         'artifacts': {'satoshi_whitepaper': 2},
       });
-      expect(stash.getClickPowerMultiplier(), 3.0);
+      expect(stash.getClickPowerBonus(), 2.0);
     });
 
     test('Hash Rate Bonus Calculation', () {

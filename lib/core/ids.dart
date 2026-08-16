@@ -49,6 +49,7 @@ class ResearchIds {
   // Attribute-foundation nodes (Phase 0)
   static const String autonomousDaemons = 'autonomous_daemons';
   static const String miningDaemonSwarm = 'mining_daemon_swarm';
+  static const String precisionHashing = 'precision_hashing'; // crit payout (special)
 }
 
 class PerkIds {

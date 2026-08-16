@@ -362,6 +362,19 @@ class ResearchManager {
       effectChannel: Channel.offline,
       effectValue: 0.15,
     ),
+
+    // --- BLOCK REWARD branch (crit payout, Channel.special) ---
+    // Raises how much a critical tap pays (base 5x), concave + hard-capped.
+    ResearchNode(
+      id: ResearchIds.precisionHashing,
+      name: 'Precision Hashing',
+      description: '+50% Block Reward',
+      cost: 2000000,
+      icon: Icons.center_focus_strong,
+      requirements: [ResearchIds.ergonomicRig],
+      effectChannel: Channel.special,
+      effectValue: 0.50,
+    ),
   ];
 
   void reset() {

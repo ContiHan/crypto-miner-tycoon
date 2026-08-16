@@ -1,8 +1,10 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/logic/channels.dart';
 import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'test_helper.dart';
+import 'fakes.dart';
 
 /// Phase-0 attribute foundation (ATTRIBUTES_AND_ABILITIES / BUILD_DEPTH):
 /// OFFLINE YIELD, BLOCK REWARD (crit payout), CONSENSUS WEIGHT, PROSPECTOR'S EYE.
@@ -52,6 +54,52 @@ void main() {
       expect(live, greaterThan(0));
       expect(offline, closeTo(live * game.offlineFraction, live * 1e-6));
       expect(game.offlineFraction, closeTo(0.70, 1e-9)); // Prospector base
+    });
+  });
+
+  group('BLOCK REWARD attribute (crit payout)', () {
+    double expectedCrit(double special) =>
+        (GameConstants.clickCritMultiplier +
+                GameConstants.clickCritPayoutSpecialScale *
+                    softcap(special, 1.0, 0.5))
+            .clamp(0.0, GameConstants.critPayoutMax);
+
+    test('base crit payout is 5x with no special sources', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      expect(game.critPayoutMultiplier, closeTo(5.0, 1e-9));
+    });
+
+    test('the `special` channel raises crit payout concavely', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      // Genesis Coinbase = +1.20 special -> 5 + 5*softcap(1.2,1,0.5).
+      game.stashService.ownedArtifacts['genesis_coinbase'] = 1;
+      expect(game.critPayoutMultiplier, closeTo(expectedCrit(1.20), 1e-6));
+      // Add the TECH node (+0.50) -> special 1.70, still concave.
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.precisionHashing)
+          .isCompleted = true;
+      expect(game.critPayoutMultiplier, closeTo(expectedCrit(1.70), 1e-6));
+    });
+
+    test('crit payout is hard-capped at critPayoutMax', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.stashService.ownedArtifacts['genesis_coinbase'] = 100; // special 120
+      expect(game.critPayoutMultiplier, closeTo(GameConstants.critPayoutMax, 1e-9));
+    });
+
+    test('a crit tap actually pays critPayoutMultiplier x the estimate', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.stashService.ownedArtifacts['genesis_coinbase'] = 1;
+      game.clickRng = AlwaysCritRandom();
+      final est = game.estimatedClickValue;
+      final crit = game.clickMine();
+      expect(crit.isCrit, true);
+      expect(crit.sats, closeTo(est * game.critPayoutMultiplier, est * 1e-6));
+      expect(game.critPayoutMultiplier, greaterThan(5.0));
     });
   });
 }

@@ -92,10 +92,19 @@ class GameConstants {
   // out a multiple, with a gold float + heavy haptic + screen shake. Cosmetic
   // thrill only — the estimated-click readout stays the non-crit value.
   static const double clickCritChance = 0.06; // ~6% of taps crit (base)
-  static const double clickCritMultiplier = 5.0; // crit taps pay 5x
+  static const double clickCritMultiplier = 5.0; // base crit payout (5x)
   // Luck scales the crit chance up to this hard cap (keeps it a thrill, not the
   // main income source).
   static const double clickCritChanceCap = 0.25;
+
+  // BLOCK REWARD attribute — crit PAYOUT scales with the `special` channel:
+  //   critMult = clickCritMultiplier + clickCritPayoutSpecialScale ·
+  //              softcap(Σspecial, 1.0, 0.5)
+  // clamped at [critPayoutMax]. The cap is on the FINAL aggregate crit multiplier
+  // (BALANCE_AND_BOUNDS #11); ~x55 leaves headroom for future guaranteed-crit
+  // abilities × LASER EYES without letting stacked crit-power reach absurd payouts.
+  static const double clickCritPayoutSpecialScale = 5.0;
+  static const double critPayoutMax = 55.0;
 
   // Luck scales SWEEP winnings up, but the realized average return per stake is
   // clamped to this ceiling so even maxed Luck can't make it absurd. Set above
