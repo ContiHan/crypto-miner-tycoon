@@ -417,7 +417,7 @@ class ResearchManager {
       description: '+15% Offline Earnings',
       cost: 25000000,
       icon: Icons.hive,
-      requirements: [ResearchIds.autonomousDaemons],
+      requirements: [ResearchIds.batteryBank], // HODLER spine (after battery)
       effectChannel: Channel.offline,
       effectValue: 0.15,
     ),
@@ -443,7 +443,7 @@ class ResearchManager {
       description: '+25% Prestige Gain',
       cost: 5000000,
       icon: Icons.how_to_vote,
-      requirements: [ResearchIds.miningDaemonSwarm],
+      requirements: [ResearchIds.gridStorage], // HODLER spine (after idle)
       effectChannel: Channel.prestige,
       effectValue: 0.25,
     ),
@@ -510,7 +510,7 @@ class ResearchManager {
       description: '+8h Idle Capacity',
       cost: 4000000,
       icon: Icons.battery_charging_full,
-      requirements: [ResearchIds.solarPower],
+      requirements: [ResearchIds.autonomousDaemons], // HODLER spine (idle=patience)
       effectChannel: Channel.idle,
       effectValue: 8.0, // hours
     ),
@@ -520,7 +520,7 @@ class ResearchManager {
       description: '+8h Idle Capacity',
       cost: 60000000,
       icon: Icons.ev_station,
-      requirements: [ResearchIds.batteryBank],
+      requirements: [ResearchIds.miningDaemonSwarm], // HODLER spine
       effectChannel: Channel.idle,
       effectValue: 8.0, // hours (base 8 + 8 + 8 -> 24h cap)
     ),
@@ -854,8 +854,8 @@ class ResearchManager {
     ResearchIds.stockToFlow: Doctrine.coldStorage,
     ResearchIds.steelNerves: Doctrine.coldStorage,
     ResearchIds.coldStorageVault: Doctrine.coldStorage,
-    ResearchIds.batteryBank: Doctrine.coldStorage,
-    ResearchIds.gridStorage: Doctrine.coldStorage,
+    ResearchIds.batteryBank: Doctrine.hodler, // idle = patience, moved from fortress
+    ResearchIds.gridStorage: Doctrine.hodler,
     // everything else (basicOverclock, chipFab, betterCooling, solarPower,
     // marketAnalytics, ergonomicRig, coldStorage(income), bulkProcurement,
     // highFrequencyTrading) is TRUNK by default.

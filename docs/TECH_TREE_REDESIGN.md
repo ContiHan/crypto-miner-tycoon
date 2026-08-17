@@ -1,9 +1,11 @@
 # TECH tree redesign — "lean, not a combination" (device finding #5)
 
-> **STATUS: DESIGN NOTE — awaiting owner approval before code.** Grounded in a
-> read-only audit of the live tree (node ids, prereqs, effects, layout math).
-> Render pane is down this session, so it can't be visually verified here — pick
-> the direction + the open decisions below and I implement in the sliced plan.
+> **STATUS: SLICES 1–3 SHIPPED (local on main), owner-approved.** Slice 1
+> re-chain (`d9fdef3`), Slice 2 lane layout (`a4d8b65`), Slice 3 idle→HODLER move
+> (this commit). Owner kept feeHedge in TRUNK (cost-resist stays unlockable).
+> DEFERRED: Slice 4 (DEGEN-YIELD keystone re-point to income) — owner chose to
+> ship the layout/flow first; and per-lane header chips (needs a BlockGraph
+> change). Layout needs device verification (render pane down this session).
 
 ## The owner's finding (2026-08-17, phone)
 
