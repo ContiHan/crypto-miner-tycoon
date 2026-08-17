@@ -33,6 +33,7 @@ import '../logic/systems/proc_system.dart';
 import '../logic/systems/aura_system.dart';
 import '../logic/systems/keystone_system.dart';
 import '../logic/systems/firmware_system.dart';
+import '../logic/systems/breach_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -545,65 +546,45 @@ class GameLogic with ChangeNotifier {
   /// Spendable fraction of gross income (1 − upkeep), shown as "NET x%".
   double get netIncomeFraction => 1.0 - upkeepRate;
 
-  // --- THE BREACH (theft, Phase 5) ---------------------------------------
-  bool _breachPending = false;
-  bool _firstBreachDone = false; // the first breach of a save is a 0-loss drill
-  double _lastBreachLoss = 0; // for the UI result readout
-  Timer? _breachTimer;
-
-  /// True while a breach threat is telegraphing (the SECURE window is open).
-  bool get breachPending => _breachPending;
-  double get lastBreachLoss => _lastBreachLoss;
-
-  /// Starts a telegraphed breach: a countdown during which the player can tap
-  /// SECURE. Only one at a time; never fires while offline (foreground event).
-  void _startBreachThreat() {
-    if (_breachPending || _inOfflineSim) return;
-    // COLD MINER treats a breach as a negative event it's simply immune to.
-    if (keystoneMods.immuneNegatives) return;
-    _breachPending = true;
-    _soundService.playEventBad();
-    _hapticHeavy();
-    notifyListeners();
-    _breachTimer?.cancel();
-    _breachTimer = Timer(
-      const Duration(seconds: GameConstants.breachTelegraphSeconds),
-      () => resolveBreach(secured: false),
-    );
-  }
-
-  /// Resolves a pending breach. [secured] (player tapped SECURE) = 0 loss. The
-  /// FIRST breach of a save is a 0-loss drill. Otherwise steals the HOT WALLET
-  /// ONLY: loss = wallet × breachBaseLoss × (1 − COLD STORAGE resistance).
-  /// lifetime/supply/GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER
-  /// touched.
-  void resolveBreach({required bool secured}) {
-    _breachTimer?.cancel();
-    _breachTimer = null;
-    if (!_breachPending) return;
-    _breachPending = false;
-    double loss = 0;
-    if (!secured && _firstBreachDone) {
-      // FORT KNOX ×0.2 (nearly nullified) / JUNKYARD RIGS ×1.5 (hits harder).
-      loss = wallet *
+  // --- THE BREACH (theft, Phase 5) — state machine extracted to BreachSystem ---
+  late final BreachSystem _breach = BreachSystem(
+    onChanged: notifyListeners,
+    onSave: _saveGame,
+    playThreatCue: () {
+      _soundService.playEventBad();
+      _hapticHeavy();
+    },
+    // COLD MINER treats a breach as a negative event it's simply immune to; the
+    // telegraph is a foreground-only event (never while offline).
+    blocked: () => _inOfflineSim || keystoneMods.immuneNegatives,
+    // Steals the HOT WALLET ONLY: FORT KNOX ×0.2 / JUNKYARD RIGS ×1.5. Lifetime/
+    // supply/GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER touched.
+    applyLoss: () {
+      final loss = wallet *
           GameConstants.breachBaseLoss *
           (1 - theftResistance) *
           keystoneMods.breachLossMult;
-      if (loss > 0) wallet -= loss;
-    }
-    _firstBreachDone = true; // the drill is spent (or a real breach happened)
-    _lastBreachLoss = loss;
-    if (loss > 0) _fireProcs(ProcEvent.onBreach); // firmware "insurance" hooks
-    notifyListeners();
-    _saveGame();
-  }
+      if (loss > 0) {
+        wallet -= loss;
+        _fireProcs(ProcEvent.onBreach); // firmware "insurance" hooks
+      }
+      return loss;
+    },
+  );
+
+  /// True while a breach threat is telegraphing (the SECURE window is open).
+  bool get breachPending => _breach.pending;
+  double get lastBreachLoss => _breach.lastLoss;
+
+  void _startBreachThreat() => _breach.startThreat();
+  void resolveBreach({required bool secured}) => _breach.resolve(secured: secured);
 
   /// Player tapped SECURE within the telegraph window — vault the wallet (0 loss).
-  void secureBreach() => resolveBreach(secured: true);
+  void secureBreach() => _breach.secure();
 
   /// Test seam: begin a breach threat without waiting for the random chaos roll.
   @visibleForTesting
-  void debugStartBreach() => _startBreachThreat();
+  void debugStartBreach() => _breach.startThreat();
 
   /// Applies this run's resistances to a chaos event (thin wrapper over the pure
   /// [applyEventResistances] using the live channel-derived resistance values).
@@ -870,9 +851,7 @@ class GameLogic with ChangeNotifier {
     // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
     lifetimeEverSats = 0;
     hasWonGame = false;
-    _firstBreachDone = false; // fresh save → the next breach is a drill again
-    _breachTimer?.cancel();
-    _breachPending = false;
+    _breach.reset(); // fresh save → the next breach is a drill again
     pendingWinCelebration = false;
     // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
     unlockedTech = false;
@@ -1509,10 +1488,7 @@ class GameLogic with ChangeNotifier {
     _autoSaveTimer?.cancel();
     _events.stop();
     _anomaly.stop();
-    // Drop any in-flight breach threat on background (no offline theft).
-    _breachTimer?.cancel();
-    _breachTimer = null;
-    _breachPending = false;
+    _breach.stop(); // drop any in-flight breach threat on background (no offline theft)
     _timersActive = false;
   }
 
@@ -1597,7 +1573,7 @@ class GameLogic with ChangeNotifier {
   AuraContext _auraContext() => AuraContext(
         goodEvent: chaosIncomeMultiplier > 1.001 || chaosCostMultiplier < 0.999,
         badEvent: chaosIncomeMultiplier < 0.999 || chaosCostMultiplier > 1.001,
-        breachPending: _breachPending,
+        breachPending: _breach.pending,
         supplyProgress: supplyProgress,
       );
 
@@ -2406,7 +2382,7 @@ class GameLogic with ChangeNotifier {
       activeTechPreset: _researchManager.activePreset,
       autoApplyPresets: _researchManager.autoApplyPresets,
       abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
-      firstBreachDone: _firstBreachDone, // THE BREACH drill spent
+      firstBreachDone: _breach.firstBreachDone, // THE BREACH drill spent
       auras: _auras.toJson(), // equipped stance + auras
       keystones: _keystones.toJson(), // equipped keystones (≤2)
       firmware: _firmware.toJson(), // equipped Rig Firmware loadout
@@ -2660,7 +2636,7 @@ class GameLogic with ChangeNotifier {
       // Ability cooldowns (wall-clock; persist across resets, wiped on full wipe).
       _abilities.loadLastUsed(data['abilityCooldowns']);
       // THE BREACH: whether the one-time 0-loss drill has been spent.
-      _firstBreachDone = data['firstBreachDone'] == true;
+      _breach.loadFrom(data['firstBreachDone'] == true);
       // Auras/stances loadout (persists across resets; full wipe clears).
       _auras.loadFrom(data['auras']);
       // Keystones loadout (persists across resets; full wipe clears).
