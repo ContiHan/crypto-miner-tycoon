@@ -907,7 +907,7 @@ class GameLogic with ChangeNotifier {
   KeystoneModifiers get keystoneMods => _keystones.aggregate();
 
   List<KeystoneDef> availableKeystones() =>
-      _keystones.availableFor(committedDoctrines());
+      _keystones.availableOrEquipped(committedDoctrines());
   bool isKeystoneEquipped(String id) => _keystones.isEquipped(id);
   int get equippedKeystoneCount => _keystones.equipped.length;
 
@@ -1853,11 +1853,12 @@ class GameLogic with ChangeNotifier {
 
   // --- Speed Run (Genesis Sprint) ----------------------------------------
 
-  /// Unlocks once the player has prestiged at least once, so they understand
-  /// resets and have some permanent power (Genesis/Mastery/Notoriety/Stash) to
-  /// carry into the sprint.
-  bool get speedRunUnlocked =>
-      hardForkCount > 0 || newChainCount > 0 || hasWonGame;
+  /// Unlocks only AFTER the win (mining one full 21M supply). BACK IN TIME is the
+  /// post-credits replay loop, so gating it on hasWonGame — not the first Hard
+  /// Fork — keeps the normal prestige CTA and the Back-in-Time CTA from colliding
+  /// pre-win (ENDGAME_REDESIGN Review #1). The permanent spine (Genesis / Mastery /
+  /// Notoriety / Stash / chips) a winner carries in makes the sprint meaningful.
+  bool get speedRunUnlocked => hasWonGame;
 
   /// Fraction (0..1) of one full 21M-BTC supply mined in the current run.
   double get speedRunProgress =>

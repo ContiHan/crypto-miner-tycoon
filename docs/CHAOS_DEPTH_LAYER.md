@@ -147,7 +147,7 @@ double-dips structurally unreachable.
 | 4 | JUNKYARD RIGS | LEAN-RIG (Solo) | rigCost slammed to −95% floor + fast rebuilds | −40% hash/rig, theft +50% harder |
 | 5 | LOW TIME PREFERENCE* | HODLER (OG) | prestige ×1.5 + offline parity 1.0 | active income −30% |
 | 6 | COLD-WALLET DISCIPLINE | HODLER (OG/Pool) | offline parity + 24h window + Idle Capacity ×2 | foreground income −45%, no crits |
-| 7 | PAPER HANDS* | DEGEN-YIELD (Corp/OG) | GovToken gain ×2 | Consensus can't be held |
+| 7 | PAPER HANDS* | DEGEN-YIELD (Corp/OG) | GovToken gain ×2 | −25% passive income (as-built; the "Consensus decays" cost was never implemented — a passive-income tax replaces it) |
 | 8 | MARKET MAKER | DEGEN-YIELD (OG/Corp) | positive chaos +50% | negative chaos +50% + resists halved |
 | 9 | LASER EYES* | DEGEN-LUCK (Solo) | crit chance to cap + payout ×2 | non-crit taps do nothing |
 | 10 | DEGENERATE GAMBLER | DEGEN-LUCK (OG/Pool) | SWEEP to EV ceiling + rarity/anomaly maxed | passive income ×0.5, hash ×0.5 |

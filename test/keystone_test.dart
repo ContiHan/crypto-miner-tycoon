@@ -30,6 +30,30 @@ void main() {
       expect(s.isEquipped('ks_asic_monoculture'), false);
     });
 
+    test('availableOrEquipped surfaces an orphaned (equipped, uncommitted) keystone',
+        () {
+      final s = sys();
+      s.toggle('ks_asic_monoculture', {Doctrine.megaHash}); // equip in an era
+      // Next era commits a DIFFERENT doctrine (a fork reset the old one).
+      final committed = {Doctrine.coldStorage};
+      // availableFor hides the orphan → the bug (can't see/unequip it).
+      expect(s.availableFor(committed).any((k) => k.id == 'ks_asic_monoculture'),
+          false);
+      // availableOrEquipped includes it so the panel can show + unequip it.
+      final panel = s.availableOrEquipped(committed);
+      expect(panel.any((k) => k.id == 'ks_asic_monoculture'), true);
+      expect(panel.any((k) => k.doctrine == Doctrine.coldStorage), true);
+    });
+
+    test('PAPER HANDS carries a real cost (no phantom Consensus-decay)', () {
+      final s = sys();
+      s.toggle('ks_paper_hands', {Doctrine.degenYield});
+      final m = s.aggregate();
+      expect(m.govTokenGainMult, 2.0);
+      expect(m.incomeMult, closeTo(0.75, 1e-9),
+          reason: 'the GT×2 upside is paid for with −25% passive income');
+    });
+
     test('equip cap is 2 — a 3rd is refused', () {
       final s = sys();
       final committed = {Doctrine.megaHash, Doctrine.coldStorage};

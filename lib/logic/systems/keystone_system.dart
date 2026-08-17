@@ -171,9 +171,11 @@ const List<KeystoneDef> kKeystones = [
   KeystoneDef(
     id: 'ks_paper_hands',
     name: 'Paper Hands',
-    description: 'GovToken gain ×2 — but you must fork fast (Consensus decays).',
+    description: 'GovToken gain ×2 — but −25% passive income (you fork before it '
+        'compounds).',
     doctrine: Doctrine.degenYield,
     govTokenGainMult: 2.0,
+    incomeMult: 0.75, // the real, symmetric cost (was a phantom "Consensus decays")
   ),
   KeystoneDef(
     id: 'ks_market_maker',
@@ -243,6 +245,23 @@ class KeystoneSystem {
   /// Keystones offered by the doctrines the run has committed to.
   List<KeystoneDef> availableFor(Set<Doctrine> committed) =>
       kKeystones.where((k) => committed.contains(k.doctrine)).toList();
+
+  /// What the equip panel should list: the committed-doctrine keystones PLUS any
+  /// still-equipped keystone whose doctrine is no longer committed (the loadout
+  /// survives forks, but a fork resets doctrines — without this an equipped
+  /// keystone from a now-uncommitted doctrine would keep applying yet be invisible
+  /// and impossible to unequip).
+  List<KeystoneDef> availableOrEquipped(Set<Doctrine> committed) {
+    final out = availableFor(committed);
+    final ids = out.map((k) => k.id).toSet();
+    for (final id in equipped) {
+      if (!ids.contains(id)) {
+        final def = byId(id);
+        if (def != null) out.add(def);
+      }
+    }
+    return out;
+  }
 
   bool isEquipped(String id) => equipped.contains(id);
 

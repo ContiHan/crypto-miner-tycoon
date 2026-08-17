@@ -7,12 +7,14 @@ int _now() => DateTime.now().millisecondsSinceEpoch;
 
 void main() {
   group('Speed Run (Genesis Sprint)', () {
-    test('locked until the first prestige, then unlocked', () async {
+    test('locked until the win, then unlocked (post-credits replay)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      expect(game.speedRunUnlocked, false, reason: 'fresh game: no prestige yet');
+      expect(game.speedRunUnlocked, false, reason: 'fresh game: not won yet');
+      game.hardForkCount = 1; // a prestige alone no longer unlocks Back in Time
+      expect(game.speedRunUnlocked, false, reason: 'a Hard Fork does NOT unlock it');
 
-      game.hardForkCount = 1; // first Hard Fork happened
+      game.hasWonGame = true; // the win (mined a full 21M supply) unlocks it
       expect(game.speedRunUnlocked, true);
     });
 
@@ -20,7 +22,7 @@ void main() {
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1; // unlock
+      game.hasWonGame = true; // unlock
       game.wallet = 1e9;
       game.govTokens = 500;
       game.buyRig(RigIds.cpuRig);
@@ -51,7 +53,7 @@ void main() {
     test('progress tracks mined sats toward one full supply', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1;
+      game.hasWonGame = true;
       game.startSpeedRun();
 
       game.debugCreditEver(GameConstants.maxSupplySats / 2);
@@ -63,7 +65,7 @@ void main() {
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1;
+      game.hasWonGame = true;
       game.startSpeedRun();
       game.speedRunStartMs = _now() - 5000; // pretend the run started 5s ago
 
@@ -80,7 +82,7 @@ void main() {
     test('best only improves on a faster time', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1;
+      game.hasWonGame = true;
 
       // Run 1: ~3s.
       game.startSpeedRun();
@@ -107,7 +109,7 @@ void main() {
     test('abort ends the run without recording', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1;
+      game.hasWonGame = true;
       game.startSpeedRun();
       game.debugCreditEver(GameConstants.maxSupplySats / 3);
 
@@ -120,7 +122,7 @@ void main() {
     test('best time and an active run survive save + reload', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.hardForkCount = 1;
+      game.hasWonGame = true;
 
       // Complete one run to bank a best time.
       game.startSpeedRun();
