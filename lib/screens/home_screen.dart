@@ -13,7 +13,7 @@ import 'mining_tab.dart';
 import 'settings_screen.dart';
 import 'stash_screen.dart';
 import 'achievements_screen.dart';
-import '../content/achievement_defs.dart';
+import '../widgets/cyber_toast.dart';
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -135,26 +135,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final label = tabs.length == 1
         ? '${tabs.first} tab unlocked!'
         : '${tabs.join(' & ')} tabs unlocked!';
-    // Do NOT clearSnackBars() here — a tab unlock often coincides with an
-    // achievement (first Hard Fork -> SKILL + hard_first; 1M sats -> STASH +
-    // earn_1m); clearing would swallow the achievement's claim nudge. Let this
-    // one queue after it instead.
-    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.lock_open_outlined, color: Colors.black, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(label,
-                  style: const TextStyle(
-                      color: Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 3),
-        backgroundColor: AppTheme.accent,
-        behavior: SnackBarBehavior.floating,
-      ));
+    // Top-anchored cyberpunk toast (queues after any achievement toast, so both
+    // a tab unlock and its co-occurring achievement are seen).
+    showCyberToast(context, message: label, icon: Icons.lock_open_outlined);
   }
 
   /// Fire the THE LAST SATOSHI ending exactly once when the win first crosses.
@@ -195,46 +178,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
     final toasts = List.of(game.pendingAchievementToasts);
     game.clearAchievementToasts();
+    if (toasts.isEmpty) return;
 
-    // Routine unlocks rely on the persistent GOAL badge (unread count) instead of
-    // an interrupting toast — that badge already flags anything unclaimed. Only
-    // RARE unlocks (epic/legendary) still earn an active toast, so ordinary
-    // milestones no longer pop over the MINE tap zone every few taps.
-    final rare = toasts
-        .where((a) => achievementRarity(a.id).index >= AchRarity.epic.index)
-        .toList();
-    if (rare.isEmpty) return;
-
-    // Aggregate simultaneous rare unlocks into one non-spammy, actionable toast.
-    final label = rare.length == 1
-        ? 'Achievement unlocked: ${rare.first.title}'
-        : '${rare.length} rare achievements unlocked!';
-    final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
-    messenger.showSnackBar(
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.emoji_events_outlined,
-                color: Colors.black, size: 18),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text('$label  ·  tap to claim',
-                  style: const TextStyle(
-                      color: Colors.black, fontWeight: FontWeight.bold)),
-            ),
-          ],
-        ),
-        duration: const Duration(seconds: 4),
-        backgroundColor: AppTheme.accent,
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: 'VIEW',
-          textColor: Colors.black,
-          onPressed: () {
-            if (mounted) setState(() => _currentIndex = 4); // GOALS tab
-          },
-        ),
-      ),
+    // Owner: ALL unlocks toast, but TOP-anchored (away from the MINE tap zone) in
+    // a cyberpunk panel. Simultaneous unlocks aggregate into one.
+    final label = toasts.length == 1
+        ? 'Achievement unlocked: ${toasts.first.title}'
+        : '${toasts.length} achievements unlocked!';
+    showCyberToast(
+      context,
+      message: label,
+      icon: Icons.emoji_events_outlined,
+      actionLabel: 'tap to claim',
+      onTap: () {
+        if (mounted) setState(() => _currentIndex = 4); // GOALS tab
+      },
     );
   }
 
