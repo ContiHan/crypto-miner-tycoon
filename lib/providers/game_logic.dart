@@ -678,8 +678,20 @@ class GameLogic with ChangeNotifier {
       buildChannels().multiplier(Channel.volatility, softStart: 1.5, power: 0.5);
 
   /// BULL BIAS attribute — tilts chaos-event selection toward positives (never
-  /// zeroes negatives). Wired to a channel source in Slice 72b; 0.0 until then.
-  double get bullBiasStrength => 0.0;
+  /// zeroes negatives). Summed from Channel.bullBias, capped.
+  double get bullBiasStrength =>
+      buildChannels().sum(Channel.bullBias).clamp(0.0, GameConstants.bullBiasCap);
+
+  /// OVERCHARGE attribute — scales active ability BUFF magnitude and grant-seconds
+  /// (NOT durations/cooldowns). 1.0 with no sources; +overchargeCap (0.50) at most.
+  double get overchargeFactor =>
+      1.0 +
+      buildChannels().sum(Channel.overcharge).clamp(0.0, GameConstants.overchargeCap);
+
+  /// Amplifies an ability temp multiplier's BONUS by [overchargeFactor]
+  /// (a neutral 1.0 buff stays 1.0).
+  double _overcharged(double abilityMult) =>
+      abilityMult <= 1.0 ? abilityMult : 1.0 + (abilityMult - 1.0) * overchargeFactor;
 
   /// OFFLINE YIELD fraction: the share of the live per-second rate earned while
   /// the app is closed. Base 0.70 + additive `offline` sources (TECH/class/etc.),
@@ -1076,7 +1088,8 @@ class GameLogic with ChangeNotifier {
     // supply-clamped. Credits wallet + lifetime only (never speedRunMinedSats).
     if (def.instantIncomeSeconds > 0) {
       final perSec = _baseIncomePerSecond();
-      double lump = perSec * def.instantIncomeSeconds;
+      // OVERCHARGE lengthens the banked grant-seconds (magnitude, not duration).
+      double lump = perSec * def.instantIncomeSeconds * overchargeFactor;
       final room = GameConstants.maxSupplySats - lifetimeEarnings;
       if (room > 0) {
         if (lump > room) lump = room;
@@ -1145,17 +1158,19 @@ class GameLogic with ChangeNotifier {
     }
   }
 
+  // OVERCHARGE amplifies the ability buff's magnitude (its bonus above 1.0), not
+  // the proc buff; the aggregate temp ceiling (#10) still clamps the product.
   double get abilityIncomeMult => _inOfflineSim
       ? 1.0
-      : _abilities.tempMult(Channel.income, _nowMs()) *
+      : _overcharged(_abilities.tempMult(Channel.income, _nowMs())) *
           _procs.tempMult(Channel.income, _nowMs());
   double get abilityHashMult => _inOfflineSim
       ? 1.0
-      : _abilities.tempMult(Channel.hash, _nowMs()) *
+      : _overcharged(_abilities.tempMult(Channel.hash, _nowMs())) *
           _procs.tempMult(Channel.hash, _nowMs());
   double get abilityClickMult => _inOfflineSim
       ? 1.0
-      : _abilities.tempMult(Channel.click, _nowMs()) *
+      : _overcharged(_abilities.tempMult(Channel.click, _nowMs())) *
           _procs.tempMult(Channel.click, _nowMs());
 
   /// Combined live income temp lane (chaos market × ability buffs) clamped to the

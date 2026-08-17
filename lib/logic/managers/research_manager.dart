@@ -577,6 +577,40 @@ class ResearchManager {
       effectChannel: Channel.theftResist,
       effectValue: 0.40,
     ),
+    // --- Ability enhancers (Slice 72b) — TRUNK, so any build can reach them ---
+    // RIG COOLING: shortens ability cooldowns (Channel.haste, cap 0.40).
+    ResearchNode(
+      id: ResearchIds.immersionCooling,
+      name: 'Immersion Cooling',
+      description: 'RIG COOLING: ability cooldowns −20%',
+      cost: 5000000,
+      icon: Icons.ac_unit,
+      requirements: [ResearchIds.betterCooling],
+      effectChannel: Channel.haste,
+      effectValue: 0.20,
+    ),
+    // OVERCHARGE: amplifies active ability BUFF magnitude + grant-seconds (cap 0.50).
+    ResearchNode(
+      id: ResearchIds.powerCapacitors,
+      name: 'Power Capacitors',
+      description: 'OVERCHARGE: ability buffs +25% stronger',
+      cost: 8000000,
+      icon: Icons.battery_charging_full,
+      requirements: [ResearchIds.solarPower],
+      effectChannel: Channel.overcharge,
+      effectValue: 0.25,
+    ),
+    // BULL BIAS: tilts chaos events toward positives (never zeroes negatives).
+    ResearchNode(
+      id: ResearchIds.sentimentAnalysis,
+      name: 'Sentiment Analysis',
+      description: 'BULL BIAS: positive market events roll more often',
+      cost: 12000000,
+      icon: Icons.insights,
+      requirements: [ResearchIds.marketAnalytics],
+      effectChannel: Channel.bullBias,
+      effectValue: 1.0,
+    ),
   ];
 
   /// BLUEPRINTS: permanent per-node completion count. Survives every prestige
@@ -661,9 +695,13 @@ class ResearchManager {
       case Channel.durationResist:
       case Channel.theftResist:
         return 'Fortress';
+      case Channel.haste:
+      case Channel.overcharge:
+        return 'Overclocker';
+      case Channel.bullBias:
+        return 'Bull Rider';
       case Channel.luck:
       case Channel.volatility:
-      case Channel.haste:
         return 'Wildcard';
     }
   }

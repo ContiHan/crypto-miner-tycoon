@@ -65,6 +65,10 @@ class ResearchIds {
   static const String stockToFlow = 'stock_to_flow'; // halving resist
   static const String steelNerves = 'steel_nerves'; // event duration resist
   static const String coldStorageVault = 'cold_storage_vault'; // breach/theft resist
+  // Ability enhancers (Phase 4 polish / Slice 72b) — all TRUNK, ability-focused.
+  static const String immersionCooling = 'immersion_cooling'; // RIG COOLING (haste)
+  static const String powerCapacitors = 'power_capacitors'; // OVERCHARGE (buff magnitude)
+  static const String sentimentAnalysis = 'sentiment_analysis'; // BULL BIAS (chaos tilt)
 }
 
 class PerkIds {

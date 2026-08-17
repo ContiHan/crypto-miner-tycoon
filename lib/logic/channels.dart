@@ -33,6 +33,8 @@ enum Channel {
   durationResist, // STEEL NERVES — crash/cost-spike DURATION only (cap 0.60)
   theftResist, // COLD STORAGE — breach loss (cap 0.70; theft lands in Phase 5)
   haste, // RIG COOLING — ability cooldown reduction (cap 0.40)
+  bullBias, // BULL BIAS — tilt chaos toward positives (never zeroes negatives)
+  overcharge, // OVERCHARGE — +ability buff MAGNITUDE & grant-seconds (cap 0.50)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

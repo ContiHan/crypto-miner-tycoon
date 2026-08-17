@@ -54,6 +54,10 @@ class GameConstants {
   static const int abilityCdFloorUltMs = 13 * 60 * 60 * 1000; // ult never < ~13 h
   // OVERCHARGE: ability buff MAGNITUDE + grant-seconds scaling (NOT durations).
   static const double overchargeCap = 0.50; // +50% max
+  // BULL BIAS: how strongly chaos selection tilts toward positive events. The
+  // pick weights positives by (1 + bullBias); negatives keep weight 1 (never
+  // zeroed). Capped so positives can be favoured at most ~3:1.
+  static const double bullBiasCap = 2.0;
   // AGGREGATE temp-multiplier ceiling per channel (#10) — the PRODUCT of the
   // outside-softcap temp lane (ability buffs × chaos market lane) is clamped so a
   // stacked buff window stays auditable. [TUNE].

@@ -13,8 +13,9 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 48,
-          reason: 'lab (Phase 0:+6, Phase 1:+5, Phase 2:+4, Phase 5:+1 Cold Storage)');
+      expect(ResearchManager().researchNodes.length, 51,
+          reason: 'lab (Phase 0:+6, Phase 1:+5, Phase 2:+4, Phase 5:+1 Cold Storage, '
+              'Slice 72b:+3 ability enhancers)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
@@ -262,6 +263,9 @@ void main() {
         Channel.halvingResist, // STOCK-TO-FLOW (consumed via calculateMiningIncome)
         Channel.durationResist, // STEEL NERVES (consumed via resistEvent)
         Channel.theftResist, // COLD STORAGE (consumed via resolveBreach)
+        Channel.haste, // RIG COOLING (consumed via abilityHaste → cooldowns)
+        Channel.overcharge, // OVERCHARGE (consumed via overchargeFactor → buffs)
+        Channel.bullBias, // BULL BIAS (consumed via bullBiasStrength → chaos roll)
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {
