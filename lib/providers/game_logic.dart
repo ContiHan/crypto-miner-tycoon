@@ -855,6 +855,7 @@ class GameLogic with ChangeNotifier {
     // Reset Managers
     _perkManager.reset();
     _researchManager.reset();
+    _respecUsed = false; // fresh save → the free respec refreshes
     _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
     _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
     _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
@@ -925,6 +926,32 @@ class GameLogic with ChangeNotifier {
   int get committedDoctrinePairs => _researchManager.committedPairCount();
   Set<Doctrine> committedDoctrines() => _researchManager.committedDoctrines();
   static const int doctrineCommitmentBudget = ResearchManager.commitmentBudget;
+
+  // ---- One free respec per run (BUILD_DEPTH) ----------------------------
+  // Clears the TECH tree (uncommitting doctrines) once per era, so a mis-committed
+  // doctrine can be re-picked WITHOUT waiting for a fork. Blueprints (the permanent
+  // re-tech discount) survive, so re-teching is cheaper. Refreshed by every fork
+  // (which resets research anyway).
+  bool _respecUsed = false;
+
+  /// True when the one-per-era respec is available (something is completed to clear).
+  bool get respecAvailable =>
+      !_respecUsed && researchNodes.any((n) => n.isCompleted);
+
+  /// True once the free respec has been spent this era (UI shows a dim hint).
+  bool get respecSpent => _respecUsed;
+
+  /// Spend the free respec: clear the TECH tree + uncommit doctrines. No-op if
+  /// already used this era or nothing is completed.
+  void respecTech() {
+    if (!respecAvailable) return;
+    _researchManager.reset(); // clears completed nodes + re-locks (keeps blueprints)
+    _respecUsed = true;
+    _soundService.playPrestige();
+    _hapticHeavy();
+    notifyListeners();
+    _saveGame();
+  }
 
   // ---- Keystones (Phase 8) ----------------------------------------------
   final KeystoneSystem _keystones = KeystoneSystem();
@@ -1358,6 +1385,7 @@ class GameLogic with ChangeNotifier {
       gainMultiplier: prestigeGainMultiplier,
     );
     _researchManager.reset();
+    _respecUsed = false; // fresh era → the free respec refreshes
     softForkCount++;
     _soundService.playPrestige();
     _hapticHeavy();
@@ -2269,6 +2297,7 @@ class GameLogic with ChangeNotifier {
 
     // Reset Research (ResearchManager)
     _researchManager.reset();
+    _respecUsed = false; // fresh era → the free respec refreshes
 
     // Consensus is an era currency wiped by a Hard Fork.
     _prestige.onHardFork();
@@ -2327,6 +2356,7 @@ class GameLogic with ChangeNotifier {
     _unlockedRigs.clear(); // re-progress rig reveals from the first rig
     _snapshotRigTarget(); // baseline milestones from the fresh era
     _researchManager.reset();
+    _respecUsed = false; // fresh era → the free respec refreshes
     _perkManager.reset();
 
     newChainCount++;
@@ -2445,6 +2475,7 @@ class GameLogic with ChangeNotifier {
       autoApplyPresets: _researchManager.autoApplyPresets,
       abilityCooldowns: _abilities.lastUsedJson(), // ability cooldowns (wall-clock)
       firstBreachDone: _breach.firstBreachDone, // THE BREACH drill spent
+      respecUsed: _respecUsed, // free respec spent this era
       auras: _auras.toJson(), // equipped stance + auras
       keystones: _keystones.toJson(), // equipped keystones (≤2)
       firmware: _firmware.toJson(), // equipped Rig Firmware loadout
@@ -2707,6 +2738,8 @@ class GameLogic with ChangeNotifier {
       _abilities.loadLastUsed(data['abilityCooldowns']);
       // THE BREACH: whether the one-time 0-loss drill has been spent.
       _breach.loadFrom(data['firstBreachDone'] == true);
+      // The one-per-era free respec: whether it's been spent this era.
+      _respecUsed = data['respecUsed'] == true;
       // Auras/stances loadout (persists across resets; full wipe clears).
       _auras.loadFrom(data['auras']);
       // Keystones loadout (persists across resets; full wipe clears).

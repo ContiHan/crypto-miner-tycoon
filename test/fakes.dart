@@ -215,6 +215,7 @@ class FakeGameRepository implements GameRepository {
     bool autoApplyPresets = true,
     Map<String, int> abilityCooldowns = const {},
     bool firstBreachDone = false,
+    bool respecUsed = false,
     Map<String, dynamic> auras = const {},
     List<dynamic> keystones = const [],
     List<dynamic> firmware = const [],
@@ -262,6 +263,7 @@ class FakeGameRepository implements GameRepository {
     data['autoApplyPresets'] = autoApplyPresets;
     data['abilityCooldowns'] = abilityCooldowns;
     data['firstBreachDone'] = firstBreachDone;
+    data['respecUsed'] = respecUsed;
     data['auras'] = auras;
     data['keystones'] = keystones;
     data['firmware'] = firmware;

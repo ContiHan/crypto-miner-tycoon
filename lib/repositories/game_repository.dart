@@ -53,6 +53,7 @@ class GameRepository {
     bool autoApplyPresets = true,
     Map<String, int> abilityCooldowns = const {}, // ability last-used (wall-clock)
     bool firstBreachDone = false, // THE BREACH: the one-time 0-loss drill is spent
+    bool respecUsed = false, // the one-per-era free TECH respec is spent
     Map<String, dynamic> auras = const {}, // equipped stance + auras (loadout)
     List<dynamic> keystones = const [], // equipped keystones (≤2, loadout)
     List<dynamic> firmware = const [], // equipped Rig Firmware loadout
@@ -122,6 +123,7 @@ class GameRepository {
       'autoApplyPresets': autoApplyPresets,
       'abilityCooldowns': abilityCooldowns,
       'firstBreachDone': firstBreachDone,
+      'respecUsed': respecUsed,
       'auras': auras,
       'keystones': keystones,
       'firmware': firmware,
@@ -328,6 +330,7 @@ class GameRepository {
       normalized['abilityCooldowns'] = m['abilityCooldowns'];
     }
     normalized['firstBreachDone'] = m['firstBreachDone'] == true;
+    normalized['respecUsed'] = m['respecUsed'] == true;
     if (m['auras'] != null) normalized['auras'] = m['auras'];
     if (m['keystones'] != null) normalized['keystones'] = m['keystones'];
     if (m['firmware'] != null) normalized['firmware'] = m['firmware'];

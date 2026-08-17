@@ -166,12 +166,17 @@ automatically after each reset — you can turn this off, or rebuild once per ru
 Supersedes the plain REBUILD/AUTO in
 [TECH_REACQUISITION_QOL.md](TECH_REACQUISITION_QOL.md).
 
-**ONE FREE RESPEC PER RUN (owner-chosen).** After the preset auto-applies you may,
-**once per run**, clear the whole tree and manually build something different —
-re-choosing your doctrines (this is the in-run REROUTE the earlier plan deferred)
-— then **save it as a new preset**. After that single respec the doctrines lock
-again until the next fork. So: auto-apply keeps it frictionless, but experimenting
-+ saving a new build is always one tap away, without waiting for a fork.
+**ONE FREE RESPEC PER RUN (owner-chosen) — SHIPPED.** After the preset auto-applies
+you may, **once per era**, clear the whole tree and manually build something
+different — re-choosing your doctrines (this is the in-run REROUTE the earlier plan
+deferred) — then **save it as a new preset**. After that single respec the doctrines
+lock again until the next fork. So: auto-apply keeps it frictionless, but
+experimenting + saving a new build is always one tap away, without waiting for a
+fork. *As built:* a `FREE RESPEC` button in the TECH header (only shown once
+something is researched); a confirm dialog; `respecTech()` calls the same
+`ResearchManager.reset()` the forks use, so it **keeps blueprints** (re-tech stays
+discounted) and only clears node/doctrine state. The `respecUsed` flag persists in
+the save, and every fork (Soft/Hard/New Genesis) + full wipe refreshes it.
 
 **PRESET SLOTS: cap 3 (owner-chosen).** Small on purpose. Each is **auto-named by
 its dominant axis** so the player never types a name: pick the doctrine/channel

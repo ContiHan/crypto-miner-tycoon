@@ -59,6 +59,7 @@ class ResearchTab extends StatelessWidget {
                 ),
                 const SizedBox(height: 10),
                 _PresetBar(game: game),
+                _RespecBar(game: game),
               ],
             ),
           ),
@@ -371,6 +372,95 @@ class _PresetBar extends StatelessWidget {
           style: const TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
+    );
+  }
+}
+
+/// The one-per-era free respec: wipes the TECH tree (uncommitting doctrines) so a
+/// mis-picked build can be re-teched WITHOUT waiting for a fork. Blueprints (the
+/// permanent re-tech discount) survive, so it's cheap to rebuild. Refreshes at
+/// every fork. Only rendered once something is researched (nothing to undo before
+/// then); shows a dim "spent" hint after use.
+class _RespecBar extends StatelessWidget {
+  final GameLogic game;
+  const _RespecBar({required this.game});
+
+  @override
+  Widget build(BuildContext context) {
+    if (game.respecSpent) {
+      return const Padding(
+        padding: EdgeInsets.only(top: 8),
+        child: Text(
+          'FREE RESPEC SPENT — refreshes at your next fork.',
+          textAlign: TextAlign.center,
+          style: TextStyle(color: Colors.white38, fontSize: 10),
+        ),
+      );
+    }
+    if (!game.respecAvailable) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Column(
+        children: [
+          OutlinedButton.icon(
+            onPressed: () => _confirm(context),
+            style: OutlinedButton.styleFrom(
+              foregroundColor: Colors.orangeAccent,
+              side: const BorderSide(color: Colors.orangeAccent),
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 4),
+              minimumSize: const Size(0, 34),
+            ),
+            icon: const Icon(Icons.restart_alt, size: 16),
+            label: const Text('FREE RESPEC', style: TextStyle(fontSize: 12)),
+          ),
+          const SizedBox(height: 4),
+          const Text(
+            'One per era: clears the whole TECH tree and frees your committed '
+            'doctrines. Blueprints (your re-tech discount) are kept.',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white38, fontSize: 10),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirm(BuildContext context) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('FREE RESPEC',
+            style: TextStyle(color: Colors.orangeAccent)),
+        content: const Text(
+          'Clear the entire TECH tree? This uncommits every researched node and '
+          'doctrine so you can pick a new build. You keep your blueprints, so '
+          're-teching is cheaper.\n\nYou get ONE respec per era — it refreshes at '
+          'your next fork.',
+          style: TextStyle(color: AppTheme.textSecondary),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('CANCEL',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              game.respecTech();
+              Navigator.of(ctx).pop();
+              ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+                content: Text('TECH tree cleared — pick a fresh build'),
+                duration: Duration(seconds: 2),
+                behavior: SnackBarBehavior.floating,
+              ));
+            },
+            child: const Text('RESPEC',
+                style: TextStyle(
+                    color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }
