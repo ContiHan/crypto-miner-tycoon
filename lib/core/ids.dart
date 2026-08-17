@@ -69,6 +69,7 @@ class ResearchIds {
   static const String immersionCooling = 'immersion_cooling'; // RIG COOLING (haste)
   static const String powerCapacitors = 'power_capacitors'; // OVERCHARGE (buff magnitude)
   static const String sentimentAnalysis = 'sentiment_analysis'; // BULL BIAS (chaos tilt)
+  static const String firmwareBay = 'firmware_bay'; // META: +1 Rig Firmware socket
 }
 
 class PerkIds {

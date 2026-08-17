@@ -217,6 +217,7 @@ class FakeGameRepository implements GameRepository {
     bool firstBreachDone = false,
     Map<String, dynamic> auras = const {},
     List<dynamic> keystones = const [],
+    List<dynamic> firmware = const [],
     bool unlockedTech = false,
     bool unlockedStash = false,
     bool unlockedSkill = false,
@@ -262,6 +263,7 @@ class FakeGameRepository implements GameRepository {
     data['firstBreachDone'] = firstBreachDone;
     data['auras'] = auras;
     data['keystones'] = keystones;
+    data['firmware'] = firmware;
     data['unlockedTech'] = unlockedTech;
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;

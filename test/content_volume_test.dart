@@ -13,9 +13,9 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 51,
+      expect(ResearchManager().researchNodes.length, 52,
           reason: 'lab (Phase 0:+6, Phase 1:+5, Phase 2:+4, Phase 5:+1 Cold Storage, '
-              'Slice 72b:+3 ability enhancers)');
+              'Slice 72b:+3 ability enhancers, Slice 73b:+1 Firmware Bay)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });

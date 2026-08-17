@@ -611,6 +611,17 @@ class ResearchManager {
       effectChannel: Channel.bullBias,
       effectValue: 1.0,
     ),
+    // META: FIRMWARE BAY — a special node (no channel) that grants +1 Rig Firmware
+    // socket while researched (see GameLogic.firmwareCapacity).
+    ResearchNode(
+      id: ResearchIds.firmwareBay,
+      name: 'Firmware Bay',
+      description: '+1 Rig Firmware socket',
+      cost: 15000000,
+      icon: Icons.developer_board,
+      requirements: [ResearchIds.aiManager],
+      // SPECIAL: grants a firmware slot, not a channel bonus.
+    ),
   ];
 
   /// BLUEPRINTS: permanent per-node completion count. Survives every prestige
@@ -771,6 +782,7 @@ class ResearchManager {
   static const Map<String, Doctrine> _doctrineOf = {
     // META (never lockable)
     ResearchIds.aiManager: Doctrine.meta,
+    ResearchIds.firmwareBay: Doctrine.meta,
     // MEGA-HASH
     ResearchIds.advancedOverclock: Doctrine.megaHash,
     ResearchIds.neuralNet: Doctrine.megaHash,

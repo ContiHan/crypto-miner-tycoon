@@ -32,6 +32,7 @@ import '../logic/systems/ability_system.dart';
 import '../logic/systems/proc_system.dart';
 import '../logic/systems/aura_system.dart';
 import '../logic/systems/keystone_system.dart';
+import '../logic/systems/firmware_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -852,6 +853,7 @@ class GameLogic with ChangeNotifier {
     _procs.clear(); // clears proc ICDs + active buffs
     _auras.reset(); // full wipe: unequip stance + auras
     _keystones.reset(); // full wipe: unequip keystones
+    _firmware.reset(); // full wipe: clear the firmware loadout
     _miningManager.reset();
     _prestige.reset();
     _classManager.reset(); // full wipe: back to Prospector, no Mastery
@@ -932,6 +934,36 @@ class GameLogic with ChangeNotifier {
 
   void toggleKeystone(String id) {
     _keystones.toggle(id, committedDoctrines());
+    notifyListeners();
+    _saveGame();
+  }
+
+  // ---- Rig Firmware (Phase 6 / Slice 7b) --------------------------------
+  final FirmwareSystem _firmware = FirmwareSystem();
+
+  /// True once a CO-PROCESSOR keystone is equipped (8 sockets at −40% chance).
+  /// No such keystone ships yet, so this is currently always false (the capability
+  /// is wired and dormant).
+  bool get _hasCoProcessor => false;
+
+  /// Live Rig Firmware socket count: base 3 + Firmware Bay (META node) + current-
+  /// class Mastery 2 + 2 committed doctrine pairs, capped at 6 — or 8 under a
+  /// CO-PROCESSOR keystone.
+  int get firmwareCapacity {
+    final bonus = (_researchManager.isResearched(ResearchIds.firmwareBay) ? 1 : 0) +
+        (currentClassMasteryLevel >= 2 ? 1 : 0) +
+        (committedDoctrinePairs >= 2 ? 1 : 0);
+    return FirmwareSystem.capacity(
+        bonusSlots: bonus, coProcessor: _hasCoProcessor);
+  }
+
+  List<FirmwareAffix> availableFirmware() => kFirmwareAffixes;
+  bool isFirmwareEquipped(String id) => _firmware.isEquipped(id);
+  int get equippedFirmwareCount => _firmware.equipped.length;
+  List<String> get equippedFirmware => List.unmodifiable(_firmware.equipped);
+
+  void toggleFirmware(String id) {
+    _firmware.toggle(id, firmwareCapacity);
     notifyListeners();
     _saveGame();
   }
@@ -1173,7 +1205,9 @@ class GameLogic with ChangeNotifier {
         currentClass: _classManager.current,
         synthetic: synthetic,
         nowMs: _nowMs(),
-        rng: _clickRng);
+        rng: _clickRng,
+        extraSignals: _firmware.equippedSignals(
+            coProcessor: _hasCoProcessor, cap: firmwareCapacity));
     if (results.isEmpty) return;
     for (final r in results) {
       switch (r.signal.kind) {
@@ -2375,6 +2409,7 @@ class GameLogic with ChangeNotifier {
       firstBreachDone: _firstBreachDone, // THE BREACH drill spent
       auras: _auras.toJson(), // equipped stance + auras
       keystones: _keystones.toJson(), // equipped keystones (≤2)
+      firmware: _firmware.toJson(), // equipped Rig Firmware loadout
       // economy
       networkDifficulty: networkDifficulty,
       blockReward: _miningManager.blockReward,
@@ -2630,6 +2665,8 @@ class GameLogic with ChangeNotifier {
       _auras.loadFrom(data['auras']);
       // Keystones loadout (persists across resets; full wipe clears).
       _keystones.loadFrom(data['keystones']);
+      // Rig Firmware loadout (Time-Capsule: persists across resets; wipe clears).
+      _firmware.loadFrom(data['firmware']);
       // Unlock any node whose prerequisites are already completed — covers nodes
       // added by a content update after this save was written (else they stay
       // stuck as "???" and the LAB soft-locks).

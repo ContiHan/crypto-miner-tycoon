@@ -111,6 +111,21 @@ class ProcSignal {
     final floor = _icdFloorMs(_tierOf(event));
     return icdMs < floor ? floor : icdMs;
   }
+
+  /// A copy with [chance] scaled by [m] (clamped) — used by the CO-PROCESSOR
+  /// keystone, which trades more firmware sockets for a lower proc chance.
+  ProcSignal withChanceMult(double m) => ProcSignal(
+        id: id,
+        name: name,
+        event: event,
+        chance: (chance * m).clamp(0.0, 1.0),
+        kind: kind,
+        btcClass: btcClass,
+        icdMs: icdMs,
+        magnitude: magnitude,
+        buffChannel: buffChannel,
+        buffDurationMs: buffDurationMs,
+      );
 }
 
 /// The result of a fired proc, applied by GameLogic.
@@ -188,17 +203,21 @@ class ProcSystem {
 
   /// Roll every eligible signal for [event]. Returns the effects that fired.
   /// [synthetic] events (proc-produced or auto-tap) fire NOTHING (Golden Rule).
+  /// [extraSignals] are the equipped Rig Firmware affixes (already chance-scaled
+  /// for CO-PROCESSOR), rolled alongside the class-signature signals under the
+  /// same ICD / token-bucket / per-tick brakes.
   List<ProcResult> roll(
     ProcEvent event, {
     required BtcClass currentClass,
     required bool synthetic,
     required int nowMs,
     required Random rng,
+    List<ProcSignal> extraSignals = const [],
   }) {
     if (synthetic) return const [];
     _pruneLimiter(nowMs);
     final results = <ProcResult>[];
-    for (final s in signalsFor(currentClass)) {
+    for (final s in [...signalsFor(currentClass), ...extraSignals]) {
       if (s.event != event) continue;
       if (results.length >= perTickCap) break; // per-tick cap
       if (_recentResolutions.length >= limiterMax) break; // token bucket
