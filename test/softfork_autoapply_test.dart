@@ -30,7 +30,7 @@ void main() {
         reason: 'research was reset by the fork');
 
     final walletAfterFork = game.wallet;
-    game.debugTick(); // auto-apply rebuilds the preset
+    game.debugTick(); // auto-apply rebuilds the preset (spends this tick)
 
     expect(
         game.researchNodes
@@ -38,7 +38,16 @@ void main() {
             .isCompleted,
         true,
         reason: 'auto-apply re-teched the node');
-    expect(game.wallet, lessThan(walletAfterFork),
+    final spent = walletAfterFork - game.wallet;
+    expect(spent, greaterThan(0),
         reason: 'auto-apply is NOT free — it charged the discounted re-tech cost');
+
+    // The spend surfaces as a "RE-TECH · −X" toast signal once the batch settles
+    // (the tick after the rebuild finishes).
+    game.debugTick();
+    expect(game.pendingReTechSpend, greaterThan(0),
+        reason: 'the re-tech spend is exposed for a toast');
+    game.clearReTechToast();
+    expect(game.pendingReTechSpend, 0, reason: 'draining clears the signal');
   });
 }
