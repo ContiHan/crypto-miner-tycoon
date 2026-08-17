@@ -71,6 +71,16 @@ credit wallet only, never `speedRunMinedSats`.
 into a bounded **RIG FIRMWARE loadout** (3 slots → +1 at META "Firmware Bay" /
 class Mastery 2 / a deep doctrine node → cap ~6); a few class-flavored guaranteed
 TALENT procs; keystone hooks (HAIR TRIGGER, CO-PROCESSOR); onAbilityCast.
+✅ **IMPLEMENTED (Slice 7b, 2026-08-17):** the on-X engine (Slice 7) + the FIRMWARE
+loadout — [`firmware_system.dart`](../lib/logic/systems/firmware_system.dart)
+(10-affix starter pool, capacity math, graceful over-capacity projection,
+CO-PROCESSOR chance scaling, Time-Capsule persistence), a "Firmware Bay" META TECH
+node, and a socket UI on the STASH tab
+([`firmware_panel.dart`](../lib/widgets/firmware_panel.dart)). Broader hooks wired:
+onSoftFork / onHardFork / onGenesis / onBreach / onCritStreak, plus GRANT kinds
+grantCrateRoll / grantAnomaly / grantCdRefund, all under a per-window UTXO cap
+(#25). CO-PROCESSOR keystone itself is not yet a shipped keystone (capability
+dormant). Acquisition-gating of affixes is an open-pool [TUNE].
 
 **Anti-runaway brakes:** Golden Rule · per-signal ICD floors · auto-taps fire
 nothing · global token-bucket limiter (~8 resolutions / 10s) · per-tick cap ~3 ·

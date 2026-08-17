@@ -9,6 +9,7 @@ import '../services/casino_service.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
+import '../widgets/firmware_panel.dart';
 
 class StashScreen extends StatefulWidget {
   const StashScreen({super.key});
@@ -88,7 +89,7 @@ class _StashScreenState extends State<StashScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
     _gamePageController = PageController(initialPage: _selectedGame.index);
     _plinkoController = AnimationController(
         vsync: this, duration: const Duration(milliseconds: 1400));
@@ -266,6 +267,7 @@ class _StashScreenState extends State<StashScreen>
             Tab(icon: Icon(Icons.casino), text: "SWEEP"),
             Tab(icon: Icon(Icons.inventory_2), text: "CRATES"),
             Tab(icon: Icon(Icons.grid_view), text: "COLLECTION"),
+            Tab(icon: Icon(Icons.memory), text: "FIRMWARE"),
           ],
         ),
       ),
@@ -277,6 +279,7 @@ class _StashScreenState extends State<StashScreen>
               _buildCasinoTab(context, game),
               _buildMarketTab(context, game),
               _buildCollectionTab(context, game),
+              FirmwarePanel(game: game),
             ],
           );
         },
@@ -1510,3 +1513,4 @@ class _PlinkoPainter extends CustomPainter {
       old.dropping != dropping ||
       !identical(old.path, path);
 }
+
