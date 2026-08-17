@@ -663,26 +663,30 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                 borderRadius: BorderRadius.circular(8),
                                 border: Border.all(color: Colors.redAccent),
                               ),
-                              child: const Row(
+                              child: Row(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  Icon(Icons.gpp_maybe,
+                                  const Icon(Icons.gpp_maybe,
                                       color: Colors.redAccent, size: 20),
-                                  SizedBox(width: 8),
+                                  const SizedBox(width: 8),
                                   Flexible(
                                     child: Column(
                                       mainAxisSize: MainAxisSize.min,
                                       crossAxisAlignment:
                                           CrossAxisAlignment.start,
                                       children: [
-                                        Text('THREAT DETECTED — TAP TO SECURE',
-                                            style: TextStyle(
+                                        // Tier + live countdown so the player can
+                                        // gauge the severity + the SECURE window.
+                                        Text(
+                                            '${game.breachTierLabel} — TAP TO SECURE'
+                                            ' (${game.breachSecondsRemaining}s)',
+                                            style: const TextStyle(
                                                 color: Colors.redAccent,
                                                 fontWeight: FontWeight.bold,
                                                 letterSpacing: 1)),
                                         // Teach the mechanic during the telegraph
                                         // (also explains the silent first-time drill).
-                                        Text(
+                                        const Text(
                                             'A breach skims part of your HOT wallet '
                                             '— SECURE vaults it. Your first is a '
                                             'harmless drill.',

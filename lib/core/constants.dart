@@ -238,7 +238,24 @@ class GameConstants {
   // The FIRST breach of a save is a 0-loss DRILL (the tutorial). AIRDROP (+15%)
   // stays as its positive twin.
   static const double breachBaseLoss = 0.10; // gentler than the 0.15 ceiling
-  static const int breachTelegraphSeconds = 10; // countdown to SECURE
+  static const int breachTelegraphSeconds = 10; // base countdown to SECURE
+  // Cold Storage lengthens the SECURE window: +up to this many seconds at full
+  // theftResistance (0.70), so investing in defense buys reaction time.
+  static const int breachTelegraphBonusMaxSec = 8;
+  // Frequency floor: a breach can't START within this window of the previous one
+  // (docs §E ~10–15 min), so the telegraph can't spam.
+  static const int breachMinGapMs = 12 * 60 * 1000;
+  // Tiers: DUST ATTACK (frequent, tiny) / BREACH (normal) / 51% ATTACK (rare, big
+  // + a brief market dip). Loss = breachBaseLoss × tierMult. Weights sum to 100.
+  static const double breachTierDustMult = 0.3; // ~3% of hot wallet
+  static const double breachTierNormalMult = 1.0; // ~10%
+  static const double breachTier51Mult = 2.5; // ~25%
+  static const int breachTierDustWeight = 60;
+  static const int breachTierNormalWeight = 33;
+  static const int breachTier51Weight = 7;
+  // 51% ATTACK aftermath: a brief bounded income dip (never stacks with a real crash).
+  static const double breach51DipMult = 0.8;
+  static const int breach51DipSeconds = 60;
 
   // --- Procs / Rig Firmware (Slice 7 / 7b) ---
   // Per-window UTXO cap (#25): total chips granted by procs + forced anomalies

@@ -557,24 +557,43 @@ class GameLogic with ChangeNotifier {
     // COLD MINER treats a breach as a negative event it's simply immune to; the
     // telegraph is a foreground-only event (never while offline).
     blocked: () => _inOfflineSim || keystoneMods.immuneNegatives,
-    // Steals the HOT WALLET ONLY: FORT KNOX ×0.2 / JUNKYARD RIGS ×1.5. Lifetime/
-    // supply/GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER touched.
+    // Steals the HOT WALLET ONLY, scaled by the tier (DUST ×0.3 / BREACH ×1.0 /
+    // 51% ×2.5): FORT KNOX ×0.2 / JUNKYARD RIGS ×1.5 also apply. Lifetime/supply/
+    // GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER touched. A 51%
+    // attack also leaves a brief bounded market dip.
     applyLoss: () {
       final loss = wallet *
           GameConstants.breachBaseLoss *
+          _breach.tier.lossMult *
           (1 - theftResistance) *
           keystoneMods.breachLossMult;
       if (loss > 0) {
         wallet -= loss;
         _fireProcs(ProcEvent.onBreach); // firmware "insurance" hooks
+        if (_breach.tier == BreachTier.fiftyOne) {
+          _events.forceMarketDip(); // the 51% aftermath (never stacks a real crash)
+        }
       }
       return loss;
     },
+    nowMs: _nowMs,
+    // Cold Storage buys reaction time: up to +breachTelegraphBonusMaxSec at the
+    // 0.70 theft-resist cap.
+    extraTelegraphSeconds: () =>
+        (theftResistance / GameConstants.resistCapMagnitude *
+                GameConstants.breachTelegraphBonusMaxSec)
+            .round(),
   );
 
   /// True while a breach threat is telegraphing (the SECURE window is open).
   bool get breachPending => _breach.pending;
   double get lastBreachLoss => _breach.lastLoss;
+
+  /// The telegraphing breach's tier label (DUST / SECURITY BREACH / 51% ATTACK).
+  String get breachTierLabel => _breach.tier.label;
+
+  /// Seconds left in the SECURE window (0 when none pending).
+  int get breachSecondsRemaining => _breach.secondsRemaining();
 
   void _startBreachThreat() => _breach.startThreat();
   void resolveBreach({required bool secured}) => _breach.resolve(secured: secured);
@@ -583,8 +602,14 @@ class GameLogic with ChangeNotifier {
   void secureBreach() => _breach.secure();
 
   /// Test seam: begin a breach threat without waiting for the random chaos roll.
+  /// Forces [tier] (default the normal BREACH) and bypasses the frequency floor so
+  /// tests are deterministic.
   @visibleForTesting
-  void debugStartBreach() => _breach.startThreat();
+  void debugStartBreach({BreachTier tier = BreachTier.breach}) {
+    _breach.clearFrequencyFloor();
+    _breach.startThreat();
+    _breach.tier = tier;
+  }
 
   /// Applies this run's resistances to a chaos event (thin wrapper over the pure
   /// [applyEventResistances] using the live channel-derived resistance values).

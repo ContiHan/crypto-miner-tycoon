@@ -278,6 +278,22 @@ class ChaosEventSystem {
     onEventSound(true);
   }
 
+  /// The 51% ATTACK aftermath (THE BREACH): a brief bounded income dip with a
+  /// scary banner. Income-axis only, so it doesn't stack a real market crash's
+  /// cost surcharge.
+  void forceMarketDip() {
+    _applyChaos(GameConstants.breach51DipMult, 1.0,
+        GameConstants.breach51DipSeconds);
+    showNews(NewsEvent(
+      message: 'NETWORK SHAKEN — a 51% attack rattled the market.',
+      type: EventType.marketCrash,
+      value: -20,
+      durationSeconds: GameConstants.breach51DipSeconds,
+      color: Colors.redAccent,
+    ));
+    onEventSound(false);
+  }
+
   /// Test seam for the per-axis apply/expiry logic (avoids relying on the random
   /// event roll). Not used in production.
   @visibleForTesting
