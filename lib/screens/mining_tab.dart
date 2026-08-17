@@ -170,8 +170,9 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
     });
   }
 
-  Widget _buildStatItem(String label, String value, Color valueColor) {
-    return Column(
+  Widget _buildStatItem(String label, String value, Color valueColor,
+      {String? tooltip}) {
+    final col = Column(
       children: [
         Text(
           label,
@@ -192,6 +193,12 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
           ),
         ),
       ],
+    );
+    if (tooltip == null) return col;
+    return Tooltip(
+      message: tooltip,
+      triggerMode: TooltipTriggerMode.longPress,
+      child: col,
     );
   }
 
@@ -360,6 +367,13 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                           game.upkeepRate > 0.001
                                               ? Colors.orangeAccent
                                               : Colors.greenAccent,
+                                          tooltip: 'THE POWER BILL — your rig fleet '
+                                              'skims up to 10% of MINING income as '
+                                              'upkeep, taxing only your spendable '
+                                              'wallet. Your lifetime total, 21M '
+                                              'supply progress and Mastery always '
+                                              'credit the FULL amount. Fee Hedge '
+                                              'lowers it; taps are never taxed.',
                                         ),
                                       ],
                                     ),
@@ -417,7 +431,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                             ),
                                           ),
                                           Text(
-                                            'SUPPLY MINED: ${(game.supplyProgress * 100).toStringAsFixed(1)}% OF 21M',
+                                            'SUPPLY MINED: ${(game.supplyProgress * 100).toStringAsFixed(1)}% OF 21M'
+                                            '${game.hasWonGame ? '' : '  ·  WIN AT 100%'}',
                                             style: GoogleFonts.orbitron(
                                               color: Colors.white,
                                               fontSize: 10,
@@ -654,11 +669,29 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   Icon(Icons.gpp_maybe,
                                       color: Colors.redAccent, size: 20),
                                   SizedBox(width: 8),
-                                  Text('THREAT DETECTED — TAP TO SECURE',
-                                      style: TextStyle(
-                                          color: Colors.redAccent,
-                                          fontWeight: FontWeight.bold,
-                                          letterSpacing: 1)),
+                                  Flexible(
+                                    child: Column(
+                                      mainAxisSize: MainAxisSize.min,
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text('THREAT DETECTED — TAP TO SECURE',
+                                            style: TextStyle(
+                                                color: Colors.redAccent,
+                                                fontWeight: FontWeight.bold,
+                                                letterSpacing: 1)),
+                                        // Teach the mechanic during the telegraph
+                                        // (also explains the silent first-time drill).
+                                        Text(
+                                            'A breach skims part of your HOT wallet '
+                                            '— SECURE vaults it. Your first is a '
+                                            'harmless drill.',
+                                            style: TextStyle(
+                                                color: Colors.redAccent,
+                                                fontSize: 9)),
+                                      ],
+                                    ),
+                                  ),
                                 ],
                               ),
                             ),

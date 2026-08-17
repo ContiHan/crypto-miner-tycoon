@@ -125,8 +125,9 @@ class _BuffTicker extends StatelessWidget {
                     children: [
                       Icon(b.def.icon, size: 12, color: AppTheme.accent),
                       const SizedBox(width: 4),
+                      // Name so the player knows WHICH buff is running, not just a timer.
                       Text(
-                        AbilitiesBar.fmt(b.remainingMs),
+                        '${b.def.name}  ${AbilitiesBar.fmt(b.remainingMs)}',
                         style: const TextStyle(
                           fontSize: 10,
                           fontWeight: FontWeight.bold,
@@ -228,7 +229,12 @@ class _AbilityButtonState extends State<_AbilityButton>
     final game = widget.game;
     final def = widget.def;
     return Expanded(
-      child: GestureDetector(
+      // Long-press/hover reveals WHAT the ability does + its duration (the text
+      // already lived on AbilityDef.description but was never surfaced).
+      child: Tooltip(
+        message: '${def.name}\n${def.description}',
+        triggerMode: TooltipTriggerMode.longPress,
+        child: GestureDetector(
         onTap: _onTap,
         child: AnimatedBuilder(
           // Rebuild every frame: refreshes the wall-clock cooldown sweep, the
@@ -320,9 +326,10 @@ class _AbilityButtonState extends State<_AbilityButton>
               ),
             );
           },
-        ),
-      ),
-    );
+        ), // AnimatedBuilder
+      ), // GestureDetector
+      ), // Tooltip
+    ); // Expanded
   }
 }
 

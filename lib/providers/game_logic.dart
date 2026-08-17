@@ -1579,6 +1579,15 @@ class GameLogic with ChangeNotifier {
 
   List<AuraDef> availableAuras() =>
       _auras.availableFor(_classManager.current, currentClassMasteryLevel);
+
+  /// True while [auraId]'s WHILE-condition is currently satisfied — drives the
+  /// aura panel's live LIT/dim indicator so a conditional passive doesn't read as
+  /// a permanent bonus (a while-system's whole point). `always` auras are always lit.
+  bool auraConditionHolds(String auraId) {
+    final def = _auras.byId(auraId);
+    return def != null && _auraContext().matches(def.condition);
+  }
+
   String? get equippedStance => _auras.equippedStance;
   List<String> get equippedAuras => List.unmodifiable(_auras.equippedAuras);
   int auraSwitchCooldownMs() => _auras.switchCooldownRemainingMs(_nowMs());

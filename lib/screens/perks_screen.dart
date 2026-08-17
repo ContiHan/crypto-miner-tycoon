@@ -532,33 +532,68 @@ class _AurasPanel extends StatelessWidget {
     final auras = available.where((a) => a.kind == AuraKind.aura).toList();
     final locked = game.auraSwitchCooldownMs() > 0;
 
-    Widget chip(AuraDef d, bool on) => Padding(
-          padding: const EdgeInsets.only(right: 6, bottom: 6),
-          child: Tooltip(
-            message: d.description,
-            child: GestureDetector(
-              onTap: () => d.kind == AuraKind.stance
-                  ? game.equipStance(d.id)
-                  : game.toggleAura(d.id),
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: on
-                      ? AppTheme.accent.withValues(alpha: 0.18)
-                      : AppTheme.background,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: on ? AppTheme.accent : Colors.white24),
-                ),
-                child: Text(d.name,
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: on ? AppTheme.accent : Colors.white70)),
+    Widget chip(AuraDef d, bool on) {
+      // Live LIT/dim: an equipped aura only ACTS while its while-condition holds.
+      // ● filled = active now; ○ hollow = equipped but dormant (waiting).
+      final live = on && game.auraConditionHolds(d.id);
+      final dormant = on && !live;
+      return Padding(
+        padding: const EdgeInsets.only(right: 6, bottom: 6),
+        child: Tooltip(
+          message: on
+              ? '${d.description}\n${live ? '● ACTIVE now' : '○ equipped — waiting for its condition'}'
+              : d.description,
+          child: GestureDetector(
+            onTap: () => d.kind == AuraKind.stance
+                ? game.equipStance(d.id)
+                : game.toggleAura(d.id),
+            child: Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: live
+                    ? AppTheme.accent.withValues(alpha: 0.18)
+                    : dormant
+                        ? AppTheme.accent.withValues(alpha: 0.05)
+                        : AppTheme.background,
+                borderRadius: BorderRadius.circular(6),
+                border: Border.all(
+                    color: live
+                        ? AppTheme.accent
+                        : dormant
+                            ? AppTheme.accent.withValues(alpha: 0.4)
+                            : Colors.white24),
+              ),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  if (on) ...[
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: live ? AppTheme.accent : Colors.transparent,
+                        border: Border.all(
+                            color: live ? AppTheme.accent : Colors.white38),
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                  ],
+                  Text(d.name,
+                      style: TextStyle(
+                          fontSize: 11,
+                          color: live
+                              ? AppTheme.accent
+                              : dormant
+                                  ? Colors.white54
+                                  : Colors.white70)),
+                ],
               ),
             ),
           ),
-        );
+        ),
+      );
+    }
 
     return Container(
       margin: const EdgeInsets.only(top: 10),
@@ -604,7 +639,9 @@ class _AurasPanel extends StatelessWidget {
           ]),
           const SizedBox(height: 2),
           const Text(
-            'Conditional passives — active only while their condition holds.',
+            'Conditional passives — active only while their condition holds. '
+            '● lit = acting now · ○ = equipped, waiting for its condition. '
+            'Shown raw %; on-channel bonuses soft-cap when stacked.',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],
