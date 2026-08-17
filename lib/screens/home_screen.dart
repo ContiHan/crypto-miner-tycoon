@@ -13,6 +13,7 @@ import 'mining_tab.dart';
 import 'settings_screen.dart';
 import 'stash_screen.dart';
 import 'achievements_screen.dart';
+import '../content/achievement_defs.dart';
 import '../utils/formatter.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -96,6 +97,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (game.offlineEarningsAmount != null) {
       _showOfflineEarningsDialog(context, game, game.offlineEarningsAmount!);
     }
+    // Show full-screen overlays (WELCOME BACK already above, ending, speed-run)
+    // BEFORE toasts, so the toast guard sees the overlay is up and defers — this
+    // is what stops the win achievement toast from landing over the ending.
+    _maybeShowEnding(game);
+    _maybeShowSpeedRunComplete(game);
     if (game.pendingAchievementToasts.isNotEmpty) {
       _showAchievementToasts(game);
     }
@@ -109,11 +115,20 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         (_currentIndex == 3 && !game.unlockedStash) ||
         (_currentIndex == 4 && !game.unlockedGoal);
     if (onLocked && mounted) setState(() => _currentIndex = 2); // fall back to MINE
-    _maybeShowEnding(game);
-    _maybeShowSpeedRunComplete(game);
   }
 
+  /// True while a full-screen overlay (ending, credits, WELCOME BACK, speed-run
+  /// complete) is on top — toasts must never paint over these (a SnackBar sits
+  /// above the Navigator, so without this guard it renders on top of them).
+  bool _fullScreenOverlayUp(GameLogic game) =>
+      game.pendingWinCelebration ||
+      _offlineDialogOpen ||
+      _speedRunOverlayOpen ||
+      !(ModalRoute.of(context)?.isCurrent ?? true);
+
   void _showTabUnlockToasts(GameLogic game) {
+    // Never over a full-screen overlay — keep queued for a later tick.
+    if (_fullScreenOverlayUp(game)) return;
     final tabs = List.of(game.pendingTabUnlockToasts);
     game.clearTabUnlockToasts();
     if (tabs.isEmpty) return;
@@ -172,14 +187,28 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _showAchievementToasts(GameLogic game) {
+    if (game.pendingAchievementToasts.isEmpty) return;
+    // Never toast over a full-screen overlay (ending/credits/WELCOME BACK/speed-
+    // run). Do NOT drain — the unlocks stay queued and surface on a later tick,
+    // after the overlay is dismissed. This is the win-overlap fix.
+    if (_fullScreenOverlayUp(game)) return;
+
     final toasts = List.of(game.pendingAchievementToasts);
     game.clearAchievementToasts();
-    if (toasts.isEmpty) return;
 
-    // Aggregate simultaneous unlocks into one non-spammy, actionable toast.
-    final label = toasts.length == 1
-        ? 'Achievement unlocked: ${toasts.first.title}'
-        : '${toasts.length} achievements unlocked!';
+    // Routine unlocks rely on the persistent GOAL badge (unread count) instead of
+    // an interrupting toast — that badge already flags anything unclaimed. Only
+    // RARE unlocks (epic/legendary) still earn an active toast, so ordinary
+    // milestones no longer pop over the MINE tap zone every few taps.
+    final rare = toasts
+        .where((a) => achievementRarity(a.id).index >= AchRarity.epic.index)
+        .toList();
+    if (rare.isEmpty) return;
+
+    // Aggregate simultaneous rare unlocks into one non-spammy, actionable toast.
+    final label = rare.length == 1
+        ? 'Achievement unlocked: ${rare.first.title}'
+        : '${rare.length} rare achievements unlocked!';
     final messenger = ScaffoldMessenger.of(context)..clearSnackBars();
     messenger.showSnackBar(
       SnackBar(
