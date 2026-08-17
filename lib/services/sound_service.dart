@@ -32,6 +32,11 @@ class SoundService {
   ];
 
   final Map<String, AudioPlayer> _players = {};
+
+  /// Effects whose native player has been primed (source pre-loaded). A primed
+  /// player replays via seek+resume, which reuses the already-configured audio
+  /// track — this is what avoids the cold-start glitch (see [_prime]).
+  final Set<String> _primed = {};
   bool _muted = false;
 
   SoundService() {
@@ -40,6 +45,24 @@ class SoundService {
       player.setReleaseMode(ReleaseMode.stop);
       player.setVolume(1.0);
       _players[name] = player;
+    }
+    _prime(); // fire-and-forget: warm every player before its first audible use
+  }
+
+  /// Pre-load each effect's source at startup WITHOUT playing it. On Android the
+  /// FIRST play() of a fresh player renders before the native audio track is
+  /// configured with the asset's sample rate, so the first cue comes out loud
+  /// and high-pitched. Pre-loading the source pays that native setup cost up
+  /// front (silently — no playback, no volume change, so nothing to race with),
+  /// and real plays then replay the warmed track via seek+resume in [_play].
+  Future<void> _prime() async {
+    for (final entry in _players.entries) {
+      try {
+        await entry.value.setSource(AssetSource('sounds/${entry.key}.wav'));
+        _primed.add(entry.key);
+      } catch (_) {
+        // A failed prime just means this cue takes the cold play() path once.
+      }
     }
   }
 
@@ -59,10 +82,23 @@ class SoundService {
     final player = _players[name];
     if (player == null) return;
     try {
-      await player.play(AssetSource('sounds/$name.wav'));
+      if (_primed.contains(name)) {
+        // Warmed track: restart from 0 and resume — no re-prepare, so no
+        // cold-start pitch/volume glitch.
+        await player.seek(Duration.zero);
+        await player.resume();
+      } else {
+        // Priming hasn't landed yet — take the plain path this once.
+        await player.play(AssetSource('sounds/$name.wav'));
+      }
     } catch (e) {
-      // Missing/invalid asset must not crash the game or spam the user.
-      debugPrint('SoundService: could not play sounds/$name.wav: $e');
+      // Never let a cue go silent: if the warmed replay path failed, retry with
+      // a plain play() (and only then give up so we don't crash or spam).
+      try {
+        await player.play(AssetSource('sounds/$name.wav'));
+      } catch (e2) {
+        debugPrint('SoundService: could not play sounds/$name.wav: $e2');
+      }
     }
   }
 
