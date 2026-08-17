@@ -112,8 +112,9 @@ class PerksScreen extends StatelessWidget {
                 // Live overview: passive racials + bonuses from SKILL nodes
                 // bought this run + Mastery (so you can always see the class state).
                 if (game.hasChosenClass) _classOverview(context, game),
-                if (game.hasChosenClass) _AurasPanel(game: game),
-                if (game.hasChosenClass) _KeystonesPanel(game: game),
+                // Auras + keystones moved into a modal (like CLASS BONUSES) to
+                // free up the cramped header — a summary row opens the loadout.
+                if (game.hasChosenClass) _loadoutOverview(context, game),
               ],
             ),
           ),
@@ -377,6 +378,123 @@ class PerksScreen extends StatelessWidget {
                   ),
                 ),
               ],
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+
+  /// Tappable summary row that opens the LOADOUT modal (auras/stance + keystones).
+  /// Moved off the cramped SKILL header — mirrors the CLASS BONUSES row. Hidden
+  /// until at least one of the two systems has something to show.
+  Widget _loadoutOverview(BuildContext context, GameLogic game) {
+    final hasAuras = game.availableAuras().isNotEmpty;
+    final hasKeystones = game.availableKeystones().isNotEmpty;
+    if (!hasAuras && !hasKeystones) return const SizedBox.shrink();
+
+    final parts = <String>[];
+    if (hasAuras) {
+      final stance = game.equippedStance != null ? '1 stance' : 'no stance';
+      parts.add('$stance · ${game.equippedAuras.length}/3 auras');
+    }
+    if (hasKeystones) parts.add('${game.equippedKeystoneCount}/2 keystones');
+
+    return Padding(
+      padding: const EdgeInsets.only(top: 10),
+      child: InkWell(
+        onTap: () => _showLoadoutModal(context),
+        borderRadius: BorderRadius.circular(10),
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          decoration: BoxDecoration(
+            color: Colors.black26,
+            borderRadius: BorderRadius.circular(10),
+            border: Border.all(color: AppTheme.accent.withValues(alpha: 0.3)),
+          ),
+          child: Row(
+            children: [
+              const Icon(Icons.tune, color: AppTheme.accent, size: 18),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('AURAS & KEYSTONES',
+                        style: TextStyle(
+                            color: Colors.white70,
+                            fontSize: 11,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1.5)),
+                    if (parts.isNotEmpty)
+                      Text(parts.join('  ·  '),
+                          style: const TextStyle(
+                              color: Colors.white38, fontSize: 10)),
+                  ],
+                ),
+              ),
+              Text('VIEW',
+                  style: TextStyle(
+                      color: AppTheme.accent,
+                      fontSize: 10,
+                      fontWeight: FontWeight.bold,
+                      letterSpacing: 1)),
+              const Icon(Icons.chevron_right, color: Colors.white38, size: 18),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _showLoadoutModal(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (ctx) => Dialog(
+        backgroundColor: AppTheme.surface,
+        insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 40),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(16),
+          side: BorderSide(color: AppTheme.accent.withValues(alpha: 0.4)),
+        ),
+        child: ConstrainedBox(
+          constraints: const BoxConstraints(maxWidth: 460),
+          // Consumer so toggling an aura/keystone inside the modal re-lights the
+          // chips live (the modal is its own subtree, outside the header Consumer).
+          child: Consumer<GameLogic>(
+            builder: (context, game, _) => SingleChildScrollView(
+              padding: const EdgeInsets.fromLTRB(16, 18, 16, 8),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('LOADOUT',
+                      style: GoogleFonts.orbitron(
+                        color: AppTheme.accent,
+                        fontSize: 17,
+                        fontWeight: FontWeight.bold,
+                        letterSpacing: 0.5,
+                      )),
+                  const Text('STANCE · AURAS · KEYSTONES',
+                      style: TextStyle(
+                          color: Colors.white38,
+                          fontSize: 10,
+                          letterSpacing: 2)),
+                  _AurasPanel(game: game),
+                  _KeystonesPanel(game: game),
+                  Align(
+                    alignment: Alignment.centerRight,
+                    child: TextButton(
+                      onPressed: () => Navigator.pop(ctx),
+                      child: Text('CLOSE',
+                          style: TextStyle(
+                              color: AppTheme.accent,
+                              fontWeight: FontWeight.bold,
+                              letterSpacing: 1)),
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
         ),
