@@ -480,8 +480,30 @@ class PerksScreen extends StatelessWidget {
                           color: Colors.white38,
                           fontSize: 10,
                           letterSpacing: 2)),
+                  const SizedBox(height: 8),
+                  // Plain-language rules so the mechanic is self-explanatory.
+                  const Text(
+                    'Pick 1 STANCE and up to 3 AURAS (conditional passives). '
+                    'KEYSTONES (up to 2) are build-defining levers that unlock by '
+                    'committing a doctrine in TECH. Filling an empty slot is '
+                    'instant; swapping or removing one has a 60s lockout.',
+                    style: TextStyle(
+                        color: Colors.white54, fontSize: 11, height: 1.4),
+                  ),
                   _AurasPanel(game: game),
                   _KeystonesPanel(game: game),
+                  // When no doctrine is committed yet, the keystones panel is
+                  // empty — say why instead of showing nothing.
+                  if (game.availableKeystones().isEmpty)
+                    const Padding(
+                      padding: EdgeInsets.only(top: 10),
+                      child: Text(
+                        'KEYSTONES — none yet. Commit a doctrine in the TECH tree '
+                        '(buy any node in a doctrine branch) to unlock its '
+                        'keystone here.',
+                        style: TextStyle(color: Colors.white38, fontSize: 11),
+                      ),
+                    ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
@@ -662,9 +684,22 @@ class _AurasPanel extends StatelessWidget {
               ? '${d.description}\n${live ? '● ACTIVE now' : '○ equipped — waiting for its condition'}'
               : d.description,
           child: GestureDetector(
-            onTap: () => d.kind == AuraKind.stance
-                ? game.equipStance(d.id)
-                : game.toggleAura(d.id),
+            onTap: () {
+              final ok = d.kind == AuraKind.stance
+                  ? game.equipStance(d.id)
+                  : game.toggleAura(d.id);
+              if (!ok) {
+                final cd = game.auraSwitchCooldownMs();
+                final msg = cd > 0
+                    ? 'Loadout locked — you can swap again in ${(cd / 1000).ceil()}s'
+                    : 'Aura slots full (3/3) — remove one to add another';
+                ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                  content: Text(msg),
+                  duration: const Duration(seconds: 2),
+                  behavior: SnackBarBehavior.floating,
+                ));
+              }
+            },
             child: Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(
@@ -755,6 +790,15 @@ class _AurasPanel extends StatelessWidget {
               children: [
             for (final a in auras) chip(a, game.equippedAuras.contains(a.id))
           ]),
+          if (auras.length < AuraSystem.maxAuras) ...[
+            const SizedBox(height: 2),
+            Text(
+              '${AuraSystem.maxAuras - auras.length} more aura slot'
+              '${AuraSystem.maxAuras - auras.length == 1 ? '' : 's'} unlock as '
+              'your class Mastery rises.',
+              style: const TextStyle(color: Colors.white38, fontSize: 10),
+            ),
+          ],
           const SizedBox(height: 2),
           const Text(
             'Conditional passives — active only while their condition holds. '

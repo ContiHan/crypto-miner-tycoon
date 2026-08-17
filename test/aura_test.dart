@@ -41,12 +41,46 @@ void main() {
           lessThanOrEqualTo(AuraSystem.offChannelResistCap + 1e-9));
     });
 
-    test('60s switch lockout blocks rapid swaps', () {
+    test('filling a slot is free; only a swap arms the 60s lockout (device #3)',
+        () {
       final s = AuraSystem();
+      // Filling an empty stance slot is instant (no lockout armed).
       expect(s.setStance('stance_bull_rider', 1000000), true);
-      expect(s.setStance('stance_storm_rigging', 1000000 + 5000), false);
-      expect(s.setStance('stance_storm_rigging',
-          1000000 + AuraSystem.switchLockoutMs), true);
+      // The first SWAP is allowed and arms the lockout...
+      expect(s.setStance('stance_storm_rigging', 1000000 + 5000), true);
+      // ...so a second swap within 60s is blocked (anti-flicker)...
+      expect(s.setStance('stance_bull_rider', 1000000 + 8000), false);
+      // ...and allowed again once the lockout elapses.
+      expect(s.setStance('stance_bull_rider',
+          1000000 + 5000 + AuraSystem.switchLockoutMs), true);
+    });
+
+    test('a fresh loadout fills instantly — no cross-slot lockout (device #3)',
+        () {
+      final s = AuraSystem();
+      const t = 1000000;
+      // Stance + 3 auras all equip at the SAME instant (the reported bug was
+      // that any one equip locked every other equip for 60s).
+      expect(s.setStance('stance_bull_rider', t), true);
+      expect(s.toggleAura('aura_calm_waters', t), true);
+      expect(s.toggleAura('aura_long_tail', t), true);
+      expect(s.toggleAura('aura_vault_guard', t), true);
+      expect(s.equippedStance, 'stance_bull_rider');
+      expect(s.equippedAuras.length, 3);
+    });
+
+    test('removing is rate-limited but adding into a free slot stays free', () {
+      final s = AuraSystem();
+      const t = 1000000;
+      s.toggleAura('aura_calm_waters', t);
+      s.toggleAura('aura_long_tail', t);
+      // First removal is allowed and arms the lockout.
+      expect(s.toggleAura('aura_calm_waters', t + 1000), true);
+      // A second removal within 60s is blocked.
+      expect(s.toggleAura('aura_long_tail', t + 2000), false);
+      // But ADDING a new aura into the free slot is unaffected by the lockout.
+      expect(s.toggleAura('aura_vault_guard', t + 2000), true);
+      expect(s.equippedAuras.contains('aura_vault_guard'), true);
     });
 
     test('progressive unlock: auras gate on Mastery', () {

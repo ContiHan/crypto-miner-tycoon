@@ -1692,18 +1692,24 @@ class GameLogic with ChangeNotifier {
   List<String> get equippedAuras => List.unmodifiable(_auras.equippedAuras);
   int auraSwitchCooldownMs() => _auras.switchCooldownRemainingMs(_nowMs());
 
-  void equipStance(String? id) {
+  /// Returns false if the switch was blocked (the 60s anti-flicker lockout) so
+  /// the UI can flash feedback instead of the tap silently doing nothing.
+  bool equipStance(String? id) {
     if (_auras.setStance(id, _nowMs())) {
       notifyListeners();
       _saveGame();
+      return true;
     }
+    return false;
   }
 
-  void toggleAura(String id) {
+  bool toggleAura(String id) {
     if (_auras.toggleAura(id, _nowMs())) {
       notifyListeners();
       _saveGame();
+      return true;
     }
+    return false;
   }
 
   /// Hash rate from rigs × the softcapped HASH channel — WITHOUT ability temp

@@ -168,24 +168,35 @@ class AuraSystem {
     return r < 0 ? 0 : r;
   }
 
-  /// Equip/unequip a stance (toggle). Honors the 60s lockout. Returns success.
+  /// Equip/unequip a stance (toggle). FILLING an empty stance slot is free;
+  /// SWAPPING to a different stance or CLEARING one is a real switch and honors
+  /// the 60s anti-flicker lockout. Returns success.
   bool setStance(String? id, int nowMs) {
-    if (!canSwitch(nowMs)) return false;
+    final filling = equippedStance == null && id != null;
+    if (!filling) {
+      // Changing or clearing an equipped stance = a switch → rate-limited.
+      if (!canSwitch(nowMs)) return false;
+      lastSwitchMs = nowMs;
+    }
     equippedStance = (equippedStance == id) ? null : id;
-    lastSwitchMs = nowMs;
     return true;
   }
 
-  /// Toggle an aura in/out of the (max 3) aura slots. Honors the lockout.
+  /// Toggle an aura in/out of the (max 3) aura slots. ADDING into a free slot is
+  /// free (so you can assemble a fresh loadout instantly); REMOVING one is the
+  /// switch that arms the 60s lockout (anti-flicker). Adding at cap needs a free
+  /// slot first, so it returns false until you remove one.
   bool toggleAura(String id, int nowMs) {
-    if (!canSwitch(nowMs)) return false;
     if (equippedAuras.contains(id)) {
+      // Removing = a switch → rate-limited + stamps the lockout.
+      if (!canSwitch(nowMs)) return false;
       equippedAuras.remove(id);
-    } else {
-      if (equippedAuras.length >= maxAuras) return false;
-      equippedAuras.add(id);
+      lastSwitchMs = nowMs;
+      return true;
     }
-    lastSwitchMs = nowMs;
+    // Adding into a free slot is free (no lockout, no stamp).
+    if (equippedAuras.length >= maxAuras) return false;
+    equippedAuras.add(id);
     return true;
   }
 
