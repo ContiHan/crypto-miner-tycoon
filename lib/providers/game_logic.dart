@@ -442,20 +442,40 @@ class GameLogic with ChangeNotifier {
   /// through the luck softcap. Shared luck (classes/perks) lifts all three facets;
   /// facet sources (TECH/TALENT/STASH) let a build specialise crit / SWEEP /
   /// anomaly luck independently (the "luck decouple").
+  /// LUCKY NONCE temp luck ×N while active (foreground only), 1.0 otherwise.
+  double get abilityLuckBuff =>
+      _inOfflineSim ? 1.0 : _abilities.luckBuffMult(_nowMs());
+
+  /// True while an ability grants crash-immunity (STEADY HANDS / CONSENSUS RALLY),
+  /// foreground only. Drives the chaos suppress-negatives steering and the bar's
+  /// shield indicator.
+  bool get abilityCrashImmune =>
+      !_inOfflineSim && _abilities.anyActive(_nowMs(), (d) => d.suppressNegatives);
+
   double _combinedLuck(Channel facet) {
     final ch = buildChannels();
     final raw = 1 + ch.sum(Channel.luck) + ch.sum(facet);
-    // DEGENERATE GAMBLER ×2 / ASIC MONOCULTURE ×0.4 — keystone luck lever applied
-    // outside the softcap so it can genuinely swing loot/SWEEP odds.
-    return softcap(raw < 0.01 ? 0.01 : raw, 1.5, 0.5) * keystoneMods.luckMult;
+    // DEGENERATE GAMBLER ×2 / ASIC MONOCULTURE ×0.4 — keystone luck lever, and
+    // LUCKY NONCE's temp luck buff — both applied outside the softcap so they can
+    // genuinely swing crit chance / loot / SWEEP odds.
+    return softcap(raw < 0.01 ? 0.01 : raw, 1.5, 0.5) *
+        keystoneMods.luckMult *
+        abilityLuckBuff;
   }
 
   /// NONCE PRECISION — luck applied to crit CHANCE (clamped to the 25% cap).
   double get critLuckMultiplier => _combinedLuck(Channel.nonce);
 
   /// WHALE'S FAVOR — luck applied to SWEEP payouts (bounded by the EV ceiling;
-  /// the 400/24h net cap is immutable and never touched here).
-  double get sweepLuckMultiplier => _combinedLuck(Channel.sweepLuck);
+  /// the 400/24h net cap is immutable and never touched here). POOL LUCK pins it
+  /// to the EV ceiling while active: a huge value that CasinoService.effectiveLuck
+  /// clamps to the ceiling factor (so realized SWEEP return sits at the cap).
+  double get sweepLuckMultiplier {
+    if (!_inOfflineSim && _abilities.anyActive(_nowMs(), (d) => d.luckPinSweep)) {
+      return double.maxFinite;
+    }
+    return _combinedLuck(Channel.sweepLuck);
+  }
 
   /// UTXO MAGNETISM — luck applied to anomaly spawn chance (clamped to 30%/tick).
   double get anomalyLuckMultiplier => _combinedLuck(Channel.magnetism);
@@ -656,6 +676,10 @@ class GameLogic with ChangeNotifier {
   /// frequency. Sources arrive with classes (Pool lowers it, others raise it).
   double get volatilityMultiplier =>
       buildChannels().multiplier(Channel.volatility, softStart: 1.5, power: 0.5);
+
+  /// BULL BIAS attribute — tilts chaos-event selection toward positives (never
+  /// zeroes negatives). Wired to a channel source in Slice 72b; 0.0 until then.
+  double get bullBiasStrength => 0.0;
 
   /// OFFLINE YIELD fraction: the share of the live per-second rate earned while
   /// the app is closed. Base 0.70 + additive `offline` sources (TECH/class/etc.),
@@ -1044,6 +1068,9 @@ class GameLogic with ChangeNotifier {
       cratesOpened++;
       _soundService.playCrate();
     }
+    if (def.spawnAnomalies > 0) _anomaly.forceSpawn(def.spawnAnomalies); // LUCKY NONCE
+    // Crash-immunity turning on also CLEARS any in-progress crash/spike.
+    if (def.suppressNegatives) _events.clearActiveNegative();
 
     // Instant income lump (Corp): snapshot the live per-second rate and bank it,
     // supply-clamped. Credits wallet + lifetime only (never speedRunMinedSats).
@@ -1354,6 +1381,10 @@ class GameLogic with ChangeNotifier {
       },
       volatilityFactor: () => volatilityMultiplier,
       applyResistances: resistEvent, // DIAMOND HANDS / FEE HEDGE / STEEL NERVES
+      chaosSteering: () => (
+        suppressNegatives: abilityCrashImmune, // STEADY HANDS / CONSENSUS RALLY
+        bullBias: bullBiasStrength, // BULL BIAS attribute (Slice 72b)
+      ),
     );
 
     _autoStartTimers = startTimers;
@@ -1601,6 +1632,9 @@ class GameLogic with ChangeNotifier {
       }
     }
 
+    // BLOCK RACE auto-taps (works even before any rig — clicks aren't gated on hash).
+    _fireAutoTaps();
+
     if (globalHashRate <= 0) return;
     _accrueMining(1, chaosMultiplier: _liveIncomeTempMult());
     if (_advanceBlocks(1)) {
@@ -1628,6 +1662,12 @@ class GameLogic with ChangeNotifier {
     if (_advanceBlocks(seconds)) _triggerHalving();
     return earned;
   }
+
+  /// Test seam: run one real 1-second tick (auto-clicker, BLOCK RACE auto-taps,
+  /// accrual, halving, procs) — the foreground path advanceForTest deliberately
+  /// skips.
+  @visibleForTesting
+  void debugTick() => _mine();
 
   // ---- Achievements ------------------------------------------------------
 
@@ -1900,14 +1940,17 @@ class GameLogic with ChangeNotifier {
   @visibleForTesting
   set clickRng(Random r) => _clickRng = r;
 
-  /// Result of a single [clickMine] tap, for the UI (float text + juice).
-  ClickResult clickMine({bool playSound = true}) {
+  /// Pre-crit sats for ONE tap at the current click power: perks + Channel.click
+  /// (softcapped) × the ability temp lane (capped to the click ceiling #10) × the
+  /// keystone click lever, run through the income channel + chaos + notoriety +
+  /// halving. Shared by [clickMine] and the BLOCK RACE auto-tap so the two paths
+  /// can never diverge.
+  double _clickSatsBase() {
     final ch = buildChannels();
     double clickPower = _economy.calculateClickPower(_perkManager.perks);
     // Stash click power is folded into Channel.click (see stash.contributeChannels)
     // so it shares the click softcap instead of being a raw out-of-band multiplier.
     clickPower *= ch.multiplier(
-      // CLICK channel (perks + stash + class), soft-capped past a generous threshold.
       Channel.click,
       softStart: GameConstants.clickSoftStart,
       power: GameConstants.channelSoftPower,
@@ -1920,12 +1963,9 @@ class GameLogic with ChangeNotifier {
         : clickTemp;
     // SWEAT EQUITY ×2.5 / LASER EYES ×0.5 — keystone click lever (outside softcap).
     clickPower *= keystoneMods.clickMult;
-
-    double diff = networkDifficulty;
-
-    double clickSats = _miningManager.calculateMiningIncome(
+    return _miningManager.calculateMiningIncome(
       hashRate: clickPower,
-      difficulty: diff,
+      difficulty: networkDifficulty,
       prestigeMultiplier: prestigeMultiplier,
       chaosMultiplier: chaosIncomeMultiplier,
       lifetimeEarnings: lifetimeEarnings,
@@ -1937,6 +1977,31 @@ class GameLogic with ChangeNotifier {
           notorietyMultiplier,
       halvingResist: halvingResistance,
     );
+  }
+
+  /// BLOCK RACE (Solo ultimate): while active, auto-fire a burst of guaranteed-crit
+  /// taps each 1-second tick. Synthetic → fires NO procs/sound/haptic (GOLDEN
+  /// RULE), credits wallet + lifetime + cumulative-ever, and is supply-clamped.
+  /// The whole burst is one _clickSatsBase() evaluation ×gCrit ×taps (all taps in
+  /// a tick are identical) so it stays cheap.
+  void _fireAutoTaps() {
+    if (_inOfflineSim) return;
+    if (!_abilities.anyActive(_nowMs(), (d) => d.autoTaps)) return;
+    final double gCrit = _abilities.activeGuaranteedCritMult(_nowMs());
+    if (gCrit <= 0 || keystoneMods.noCrits) return;
+    double sats = _clickSatsBase() * gCrit * GameConstants.blockRaceTapsPerTick;
+    final double room = GameConstants.maxSupplySats - lifetimeEarnings;
+    if (room <= 0) return;
+    if (sats > room) sats = room;
+    if (sats <= 0) return;
+    wallet += sats;
+    lifetimeEarnings += sats;
+    _creditLifetimeEver(sats);
+  }
+
+  /// Result of a single [clickMine] tap, for the UI (float text + juice).
+  ClickResult clickMine({bool playSound = true}) {
+    double clickSats = _clickSatsBase();
 
     // Critical tap: rare multiplied payout (game feel). Only a *real* tap can
     // crit — the silent auto-clicker never rolls, so it can't secretly pump.

@@ -60,6 +60,9 @@ class GameConstants {
   static const double incomeTempMax = 6.0;
   static const double hashTempMax = 5.0;
   static const double clickTempMax = 4.0;
+  // BLOCK RACE (Solo ultimate): auto-fires this many guaranteed-crit taps per
+  // 1-second tick while active (synthetic → fires no procs; supply-clamped).
+  static const int blockRaceTapsPerTick = 12;
   // Progressive unlock: basic-1 on class pick, basic-2 at Mastery 1, ult at Mastery 2.
   static const int abilityMasteryForBasic2 = 1;
   static const int abilityMasteryForUltimate = 2;

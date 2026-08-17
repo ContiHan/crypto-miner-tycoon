@@ -40,6 +40,12 @@ class ChaosEventSystem {
   final (double, double, int) Function(
       EventType type, double income, double cost, int durationSeconds)? applyResistances;
 
+  /// Player chaos steering read at each roll: [suppressNegatives] (ability
+  /// crash-immunity — a rolled negative simply doesn't land) and [bullBias]
+  /// (>=0, tilts selection toward positive events; never zeroes negatives).
+  /// Null = neutral.
+  final ({bool suppressNegatives, double bullBias}) Function()? chaosSteering;
+
   ChaosEventSystem({
     required this.onChanged,
     required this.onBreach,
@@ -47,6 +53,7 @@ class ChaosEventSystem {
     required this.onEventSound,
     this.volatilityFactor,
     this.applyResistances,
+    this.chaosSteering,
   });
 
   void start() {
@@ -85,8 +92,58 @@ class ChaosEventSystem {
     EventType.costSpike,
   ];
 
+  // Negative event types — the ones ability crash-immunity suppresses and
+  // BULL BIAS de-weights (never to zero).
+  static const Set<EventType> _negativeTypes = {
+    EventType.marketCrash,
+    EventType.costSpike,
+    EventType.hack,
+  };
+  static bool _isNegative(EventType t) => _negativeTypes.contains(t);
+
+  /// Picks a rolled event type, tilted toward positives by [bullBias] (>=0).
+  /// Negatives keep weight 1 (BULL BIAS can never zero them); positives/neutral
+  /// scale by (1 + bullBias).
+  EventType _pickType(double bullBias) {
+    if (bullBias <= 0) {
+      return _randomTypes[_random.nextInt(_randomTypes.length)];
+    }
+    final weights = _randomTypes
+        .map((t) => _isNegative(t) ? 1.0 : (1.0 + bullBias))
+        .toList();
+    final total = weights.fold(0.0, (a, b) => a + b);
+    var r = _random.nextDouble() * total;
+    for (var i = 0; i < _randomTypes.length; i++) {
+      if (r < weights[i]) return _randomTypes[i];
+      r -= weights[i];
+    }
+    return _randomTypes.last;
+  }
+
+  /// Clears an in-progress market crash / cost spike and its multiplier (called
+  /// when ability crash-immunity turns on). Breach/airdrop aren't lingering
+  /// multipliers, so they're untouched.
+  void clearActiveNegative() {
+    final n = currentNews;
+    final crashing = incomeMultiplier < 1.0;
+    final spiking = costMultiplier > 1.0;
+    if (!crashing && !spiking) return;
+    incomeMultiplier = 1.0;
+    costMultiplier = 1.0;
+    _incomeResetTimer?.cancel();
+    _costResetTimer?.cancel();
+    if (n != null && _isNegative(n.type)) {
+      currentNews = null;
+      _newsTimer?.cancel();
+    }
+    onChanged();
+  }
+
   void triggerRandom() {
-    final type = _randomTypes[_random.nextInt(_randomTypes.length)];
+    final steer = chaosSteering?.call();
+    final type = _pickType(steer?.bullBias ?? 0.0);
+    // Ability crash-immunity: a rolled negative simply doesn't land.
+    if ((steer?.suppressNegatives ?? false) && _isNegative(type)) return;
     double income = 1.0, cost = 1.0, value = 0;
     String message = '';
     int duration = 30;

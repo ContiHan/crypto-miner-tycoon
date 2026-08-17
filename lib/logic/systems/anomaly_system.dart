@@ -31,6 +31,11 @@ class AnomalySystem {
   static const double _baseSpawnChance = 0.05; // per 5s tick
   static const double _spawnChanceCap = 0.30;
 
+  // Forced spawns queued by an ability (Solo LUCKY NONCE). The system renders one
+  // anomaly at a time, so a burst is delivered sequentially: spawn one now, and
+  // chain the next when the current is collected or despawns.
+  int _forcedQueue = 0;
+
   AnomalySystem({
     required this.onChanged,
     required this.onCollect,
@@ -56,21 +61,44 @@ class AnomalySystem {
   void start() {
     _timer?.cancel();
     _timer = Timer.periodic(const Duration(seconds: 5), (_) {
-      if (!active && _random.nextDouble() < spawnChance) {
-        position = Offset(_random.nextDouble() * _maxX, _random.nextDouble() * _maxY);
-        active = true;
+      if (!active && _random.nextDouble() < spawnChance) _spawnNow();
+    });
+  }
+
+  /// Places an anomaly and arms its 4s despawn. Shared by the random timer and
+  /// forced (ability) spawns. On despawn it chains the next forced spawn.
+  void _spawnNow() {
+    position = Offset(_random.nextDouble() * _maxX, _random.nextDouble() * _maxY);
+    active = true;
+    onChanged();
+    // Cancellable so it can't fire onChanged() after stop()/dispose.
+    _despawnTimer?.cancel();
+    _despawnTimer = Timer(const Duration(seconds: 4), () {
+      if (active) {
+        active = false;
         onChanged();
-        // Cancellable so it can't fire onChanged() after stop()/dispose.
-        _despawnTimer?.cancel();
-        _despawnTimer = Timer(const Duration(seconds: 4), () {
-          if (active) {
-            active = false;
-            onChanged();
-          }
-        });
+        _drainForced(); // an uncollected forced anomaly still yields to the next
       }
     });
   }
+
+  /// Queue [count] guaranteed anomalies (Solo LUCKY NONCE). Delivered one at a
+  /// time on the single render slot; the next spawns as each is collected/expires.
+  void forceSpawn(int count) {
+    if (count <= 0) return;
+    _forcedQueue += count;
+    _drainForced();
+  }
+
+  void _drainForced() {
+    if (active || _forcedQueue <= 0) return;
+    _forcedQueue--;
+    _spawnNow();
+  }
+
+  /// Pending forced spawns not yet shown (for tests/telemetry).
+  @visibleForTesting
+  int get forcedQueueLength => _forcedQueue;
 
   void stop() {
     _timer?.cancel();
@@ -78,6 +106,7 @@ class AnomalySystem {
     _despawnTimer?.cancel();
     _despawnTimer = null;
     active = false; // never leave a stranded anomaly across pause/dispose
+    _forcedQueue = 0; // don't resurrect a forced burst after pause/dispose
   }
 
   /// Collect the active anomaly (no-op if none active).
@@ -87,5 +116,6 @@ class AnomalySystem {
     _despawnTimer?.cancel();
     onCollect();
     onChanged();
+    _drainForced(); // deliver the next of a forced burst immediately
   }
 }
