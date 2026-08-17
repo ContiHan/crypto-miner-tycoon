@@ -18,6 +18,12 @@ Future<void> showGraphNodeSheet(
   VoidCallback? onBuy,
   String? lockedHint,
   Color accent = AppTheme.accent,
+  // Live refresh: pass the game (a Listenable) + closures so the BUY button
+  // re-enables the instant you can afford it while the sheet stays open (income
+  // keeps ticking underneath). Without these the button is a one-shot snapshot.
+  Listenable? refreshOn,
+  bool Function()? canAffordLive,
+  String Function()? costLabelLive,
 }) {
   return showModalBottomSheet(
     context: context,
@@ -55,25 +61,15 @@ Future<void> showGraphNodeSheet(
           ],
           const SizedBox(height: 18),
           if (buyLabel != null)
-            SizedBox(
-              width: double.infinity,
-              child: ElevatedButton(
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: canAfford ? accent : Colors.grey[800],
-                  foregroundColor: Colors.black,
-                  padding: const EdgeInsets.symmetric(vertical: 14),
-                ),
-                onPressed: canAfford
-                    ? () {
-                        onBuy?.call();
-                        Navigator.pop(ctx);
-                      }
-                    : null,
-                child: Text(
-                  costLabel == null ? buyLabel : '$buyLabel  ·  $costLabel',
-                  style: const TextStyle(fontWeight: FontWeight.bold),
-                ),
-              ),
+            _LiveBuyButton(
+              refreshOn: refreshOn,
+              buyLabel: buyLabel,
+              accent: accent,
+              initialAfford: canAfford,
+              initialCost: costLabel,
+              canAffordLive: canAffordLive,
+              costLabelLive: costLabelLive,
+              onBuy: onBuy,
             )
           else
             Row(
@@ -92,4 +88,64 @@ Future<void> showGraphNodeSheet(
       ),
     ),
   );
+}
+
+/// The BUY button, rebuilt whenever [refreshOn] ticks so affordability/cost stay
+/// live while the sheet is open (fixes: a node you couldn't afford stays greyed
+/// even after you mine enough). Falls back to the static snapshot if no
+/// [refreshOn] is supplied.
+class _LiveBuyButton extends StatelessWidget {
+  final Listenable? refreshOn;
+  final String buyLabel;
+  final Color accent;
+  final bool initialAfford;
+  final String? initialCost;
+  final bool Function()? canAffordLive;
+  final String Function()? costLabelLive;
+  final VoidCallback? onBuy;
+
+  const _LiveBuyButton({
+    required this.refreshOn,
+    required this.buyLabel,
+    required this.accent,
+    required this.initialAfford,
+    required this.initialCost,
+    required this.canAffordLive,
+    required this.costLabelLive,
+    required this.onBuy,
+  });
+
+  @override
+  Widget build(BuildContext context) {
+    Widget button(BuildContext ctx) {
+      final afford = canAffordLive != null ? canAffordLive!() : initialAfford;
+      final cost = costLabelLive != null ? costLabelLive!() : initialCost;
+      return SizedBox(
+        width: double.infinity,
+        child: ElevatedButton(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: afford ? accent : Colors.grey[800],
+            foregroundColor: Colors.black,
+            padding: const EdgeInsets.symmetric(vertical: 14),
+          ),
+          onPressed: afford
+              ? () {
+                  onBuy?.call();
+                  Navigator.pop(ctx);
+                }
+              : null,
+          child: Text(
+            cost == null ? buyLabel : '$buyLabel  ·  $cost',
+            style: const TextStyle(fontWeight: FontWeight.bold),
+          ),
+        ),
+      );
+    }
+
+    if (refreshOn == null) return button(context);
+    return AnimatedBuilder(
+      animation: refreshOn!,
+      builder: (ctx, _) => button(ctx),
+    );
+  }
 }

@@ -244,6 +244,16 @@ class ResearchTab extends StatelessWidget {
         canAfford: canAfford,
         buyLabel: 'RESEARCH',
         onBuy: () => game.buyResearch(n.id),
+        // Live: re-enable BUY the moment income covers the cost while the sheet
+        // is open (was a one-shot snapshot that stayed "can't afford").
+        refreshOn: game,
+        canAffordLive: () => game.wallet >= game.getResearchCost(n.id),
+        costLabelLive: () {
+          final c = game.getResearchCost(n.id);
+          return game.showFiatPrices
+              ? '\$ ${Formatter.formatNumber(game.toFiat(c))}'
+              : Formatter.formatBitcoin(c);
+        },
       );
     } else {
       // Teaser: name the missing prerequisites.
