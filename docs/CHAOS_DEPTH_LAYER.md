@@ -196,8 +196,10 @@ faucet). This finally gives **Fee Hedge** real purpose.
 **Chaos dual-duty:** CHEAP ENERGY also halves upkeep (→0) = "FREE POWER — NET
 100%"; COST SPIKE also ×1.5 upkeep (still clamped 0.10; as-built, was 0.15) = a
 "batten down" moment Fee Hedge blunts twice. **Offline:** one skim, not stacked.
-Brute fleets sit ~10% (as-built; was ~15%), LEAN/Solo ~3–5% → a net swing that
-lets a cheap build rival a brute without dominating.
+Brute fleets sit ~10% (as-built; was ~15%), LEAN/Solo ~4–6% → a net swing that
+lets a cheap build rival a brute without dominating. (Half-cap load `upkeepK`
+lowered 1500→800 on device feedback — a 500-rig fleet now bites ~5%, and big
+fleets reach the 10% cap far sooner; the cap and the net≥0.90 rail are unchanged.)
 
 ---
 

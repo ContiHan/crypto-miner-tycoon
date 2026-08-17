@@ -222,7 +222,11 @@ class GameConstants {
   //   rawUpkeep  = upkeepCap · (1 − 1/(1 + load/upkeepK))   ~0% first rigs → cap
   //   reduced by min(upkeepReductionCap, FeeHedge); × class mod; then clamped.
   static const double upkeepCap = 0.10; // gentler than the 0.15 design ceiling
-  static const double upkeepK = 1500.0; // [TUNE] load at which upkeep is ~half-cap
+  // [TUNE] load at which upkeep is ~half-cap (5%). Lowered 1500→800 (device
+  // feedback: a 500-rig fleet only shaved ~4%). At K=800: ~500 rigs (load≈1000)
+  // ≈5% raw, first rigs (load≈100) ≈1.1% (onboarding stays gentle), and big
+  // brute fleets press the 10% cap far sooner. Cap unchanged → net stays ≥0.90g.
+  static const double upkeepK = 800.0;
   static const double upkeepReductionCap = 0.75; // Fee Hedge / Energy Efficiency
   static const double upkeepClassCorp = 1.10; // Corp pays a bit more
   static const double upkeepClassLean = 0.90; // Pool/Solo pay a bit less
