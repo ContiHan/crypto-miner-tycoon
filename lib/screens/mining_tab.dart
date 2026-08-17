@@ -434,10 +434,12 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                       ],
                                     ),
                                     // THE LAST SATOSHI: progress toward mining a
-                                    // full 21M supply this era (the win). Hidden
-                                    // once won (the post-game loop is Back in
-                                    // Time, which has its own timer bar).
-                                    if (!game.hasWonGame) ...[
+                                    // full 21M supply THIS era. Shown every era
+                                    // (each prestige re-mines a fresh supply) —
+                                    // only hidden during a Back-in-Time run, which
+                                    // has its own timer bar. Post-win the label
+                                    // drops the "WIN AT 100%" promise (below).
+                                    if (!game.speedRunActive) ...[
                                       const SizedBox(height: 6),
                                       Stack(
                                         alignment: Alignment.center,
