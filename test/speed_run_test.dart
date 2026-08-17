@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'test_helper.dart';
 
 int _now() => DateTime.now().millisecondsSinceEpoch;
@@ -139,6 +140,58 @@ void main() {
       expect(game.speedRunBestMs, banked, reason: 'best time persisted');
       expect(game.speedRunActive, true, reason: 'active run persisted');
       expect(game.speedRunStartMs, startMs, reason: 'wall-clock start persisted');
+    });
+  });
+
+  group('Back in Time long-tail — per-class times + medals + TIMECHAIN (F-B)', () {
+    test('completing a run records a per-class best + unlocks the time medals',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.debugSelectClass(BtcClass.corporation);
+      game.hasWonGame = true;
+
+      game.startSpeedRun();
+      game.speedRunStartMs = _now() - 1000; // a ~1s (sub-30m) completion
+      game.debugCreditEver(GameConstants.maxSupplySats);
+
+      expect(game.speedRunBestForClass('corporation'), greaterThan(0));
+      expect(game.speedRunClassCount, 1);
+      // A sub-30m run trips the whole ladder.
+      expect(game.isAchievementUnlocked('ng_plus'), true);
+      expect(game.isAchievementUnlocked('speedrun_silver'), true);
+      expect(game.isAchievementUnlocked('speedrun_satoshi'), true);
+    });
+
+    test('speedRunClassCount counts only real classes (not Prospector)', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.speedRunBestByClass = {'prospector': 100, 'corporation': 200};
+      expect(game.speedRunClassCount, 1);
+    });
+
+    test('THE TIMECHAIN unlocks once all four classes have a recorded time',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.speedRunBestByClass = {
+        'soloMiner': 1,
+        'corporation': 2,
+        'btcOg': 3,
+        'poolMember': 4,
+      };
+      expect(game.speedRunClassCount, 4);
+      game.debugEvaluateAchievements();
+      expect(game.isAchievementUnlocked('the_timechain'), true);
+    });
+
+    test('per-class best map survives save + reload', () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.speedRunBestByClass = {'btcOg': 4200};
+      await game.debugSave();
+      await game.loadGame();
+      expect(game.speedRunBestForClass('btcOg'), 4200);
     });
   });
 }

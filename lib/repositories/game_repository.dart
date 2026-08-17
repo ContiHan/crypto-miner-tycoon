@@ -94,6 +94,7 @@ class GameRepository {
     int speedRunStartMs = 0,
     double speedRunMinedSats = 0,
     int speedRunBestMs = 0,
+    Map<String, dynamic> speedRunBestByClass = const {},
     int speedRunLastMs = 0,
   }) async {
     final prefs = await SharedPreferences.getInstance();
@@ -160,6 +161,7 @@ class GameRepository {
       'speedRunStartMs': speedRunStartMs,
       'speedRunMinedSats': fin(speedRunMinedSats),
       'speedRunBestMs': speedRunBestMs,
+      'speedRunBestByClass': speedRunBestByClass,
       'speedRunLastMs': speedRunLastMs,
       'last_save_time': DateTime.now().millisecondsSinceEpoch,
     };
@@ -290,6 +292,8 @@ class GameRepository {
       'speedRunStartMs': asInt(m['speedRunStartMs'], 0),
       'speedRunMinedSats': asDouble(m['speedRunMinedSats'], 0),
       'speedRunBestMs': asInt(m['speedRunBestMs'], 0),
+      if (m['speedRunBestByClass'] is Map)
+        'speedRunBestByClass': m['speedRunBestByClass'],
       'speedRunLastMs': asInt(m['speedRunLastMs'], 0),
       'last_save_time': m['last_save_time'] is num
           ? (m['last_save_time'] as num).toInt()

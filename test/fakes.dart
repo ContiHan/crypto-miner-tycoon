@@ -229,6 +229,7 @@ class FakeGameRepository implements GameRepository {
     int speedRunStartMs = 0,
     double speedRunMinedSats = 0,
     int speedRunBestMs = 0,
+    Map<String, dynamic> speedRunBestByClass = const {},
     int speedRunLastMs = 0,
   }) async {
     data['wallet'] = wallet;
@@ -275,6 +276,7 @@ class FakeGameRepository implements GameRepository {
     data['speedRunStartMs'] = speedRunStartMs;
     data['speedRunMinedSats'] = speedRunMinedSats;
     data['speedRunBestMs'] = speedRunBestMs;
+    data['speedRunBestByClass'] = speedRunBestByClass;
     data['speedRunLastMs'] = speedRunLastMs;
 
     data['perks'] = perks;

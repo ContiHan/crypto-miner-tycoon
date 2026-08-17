@@ -74,6 +74,8 @@ class GameLogic with ChangeNotifier {
   double speedRunMinedSats = 0; // sats mined since the current run started
   int speedRunBestMs = 0; // best completed time in ms (0 = no record yet)
   int speedRunLastMs = 0; // most recent completed time (for the overlay)
+  // Best Back-in-Time time per class name (for per-class records + THE TIMECHAIN).
+  Map<String, int> speedRunBestByClass = {};
   // Transient (NOT persisted): drives the one-shot SPEED RUN COMPLETE overlay.
   bool pendingSpeedRunCelebration = false;
   bool _speedRunWasRecord = false;
@@ -1781,6 +1783,14 @@ class GameLogic with ChangeNotifier {
   @visibleForTesting
   int debugGrantUtxo(int n) => _grantUtxoCapped(n);
 
+  /// Test seam: re-evaluate achievements (normally driven by tick/actions).
+  @visibleForTesting
+  void debugEvaluateAchievements() => _evaluateAchievements();
+
+  /// Test seam: persist the current state now.
+  @visibleForTesting
+  Future<void> debugSave() => _saveGame();
+
   // ---- Achievements ------------------------------------------------------
 
   /// Halvings survived THIS era, derived from the current block reward
@@ -1831,6 +1841,7 @@ class GameLogic with ChangeNotifier {
       masteredClassCount: masteredClassCount,
       classMasteryLevel: classMasteryLevelByName,
       speedRunBestMs: speedRunBestMs,
+      speedRunClassCount: speedRunClassCount,
     );
   }
 
@@ -1909,6 +1920,16 @@ class GameLogic with ChangeNotifier {
   /// Whether the most recently completed run set a new best time.
   bool get speedRunWasRecord => _speedRunWasRecord;
 
+  /// Distinct REAL classes (not Prospector) with a recorded Back-in-Time best —
+  /// drives THE TIMECHAIN capstone.
+  int get speedRunClassCount => speedRunBestByClass.keys
+      .where((k) => k != BtcClass.prospector.name)
+      .length;
+
+  /// Best Back-in-Time time (ms) recorded as [className], or 0 if none.
+  int speedRunBestForClass(String className) =>
+      speedRunBestByClass[className] ?? 0;
+
   /// Begin a Speed Run: a deep New-Blockchain-style reset (keeps Genesis Blocks,
   /// Mastery, achievements/Notoriety and Stash; wipes wallet/rigs/TECH/TALENTS/
   /// GovTokens/era) with the stopwatch started. Restarting while a run is active
@@ -1933,8 +1954,15 @@ class GameLogic with ChangeNotifier {
     speedRunLastMs = elapsed < 0 ? 0 : elapsed;
     _speedRunWasRecord = speedRunBestMs == 0 || speedRunLastMs < speedRunBestMs;
     if (_speedRunWasRecord) speedRunBestMs = speedRunLastMs;
+    // Per-class best (for per-class records + THE TIMECHAIN capstone).
+    final cls = _classManager.current.name;
+    final classBest = speedRunBestByClass[cls];
+    if (classBest == null || speedRunLastMs < classBest) {
+      speedRunBestByClass[cls] = speedRunLastMs;
+    }
     pendingSpeedRunCelebration = true;
     if (_inOfflineSim) return; // defer UI during offline catch-up
+    _evaluateAchievements(); // unlock the time medals + THE TIMECHAIN on completion
     _soundService.playEnding();
     _hapticHeavy();
     _saveGame();
@@ -2464,6 +2492,7 @@ class GameLogic with ChangeNotifier {
       speedRunStartMs: speedRunStartMs,
       speedRunMinedSats: speedRunMinedSats,
       speedRunBestMs: speedRunBestMs,
+      speedRunBestByClass: speedRunBestByClass,
       speedRunLastMs: speedRunLastMs,
     );
   }
@@ -2557,6 +2586,13 @@ class GameLogic with ChangeNotifier {
       speedRunStartMs = _toInt(data['speedRunStartMs']);
       speedRunMinedSats = _toDouble(data['speedRunMinedSats']);
       speedRunBestMs = _toInt(data['speedRunBestMs']);
+      final byClass = data['speedRunBestByClass'];
+      speedRunBestByClass = {};
+      if (byClass is Map) {
+        byClass.forEach((k, v) {
+          if (k is String && v is num) speedRunBestByClass[k] = v.toInt();
+        });
+      }
       speedRunLastMs = _toInt(data['speedRunLastMs']);
       if (speedRunActive && speedRunStartMs <= 0) speedRunActive = false;
 

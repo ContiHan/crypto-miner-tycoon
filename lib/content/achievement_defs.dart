@@ -35,6 +35,9 @@ class AchStats {
   final int Function(String className) classMasteryLevel;
   // Back in Time (post-win timed re-mine): best completed time in ms, 0 = none.
   final int speedRunBestMs;
+  // How many distinct real classes have a recorded Back-in-Time best (for THE
+  // TIMECHAIN capstone).
+  final int speedRunClassCount;
 
   const AchStats({
     required this.lifetimeEarnings,
@@ -68,6 +71,7 @@ class AchStats {
     required this.masteredClassCount,
     required this.classMasteryLevel,
     required this.speedRunBestMs,
+    required this.speedRunClassCount,
   });
 }
 
@@ -419,6 +423,23 @@ final List<Achievement> kAchievements = [
     category: AchCategory.prestige,
     condition: (s) => s.speedRunBestMs > 0,
   ),
+  // Time-medal ladder off the best Back-in-Time completion (Blitz <1h is secret,
+  // below): Silver < 2h, plus the Satoshi sprint < 30m (secret).
+  Achievement(
+    id: 'speedrun_silver',
+    title: 'Silver Timechain',
+    description: 'Re-mine all 21M in under 2 hours, Back in Time.',
+    category: AchCategory.prestige,
+    condition: (s) => s.speedRunBestMs > 0 && s.speedRunBestMs < 7200000,
+  ),
+  // THE TIMECHAIN capstone: a recorded Back-in-Time best as all four classes.
+  Achievement(
+    id: 'the_timechain',
+    title: 'The Timechain',
+    description: 'Record a Back in Time time as all four classes.',
+    category: AchCategory.meta,
+    condition: (s) => s.speedRunClassCount >= 4,
+  ),
 
   // --- Secret / endgame ---
   Achievement(
@@ -429,6 +450,14 @@ final List<Achievement> kAchievements = [
     secret: true,
     // 0 = never completed; only a real sub-hour record trips this.
     condition: (s) => s.speedRunBestMs > 0 && s.speedRunBestMs < 3600000,
+  ),
+  Achievement(
+    id: 'speedrun_satoshi',
+    title: 'Satoshi Sprint',
+    description: 'Re-mine all 21,000,000 in under 30 minutes, Back in Time.',
+    category: AchCategory.secret,
+    secret: true,
+    condition: (s) => s.speedRunBestMs > 0 && s.speedRunBestMs < 1800000,
   ),
 
   // --- Secret / shadow (no Notoriety, hidden until earned) ---

@@ -222,6 +222,7 @@ void main() {
           masteredClassCount: 0,
           classMasteryLevel: (_) => 0,
           speedRunBestMs: 0,
+          speedRunClassCount: 0,
         );
 
     test('every earnings achievement is satisfiable at the per-era cap', () {
