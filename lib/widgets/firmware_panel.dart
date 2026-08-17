@@ -26,13 +26,13 @@ class FirmwarePanel extends StatelessWidget {
     }
   }
 
-  /// Affix pool sorted rarest-first (legendary → common), catalogue order as a
-  /// stable tiebreak — matches the GOAL list's rarity ordering.
+  /// Affix pool sorted LOWEST rarity first (common → legendary), catalogue order
+  /// as a stable tiebreak — matches the GOAL list's rarity ordering.
   List<FirmwareAffix> _sortedByRarity() {
     final src = game.availableFirmware();
     final indexed = [for (var i = 0; i < src.length; i++) MapEntry(i, src[i])];
     indexed.sort((x, y) {
-      final r = y.value.rarity.index.compareTo(x.value.rarity.index);
+      final r = x.value.rarity.index.compareTo(y.value.rarity.index);
       return r != 0 ? r : x.key.compareTo(y.key);
     });
     return [for (final e in indexed) e.value];
@@ -78,19 +78,21 @@ class FirmwarePanel extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                'Each firmware chip adds a PROC TRIGGER — a bonus effect that '
-                'fires on an event (a found block, an ability cast, a breach, a '
-                'crit streak).',
+                'FIRMWARE = passive auto-effects for your rig. Each chip you '
+                'SOCKET fires a bonus when something happens — a mined block, an '
+                'ability cast, a Breach, a crit streak (e.g. a free crate, bonus '
+                'UTXO, or a short income burst).',
                 style:
                     TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
               ),
               SizedBox(height: 6),
               Text(
-                'It\'s a LOADOUT, not an unlock ladder: every chip is available '
-                'from the start, but you can only equip a few at once. SOCKETS '
-                'are the limit — you start with 3 and grow to 8 via the Firmware '
-                'Bay (TECH), class Mastery 2, and committing to two doctrines. '
-                'Your loadout survives every reset. Listed rarest-first.',
+                'Everything is available from the start ON PURPOSE — this is a '
+                'LOADOUT you tune, not an unlock grind. The limit is SOCKETS, not '
+                'owning chips: you start with 3 and earn up to 8 (Firmware Bay in '
+                'TECH, class Mastery 2, two committed doctrines). Rarer chips do '
+                'more but still cost one socket — so pick your few. Kept across '
+                'every reset. Listed common → legendary.',
                 style:
                     TextStyle(color: Colors.white54, fontSize: 11, height: 1.4),
               ),

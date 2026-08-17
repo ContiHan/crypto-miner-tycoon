@@ -14,16 +14,6 @@ class AchievementsScreen extends StatefulWidget {
 }
 
 class _AchievementsScreenState extends State<AchievementsScreen> {
-  static const Map<AchCategory, Color> _categoryColor = {
-    AchCategory.earnings: AppTheme.accent,
-    AchCategory.rigs: Colors.cyanAccent,
-    AchCategory.tech: Colors.lightBlueAccent,
-    AchCategory.prestige: Colors.redAccent,
-    AchCategory.collection: Colors.purpleAccent,
-    AchCategory.meta: Colors.amberAccent,
-    AchCategory.secret: Colors.pinkAccent,
-  };
-
   // Display order is captured once per screen mount: UNLOCKED (claimable first
   // as a call-to-action, then claimed) → LOCKED (known goals) → UNKNOWN (secret
   // + locked), rarest first within each group. It is intentionally NOT recomputed
@@ -128,7 +118,6 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
                     achievement: a,
                     claimable: game.isAchievementClaimable(a.id),
                     claimed: game.isAchievementClaimed(a.id),
-                    color: _categoryColor[a.category] ?? AppTheme.accent,
                     onClaim: () {
                       // Dismiss the stale "tap to claim" unlock toast on claim.
                       ScaffoldMessenger.of(context).clearSnackBars();
@@ -149,7 +138,6 @@ class _AchievementCard extends StatelessWidget {
   final Achievement achievement;
   final bool claimable;
   final bool claimed;
-  final Color color;
   final VoidCallback onClaim;
 
   const _AchievementCard({
@@ -157,7 +145,6 @@ class _AchievementCard extends StatelessWidget {
     required this.achievement,
     required this.claimable,
     required this.claimed,
-    required this.color,
     required this.onClaim,
   });
 
@@ -188,14 +175,14 @@ class _AchievementCard extends StatelessWidget {
 
     return StylizedCard(
       color: claimable
-          ? color.withValues(alpha: 0.20)
-          : (claimed ? color.withValues(alpha: 0.10) : Colors.black26),
+          ? rarityColor.withValues(alpha: 0.20)
+          : (claimed ? rarityColor.withValues(alpha: 0.10) : Colors.black26),
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 250),
         decoration: BoxDecoration(
           borderRadius: BorderRadius.circular(8),
           border: claimable
-              ? Border.all(color: color, width: 2)
+              ? Border.all(color: rarityColor, width: 2)
               : Border.all(color: Colors.transparent, width: 2),
         ),
         padding: const EdgeInsets.all(10.0),
@@ -205,8 +192,11 @@ class _AchievementCard extends StatelessWidget {
               width: 46,
               height: 46,
               decoration: BoxDecoration(
-                color: unlocked ? color.withValues(alpha: 0.20) : Colors.white10,
-                border: Border.all(color: unlocked ? color : Colors.white24),
+                color: unlocked
+                    ? rarityColor.withValues(alpha: 0.20)
+                    : Colors.white10,
+                border:
+                    Border.all(color: unlocked ? rarityColor : Colors.white24),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(
@@ -215,7 +205,7 @@ class _AchievementCard extends StatelessWidget {
                     : (achievement.secret
                         ? Icons.help_outline
                         : Icons.lock_outline),
-                color: unlocked ? color : Colors.white38,
+                color: unlocked ? rarityColor : Colors.white38,
                 size: 26,
               ),
             ),
@@ -229,7 +219,7 @@ class _AchievementCard extends StatelessWidget {
                     style: TextStyle(
                       fontWeight: FontWeight.bold,
                       fontSize: 15,
-                      color: unlocked ? color : Colors.white54,
+                      color: unlocked ? rarityColor : Colors.white54,
                       letterSpacing: hideDetails ? 3 : 0.5,
                     ),
                   ),
@@ -281,6 +271,7 @@ class _AchievementCard extends StatelessWidget {
   }
 
   Widget _trailing() {
+    final rarityColor = _rarityColor(achievementRarity(achievement.id));
     if (claimable) {
       // Single-line, bold, black-on-colour — consistent with the BUY buttons.
       // (The +1% Notoriety per claim is shown in the header readout.)
@@ -288,7 +279,7 @@ class _AchievementCard extends StatelessWidget {
         key: const ValueKey('claim'),
         onPressed: onClaim,
         style: ElevatedButton.styleFrom(
-          backgroundColor: color,
+          backgroundColor: rarityColor,
           foregroundColor: Colors.black,
           padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
           textStyle: const TextStyle(fontWeight: FontWeight.bold, fontSize: 13),
@@ -297,7 +288,8 @@ class _AchievementCard extends StatelessWidget {
       );
     }
     if (claimed) {
-      return Icon(Icons.check_circle, key: const ValueKey('done'), color: color, size: 24);
+      return Icon(Icons.check_circle,
+          key: const ValueKey('done'), color: rarityColor, size: 24);
     }
     if (!achievement.secret) {
       return const Icon(Icons.circle_outlined,

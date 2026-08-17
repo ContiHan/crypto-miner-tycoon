@@ -196,7 +196,8 @@ void main() {
           reason: 'unclassified defaults to common');
     });
 
-    test('orders unlocked → locked → unknown, rarest first within a group', () {
+    test('orders unlocked → locked → unknown, LOWEST rarity first in a group',
+        () {
       final list = [
         kAchievements.firstWhere((a) => a.id == 'earn_1m'), // common → claimable
         kAchievements.firstWhere((a) => a.id == 'earn_1q'), // legendary → locked
@@ -213,8 +214,8 @@ void main() {
       expect(ordered.map((a) => a.id).toList(), [
         'earn_1m', // claimable (unlocked, call-to-action first)
         'meta_genesis_complete', // claimed (unlocked)
-        'earn_1q', // locked-known, legendary before rare
-        'earn_1t', // locked-known, rare
+        'earn_1t', // locked-known, rare before legendary (ascending)
+        'earn_1q', // locked-known, legendary
         'secret_pizza', // unknown (secret + locked) last
       ]);
     });

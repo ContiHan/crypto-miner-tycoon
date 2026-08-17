@@ -637,8 +637,8 @@ AchRarity achievementRarity(String id) =>
 /// Achievements ordered for the GOAL list: three status groups in this order —
 /// UNLOCKED (claimable first as a call-to-action, then claimed), then LOCKED
 /// (known goals), then UNKNOWN (secret & still locked, shown as "???"). Within
-/// each group, rarest first, ties broken by catalogue order for stability. Pure
-/// so it is unit-testable and produces the same order for the same inputs.
+/// each group, LOWEST rarity first (common → legendary), ties broken by catalogue
+/// order. Pure so it is unit-testable and produces the same order for the inputs.
 List<Achievement> orderedAchievements(
   List<Achievement> all, {
   required bool Function(String id) isClaimable,
@@ -657,10 +657,10 @@ List<Achievement> orderedAchievements(
   indexed.sort((x, y) {
     final sr = statusRank(x.value).compareTo(statusRank(y.value));
     if (sr != 0) return sr;
-    // Rarest first within a status group.
-    final rr = achievementRarity(y.value.id)
+    // Lowest rarity first within a status group (common → legendary).
+    final rr = achievementRarity(x.value.id)
         .index
-        .compareTo(achievementRarity(x.value.id).index);
+        .compareTo(achievementRarity(y.value.id).index);
     if (rr != 0) return rr;
     return x.key.compareTo(y.key); // stable: catalogue order
   });

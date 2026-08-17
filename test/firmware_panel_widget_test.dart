@@ -27,8 +27,8 @@ void main() {
     await tester.pump();
     expect(find.text('RIG FIRMWARE'), findsOneWidget);
     expect(find.text('0 / 3 sockets'), findsOneWidget);
-    // Rarest-first: the legendary affix pins to the top of the pool.
-    expect(find.text('Genesis Windfall'), findsOneWidget);
+    // Common-first: the first common affix pins to the top of the pool.
+    expect(find.text('Crit Capacitor'), findsOneWidget);
     expect(find.text('SOCKET'), findsWidgets);
   });
 
