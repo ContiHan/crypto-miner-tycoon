@@ -51,6 +51,9 @@ void main() {
       final sound = FakeSoundService();
       final game = _game(FakeSettingsRepository(), sound);
       await game.loadGame();
+      // Force NO crit: a real tap that crits plays playCrit (not playMine), so
+      // without this the assertion below flaked ~6% of the time on a live crit.
+      game.clickRng = NoCritRandom();
 
       game.clickMine(playSound: false); // AI auto-clicker path
       expect(sound.mineCount, 0, reason: 'auto-click must be silent');
