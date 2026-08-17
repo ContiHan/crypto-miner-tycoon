@@ -98,7 +98,7 @@ class _EndingScreen extends StatelessWidget {
                 const SizedBox(height: 24),
                 _StatRow(label: 'GENESIS BLOCKS', value: '${game.genesisBlocks}'),
                 _StatRow(
-                    label: 'BLOCKCHAINS FORGED', value: '${game.newChainCount}'),
+                    label: 'GENESIS RESETS', value: '${game.newChainCount}'),
                 _StatRow(
                     label: 'TOTAL MASTERY', value: '${game.totalMasteryLevel}'),
                 const SizedBox(height: 28),

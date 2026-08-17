@@ -53,8 +53,8 @@ const Map<BtcClass, ClassDef> kClasses = {
     name: 'PROSPECTOR',
     tagline: 'Not yet specialised',
     description:
-        'The early game before your first New Blockchain. No class bonuses '
-        'yet — reach a New Blockchain to choose your path.',
+        'The early game before your first New Genesis. No class bonuses '
+        'yet — reach a New Genesis to choose your path.',
     icon: Icons.explore,
     color: Colors.blueGrey,
   ),

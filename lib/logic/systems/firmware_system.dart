@@ -163,7 +163,7 @@ const List<FirmwareAffix> kFirmwareAffixes = [
   FirmwareAffix(
     id: 'fw_genesis_windfall',
     name: 'Genesis Windfall',
-    description: 'New Blockchain → a free supply crate.',
+    description: 'New Genesis → a free supply crate.',
     rarity: FirmwareRarity.legendary,
     signal: ProcSignal(
       id: 'fw_genesis_windfall',

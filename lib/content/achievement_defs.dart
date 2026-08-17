@@ -224,7 +224,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'chain_first',
     title: 'Genesis',
-    description: 'Start your first New Blockchain.',
+    description: 'Start your first New Genesis.',
     category: AchCategory.prestige,
     condition: (s) => s.newChainCount >= 1 || s.genesisBlocks >= 1,
   ),
@@ -338,7 +338,7 @@ final List<Achievement> kAchievements = [
   Achievement(
     id: 'chain_5',
     title: 'Serial Rebooter',
-    description: 'Start 5 New Blockchains.',
+    description: 'Start 5 New Genesis resets.',
     category: AchCategory.prestige,
     condition: (s) => s.newChainCount >= 5,
   ),

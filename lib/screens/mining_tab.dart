@@ -563,7 +563,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     ),
                                     onPressed: widget.onNewBlockchain,
                                     child: Text(
-                                      'NEW BLOCKCHAIN (+${game.pendingGenesis} Genesis)',
+                                      'NEW GENESIS (+${game.pendingGenesis} Block${game.pendingGenesis == 1 ? '' : 's'})',
                                     ),
                                   ),
                                 ),
@@ -999,7 +999,7 @@ class _CapReachedBanner extends StatelessWidget {
     String cta;
     VoidCallback? action;
     if (game.pendingGenesis > 0 && onNewBlockchain != null) {
-      cta = 'START NEW BLOCKCHAIN';
+      cta = 'START NEW GENESIS';
       action = onNewBlockchain;
     } else {
       cta = 'HARD FORK NOW';

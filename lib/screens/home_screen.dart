@@ -423,7 +423,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showClassPicker(
       context,
       game: game,
-      title: 'START A NEW BLOCKCHAIN?',
+      title: 'START A NEW GENESIS?',
       titleColor: Colors.deepPurpleAccent,
       confirmLabel: 'REBORN',
       confirmColor: Colors.deepPurple,
