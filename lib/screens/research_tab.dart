@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import '../providers/game_logic.dart';
 import '../models/research_node.dart';
+import '../logic/managers/research_manager.dart' show Doctrine;
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/tech_graph.dart';
@@ -15,7 +16,18 @@ class ResearchTab extends StatelessWidget {
   const ResearchTab({super.key});
 
   static const double _levelH = 130; // vertical gap between prerequisite depths
-  static const double _nodeGap = 172; // horizontal gap between sibling nodes
+  static const double _nodeGap = 172; // horizontal gap between sibling stem nodes
+  // Doctrine LANES: each doctrine is a fixed column you scroll DOWN; paired
+  // siblings sit adjacent, a wider gap separates the three pairs.
+  static const double _laneGap = 150; // gap between lane columns
+  static const double _pairGap = 74; // extra gap between exclusive pairs
+  static const double _laneMargin = 110; // left/right margin around the lanes
+  // Fixed lane order — pairs adjacent so "one or the other" reads spatially.
+  static const List<Doctrine> _laneOrder = [
+    Doctrine.megaHash, Doctrine.leanRig, // output: brute hash ⟂ lean click/cost
+    Doctrine.degenYield, Doctrine.hodler, // money: trade ⟂ hodl
+    Doctrine.degenLuck, Doctrine.coldStorage, // variance: gamble ⟂ fortress
+  ];
 
   @override
   Widget build(BuildContext context) {
@@ -122,30 +134,61 @@ class ResearchTab extends StatelessWidget {
       computeDepth(n);
     }
 
-    // STABLE layout: bucket ALL nodes (not just the visible ones) by depth and
-    // give each a FIXED position. Vertical: prereq depth → row (top-down),
-    // siblings within a depth → columns centred on the canvas. Because positions
-    // come from the WHOLE tree, buying a node changes only which nodes are DRAWN,
-    // never where any node sits — so the view never jumps to a newly-revealed
-    // node on a purchase.
-    final allBuckets = <int, List<ResearchNode>>{};
+    // STABLE LANE layout. TRUNK + META are a short shared stem centred at the top
+    // (kept depth-bucketed). Each of the six doctrines is a fixed vertical COLUMN
+    // below the stem — its nodes stack straight down in commit order. Canvas width
+    // is capped by the lane count (~6 columns), NOT the widest depth row, so you
+    // scroll DOWN a lane instead of panning sideways. Positions come from the WHOLE
+    // tree, so buying only changes which nodes DRAW, never where any node sits.
+    final stem = <ResearchNode>[];
+    final lanes = <Doctrine, List<ResearchNode>>{};
     for (final n in game.researchNodes) {
-      allBuckets.putIfAbsent(depth[n.id] ?? 0, () => []).add(n);
+      final doc = game.researchDoctrine(n.id);
+      if (doc == Doctrine.trunk || doc == Doctrine.meta) {
+        stem.add(n);
+      } else {
+        lanes.putIfAbsent(doc, () => []).add(n);
+      }
     }
-    final maxDepth =
-        allBuckets.keys.isEmpty ? 0 : allBuckets.keys.reduce(math.max);
-    final maxBucket =
-        allBuckets.values.fold(1, (m, l) => math.max(m, l.length));
-    final canvasW = math.max(360.0, maxBucket * _nodeGap + 160);
+    final stemBuckets = <int, List<ResearchNode>>{};
+    for (final n in stem) {
+      stemBuckets.putIfAbsent(depth[n.id] ?? 0, () => []).add(n);
+    }
+    final stemMaxDepth =
+        stemBuckets.keys.isEmpty ? 0 : stemBuckets.keys.reduce(math.max);
+    final stemMaxBucket =
+        stemBuckets.values.fold(1, (m, l) => math.max(m, l.length));
+
+    double laneX(int lane) =>
+        _laneMargin + lane * _laneGap + (lane ~/ 2) * _pairGap;
+    final canvasW = math.max(
+      stemMaxBucket * _nodeGap + 160, // the stem must fit
+      laneX(_laneOrder.length - 1) + _laneMargin,
+    );
     final centerX = canvasW / 2;
     final pos = <String, Offset>{};
-    allBuckets.forEach((d, list) {
+    // Stem: centred per depth, top band.
+    stemBuckets.forEach((d, list) {
       for (int s = 0; s < list.length; s++) {
-        final x = centerX + (s - (list.length - 1) / 2) * _nodeGap;
-        final y = 90 + d * _levelH;
-        pos[list[s].id] = Offset(x, y.toDouble());
+        pos[list[s].id] = Offset(
+          centerX + (s - (list.length - 1) / 2) * _nodeGap,
+          (90 + d * _levelH).toDouble(),
+        );
       }
     });
+    // Lanes start below the stem; each doctrine sorted by depth → row (tier).
+    final laneTop = 90 + (stemMaxDepth + 1) * _levelH + 24;
+    var maxTier = 0;
+    lanes.forEach((doc, list) {
+      list.sort((a, b) => (depth[a.id] ?? 0).compareTo(depth[b.id] ?? 0));
+      final lane = _laneOrder.indexOf(doc);
+      final x = lane < 0 ? centerX : laneX(lane);
+      for (int t = 0; t < list.length; t++) {
+        pos[list[t].id] = Offset(x, laneTop + t * _levelH);
+      }
+      if (list.length > maxTier) maxTier = list.length;
+    });
+    final canvasH = laneTop + maxTier * _levelH + 120;
 
     // Render only the visible subset, at their stable positions.
     final nodes = <GraphNode>[];
@@ -199,8 +242,8 @@ class ResearchTab extends StatelessWidget {
     return BlockGraph(
       nodes: nodes,
       edges: edges,
-      graphSize: Size(canvasW, 90 + maxDepth * _levelH + 160),
-      initialFocus: Offset(centerX, 90), // centre on the root (top)
+      graphSize: Size(canvasW, canvasH),
+      initialFocus: Offset(centerX, 90), // centre on the root (top of the stem)
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing for the tree
     );
   }
