@@ -91,5 +91,23 @@ void main() {
       }
       expect(game.chips, 3, reason: 'Nonce Cache granted +3 UTXO on the crit streak');
     });
+
+    test('a firing proc pushes a feedback signal for the MINE float (F-D)',
+        () async {
+      final game = createTestGameLogic(loadOnStart: false);
+      await game.loadGame();
+      game.debugSelectClass(BtcClass.corporation);
+      game.toggleFirmware('fw_nonce_cache'); // onCritStreak → grantUtxo
+      game.clickRng = AlwaysCritRandom();
+      expect(game.procFeedback.value, isNull, reason: 'nothing fired yet');
+
+      for (var i = 0; i < GameConstants.critStreakThreshold; i++) {
+        game.clickMine(playSound: true);
+      }
+
+      expect(game.procFeedback.value, isNotNull,
+          reason: 'the proc fire is surfaced to the UI');
+      expect(game.procFeedback.value!.label, isNotEmpty);
+    });
   });
 }

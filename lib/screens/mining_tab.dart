@@ -43,6 +43,8 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
   late Animation<double> _buttonScaleAnimation;
   // Decaying horizontal shake, kicked on a critical tap for extra impact.
   late AnimationController _shakeController;
+  // Listened game instance, so we can float a marker when a proc fires (F-D).
+  GameLogic? _procGame;
 
   @override
   void initState() {
@@ -61,7 +63,28 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
   }
 
   @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    // Subscribe to proc-fire signals so we can float a marker (F-D). Re-wire if
+    // the provided GameLogic instance ever changes.
+    final game = context.read<GameLogic>();
+    if (!identical(_procGame, game)) {
+      _procGame?.procFeedback.removeListener(_onProcFeedback);
+      _procGame = game;
+      _procGame!.procFeedback.addListener(_onProcFeedback);
+    }
+  }
+
+  /// A proc fired on the tick — float a brief "⚡ name" so it isn't invisible.
+  void _onProcFeedback() {
+    final fb = _procGame?.procFeedback.value;
+    if (fb == null || !mounted) return;
+    addFloatingText('⚡ ${fb.label}', null, AppTheme.accent, 15);
+  }
+
+  @override
   void dispose() {
+    _procGame?.procFeedback.removeListener(_onProcFeedback);
     _buttonScaleController.dispose();
     _shakeController.dispose();
     super.dispose();

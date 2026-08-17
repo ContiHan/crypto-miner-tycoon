@@ -46,6 +46,16 @@ class ClickResult {
   const ClickResult(this.sats, this.isCrit);
 }
 
+/// A one-shot "a proc just fired" signal for a transient MINE-tab float. Procs
+/// fire on the tick (not on a tap), so the UI can't learn about them from a
+/// return value — it listens to [GameLogic.procFeedback] instead. A fresh
+/// instance is pushed each fire so two identical labels still notify.
+class ProcFeedback {
+  final String label; // the proc/firmware affix name that fired
+  final ProcEffectKind kind; // what it granted (for colour/icon)
+  const ProcFeedback(this.label, this.kind);
+}
+
 class GameLogic with ChangeNotifier {
   double wallet = 0;
   double lifetimeEarnings = 0;
@@ -1227,6 +1237,11 @@ class GameLogic with ChangeNotifier {
   // --- Procs / triggers (Phase 6) ----------------------------------------
   final ProcSystem _procs = ProcSystem();
 
+  /// One-shot signal that a proc fired, for the MINE-tab float (F-D). The UI
+  /// listens; a fresh [ProcFeedback] is pushed per proc so repeats still notify.
+  final ValueNotifier<ProcFeedback?> procFeedback =
+      ValueNotifier<ProcFeedback?>(null);
+
   /// Roll the proc engine for [event] and apply whatever fires. FOREGROUND-ONLY
   /// (never rolls in the offline sim); [synthetic] events (proc-produced or an
   /// auto-tap) fire nothing (GOLDEN RULE). GRANTs are wallet/UTXO only (never
@@ -1289,6 +1304,11 @@ class GameLogic with ChangeNotifier {
           break;
         case ProcEffectKind.buff:
           break; // applied live via _procs.tempMult in the temp getters
+      }
+      // Surface the fire so the player can SEE the (otherwise silent) proc —
+      // the MINE tab floats a brief "⚡ <name>" (F-D). Skip in the offline sim.
+      if (!_inOfflineSim) {
+        procFeedback.value = ProcFeedback(r.signal.name, r.signal.kind);
       }
     }
   }
@@ -1479,6 +1499,7 @@ class GameLogic with ChangeNotifier {
   void dispose() {
     _isDisposed = true;
     _stopAllTimers();
+    procFeedback.dispose();
     super.dispose();
   }
 
