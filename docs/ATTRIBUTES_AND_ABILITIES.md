@@ -1,9 +1,14 @@
 # Attributes + Per-Class Active Abilities — PLAN
 
-Status: **DESIGN / PLANNING ONLY** (owner: "zatím jen plánujeme"). No code.
-Produced via a multi-agent design pass (attributes + 3 ability takes → synthesis
-→ adversarial review, verdict *ship-with-fixes*; the review's top fixes are
-folded in below and marked ⚑).
+Status: **IMPLEMENTED** (Slices 1–5 + 72a/72b/72c). The attribute suite, the 4×3
+ability kit, all during-buff STATE effects (LUCKY NONCE luck ×3 + anomaly burst,
+POOL LUCK sweep-luck pin, BLOCK RACE auto-taps, STEADY HANDS / CONSENSUS RALLY
+crash-immunity), the ability-enhancer attributes (RIG COOLING haste, OVERCHARGE
+buff-magnitude, BULL BIAS chaos tilt), and the polished animated Abilities Bar
+(pulse glow, radial cooldown sweep, active-buff ticker, floating cast text) are
+all live and test-covered. Was: DESIGN / PLANNING ONLY. Produced via a multi-agent
+design pass (attributes + 3 ability takes → synthesis → adversarial review, verdict
+*ship-with-fixes*; the review's top fixes are folded in below and marked ⚑).
 
 ---
 

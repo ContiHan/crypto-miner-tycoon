@@ -1063,6 +1063,15 @@ class GameLogic with ChangeNotifier {
   int abilityCooldownRemainingMs(AbilityDef def) =>
       _abilities.cooldownRemainingMs(def, _nowMs(), abilityHaste);
 
+  /// Full (haste-adjusted) cooldown of an ability — the denominator for the bar's
+  /// radial cooldown sweep.
+  int abilityEffectiveCooldownMs(AbilityDef def) =>
+      _abilities.effectiveCooldownMs(def, abilityHaste);
+
+  /// Currently-active ability buffs with remaining ms (bar ticker chips).
+  List<({AbilityDef def, int remainingMs})> activeAbilityBuffs() =>
+      _abilities.activeBuffs(_nowMs());
+
   /// Fires an ability by id. No-op (returns false) if not the owning class, not
   /// unlocked, or still on cooldown. Buffs are foreground-only.
   bool castAbility(String id) {

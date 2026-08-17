@@ -356,6 +356,18 @@ class AbilitySystem {
 
   bool get hasAnyActiveBuff => _active.isNotEmpty;
 
+  /// Active buff windows with remaining ms (for the bar's ticker chips), soonest
+  /// to expire first.
+  List<({AbilityDef def, int remainingMs})> activeBuffs(int nowMs) {
+    _prune(nowMs);
+    final out = _active
+        .map((a) => (def: a.def, remainingMs: a.expiryMs - nowMs))
+        .where((e) => e.remainingMs > 0)
+        .toList()
+      ..sort((a, b) => a.remainingMs.compareTo(b.remainingMs));
+    return out;
+  }
+
   // ---- persistence -------------------------------------------------------
   Map<String, int> lastUsedJson() => Map<String, int>.from(lastUsedMs);
 
