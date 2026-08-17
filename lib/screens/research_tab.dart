@@ -330,48 +330,132 @@ class _PresetBar extends StatelessWidget {
         ),
         if (presets.isNotEmpty) ...[
           const SizedBox(height: 8),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: 6,
-            runSpacing: 6,
-            children: [
-              for (var i = 0; i < presets.length; i++)
-                ActionChip(
-                  label: Text(presets[i].name,
-                      style: const TextStyle(fontSize: 11)),
-                  avatar: Icon(
-                    i == game.activeTechPreset
-                        ? Icons.play_circle_fill
-                        : Icons.play_circle_outline,
-                    size: 15,
-                    color: AppTheme.accent,
-                  ),
-                  backgroundColor: i == game.activeTechPreset
-                      ? AppTheme.accent.withValues(alpha: 0.15)
-                      : AppTheme.background,
-                  onPressed: () {
-                    final n = game.applyTechPreset(i);
-                    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-                      content: Text(n > 0
-                          ? 'Applied ${presets[i].name} (+$n nodes)'
-                          : '${presets[i].name}: nothing affordable yet'),
-                      duration: const Duration(seconds: 2),
-                      behavior: SnackBarBehavior.floating,
-                    ));
-                  },
-                ),
-            ],
-          ),
+          for (var i = 0; i < presets.length; i++)
+            _PresetRow(game: game, index: i),
         ],
         const SizedBox(height: 6),
         Text(
           game.autoApplyPresets
-              ? 'Your active build re-applies automatically after every reset. Tap a build to apply it now.'
-              : 'Auto-apply is OFF. Tap a saved build to re-tech it manually.',
+              ? 'APPLY re-teches a build now; your active build (▶) also re-applies '
+                'automatically after every reset. UPDATE overwrites a slot with '
+                'your current build; ✕ deletes it.'
+              : 'Auto-apply is OFF. APPLY re-teches a build now; UPDATE overwrites '
+                'a slot with your current build; ✕ deletes it.',
           textAlign: TextAlign.center,
           style: const TextStyle(color: Colors.white38, fontSize: 10),
         ),
       ],
+    );
+  }
+}
+
+/// One saved-build row: APPLY (re-tech now) + UPDATE (overwrite this slot with
+/// the current build) + delete. Separating APPLY from a tap-anywhere chip fixes
+/// the "it auto-applies and I can't overwrite an older slot" complaint.
+class _PresetRow extends StatelessWidget {
+  final GameLogic game;
+  final int index;
+  const _PresetRow({required this.game, required this.index});
+
+  @override
+  Widget build(BuildContext context) {
+    final preset = game.techPresets[index];
+    final active = index == game.activeTechPreset;
+    void snack(String msg) => ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+          content: Text(msg),
+          duration: const Duration(seconds: 2),
+          behavior: SnackBarBehavior.floating,
+        ));
+
+    return Container(
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.only(left: 10, right: 4),
+      decoration: BoxDecoration(
+        color: active
+            ? AppTheme.accent.withValues(alpha: 0.12)
+            : AppTheme.background,
+        borderRadius: BorderRadius.circular(6),
+        border: Border.all(
+            color: active ? AppTheme.accent : Colors.white12),
+      ),
+      child: Row(
+        children: [
+          Icon(active ? Icons.play_circle_fill : Icons.bookmark_outline,
+              size: 15, color: AppTheme.accent),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(preset.name,
+                overflow: TextOverflow.ellipsis,
+                style: const TextStyle(fontSize: 12, color: Colors.white)),
+          ),
+          TextButton(
+            onPressed: () {
+              final n = game.applyTechPreset(index);
+              snack(n > 0
+                  ? 'Applied ${preset.name} (+$n nodes)'
+                  : '${preset.name}: nothing affordable yet');
+            },
+            style: TextButton.styleFrom(
+              foregroundColor: AppTheme.accent,
+              padding: const EdgeInsets.symmetric(horizontal: 8),
+              minimumSize: const Size(0, 32),
+              tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+            ),
+            child: const Text('APPLY', style: TextStyle(fontSize: 11)),
+          ),
+          IconButton(
+            tooltip: 'Overwrite this slot with your current build',
+            icon: const Icon(Icons.sync, size: 17),
+            color: Colors.white54,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+            onPressed: () {
+              final ok = game.overwriteTechPreset(index);
+              snack(ok
+                  ? 'Updated slot to your current build (${game.techPresets[index].name})'
+                  : 'Nothing researched yet — build not changed');
+            },
+          ),
+          IconButton(
+            tooltip: 'Delete this saved build',
+            icon: const Icon(Icons.close, size: 17),
+            color: Colors.white38,
+            visualDensity: VisualDensity.compact,
+            constraints: const BoxConstraints(minWidth: 34, minHeight: 34),
+            onPressed: () => _confirmDelete(context, preset.name),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _confirmDelete(BuildContext context, String name) {
+    showDialog<void>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        backgroundColor: AppTheme.surface,
+        title: const Text('DELETE BUILD',
+            style: TextStyle(color: Colors.orangeAccent)),
+        content: Text('Delete the saved build "$name"? Your researched nodes '
+            'stay — this only removes the saved preset.',
+            style: const TextStyle(color: AppTheme.textSecondary)),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(),
+            child: const Text('CANCEL',
+                style: TextStyle(color: Colors.white54)),
+          ),
+          TextButton(
+            onPressed: () {
+              game.deleteTechPreset(index);
+              Navigator.of(ctx).pop();
+            },
+            child: const Text('DELETE',
+                style: TextStyle(
+                    color: Colors.orangeAccent, fontWeight: FontWeight.bold)),
+          ),
+        ],
+      ),
     );
   }
 }

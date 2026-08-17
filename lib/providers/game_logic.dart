@@ -1023,6 +1023,24 @@ class GameLogic with ChangeNotifier {
     _saveGame();
   }
 
+  /// Overwrite an existing preset slot with the current TECH build (re-named).
+  /// Lets the player update ANY slot, not only append a new one. Returns true if
+  /// it overwrote (false = out of range or nothing researched to save).
+  bool overwriteTechPreset(int index) {
+    final p = _researchManager.overwritePreset(index);
+    if (p == null) return false;
+    notifyListeners();
+    _saveGame();
+    return true;
+  }
+
+  /// Delete a preset slot.
+  void deleteTechPreset(int index) {
+    _researchManager.deletePreset(index);
+    notifyListeners();
+    _saveGame();
+  }
+
   void setAutoApplyPresets(bool value) {
     _researchManager.autoApplyPresets = value;
     notifyListeners();

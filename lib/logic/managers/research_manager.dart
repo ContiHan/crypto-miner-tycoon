@@ -741,6 +741,36 @@ class ResearchManager {
     }
   }
 
+  /// Overwrite an EXISTING slot with the currently-completed nodes (re-auto-named)
+  /// and make it active. Lets the player update any slot (not only append a new
+  /// one). No-op if the index is out of range or nothing is completed. Returns the
+  /// updated preset (or null).
+  TechPreset? overwritePreset(int index) {
+    if (index < 0 || index >= presets.length) return null;
+    final ids = researchNodes
+        .where((n) => n.isCompleted)
+        .map((n) => n.id)
+        .toSet();
+    if (ids.isEmpty) return null;
+    final preset = TechPreset(name: autoNameFor(ids), nodeIds: ids);
+    presets[index] = preset;
+    activePreset = index;
+    return preset;
+  }
+
+  /// Remove a preset slot, keeping [activePreset] pointing at the same preset (or
+  /// clearing it if the active one was deleted). No-op if out of range.
+  void deletePreset(int index) {
+    if (index < 0 || index >= presets.length) return;
+    presets.removeAt(index);
+    if (activePreset == index) {
+      activePreset = -1; // the active build is gone
+    } else if (activePreset > index) {
+      activePreset -= 1; // everything after the hole shifted down one
+    }
+    if (activePreset >= presets.length) activePreset = presets.length - 1;
+  }
+
   List<Map<String, dynamic>> presetsJson() =>
       presets.map((p) => p.toJson()).toList();
 

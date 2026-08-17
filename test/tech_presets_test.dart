@@ -69,6 +69,71 @@ void main() {
       expect(game.isResearched(ResearchIds.neuralNet), true);
     });
 
+    test('overwrite updates ANY slot with the current build (device finding #6)',
+        () async {
+      final game = _game(FakeGameRepository());
+      await game.loadGame();
+      game.wallet = 1e15;
+
+      // Slot 0: a hash build. Slot 1: a lean (rig-cost) build.
+      game.buyResearch(ResearchIds.basicOverclock);
+      game.buyResearch(ResearchIds.advancedOverclock);
+      game.saveTechPreset(); // slot 0 = Hash Whale
+      game.buyResearch(ResearchIds.betterCooling); // rigCost
+      game.saveTechPreset(); // slot 1
+      expect(game.techPresets.length, 2);
+      final slot0NameBefore = game.techPresets[0].name;
+
+      // Research more, then OVERWRITE slot 0 (the older one) — previously only the
+      // newest could be managed.
+      game.buyResearch(ResearchIds.neuralNet);
+      final ok = game.overwriteTechPreset(0);
+      expect(ok, true);
+      expect(game.techPresets[0].nodeIds.contains(ResearchIds.neuralNet), true,
+          reason: 'slot 0 now holds the current build');
+      expect(game.techPresets[0].nodeIds.contains(ResearchIds.betterCooling), true);
+      expect(game.activeTechPreset, 0, reason: 'overwrite makes the slot active');
+      expect(game.techPresets.length, 2, reason: 'overwrite does not add a slot');
+      // Name may re-derive from the new dominant channel.
+      expect(game.techPresets[0].name, isNot(equals('')));
+      expect(slot0NameBefore, isNotEmpty);
+    });
+
+    test('overwrite is a no-op with nothing researched', () async {
+      final game = _game(FakeGameRepository());
+      await game.loadGame();
+      game.wallet = 1e15;
+      game.buyResearch(ResearchIds.basicOverclock);
+      game.saveTechPreset();
+      // Clear the completed set → overwriting a slot has nothing to snapshot.
+      for (final n in game.researchNodes) {
+        n.isCompleted = false;
+      }
+      expect(game.overwriteTechPreset(0), false);
+    });
+
+    test('delete removes a slot and fixes the active pointer', () async {
+      final game = _game(FakeGameRepository());
+      await game.loadGame();
+      game.wallet = 1e15;
+      game.buyResearch(ResearchIds.basicOverclock);
+      game.saveTechPreset(); // 0
+      game.buyResearch(ResearchIds.advancedOverclock);
+      game.saveTechPreset(); // 1
+      game.buyResearch(ResearchIds.neuralNet);
+      game.saveTechPreset(); // 2 (active)
+      expect(game.techPresets.length, 3);
+      expect(game.activeTechPreset, 2);
+
+      game.deleteTechPreset(0); // delete the first
+      expect(game.techPresets.length, 2);
+      expect(game.activeTechPreset, 1,
+          reason: 'active index shifts down with the hole');
+
+      game.deleteTechPreset(game.activeTechPreset); // delete the active one
+      expect(game.activeTechPreset, -1, reason: 'active cleared when deleted');
+    });
+
     test('presets survive a prestige reset and clear on full wipe', () async {
       final repo = FakeGameRepository();
       final g1 = _game(repo);
