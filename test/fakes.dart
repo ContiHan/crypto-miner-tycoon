@@ -223,7 +223,7 @@ class FakeGameRepository implements GameRepository {
     bool unlockedStash = false,
     bool unlockedSkill = false,
     bool unlockedGoal = false,
-    int bullRunsSeen = 0,
+    int eventsSeen = 0,
     List<String> unlockedRigs = const [],
     Map<String, dynamic> rigSnap = const {},
     bool speedRunActive = false,
@@ -271,7 +271,7 @@ class FakeGameRepository implements GameRepository {
     data['unlockedStash'] = unlockedStash;
     data['unlockedSkill'] = unlockedSkill;
     data['unlockedGoal'] = unlockedGoal;
-    data['bullRunsSeen'] = bullRunsSeen;
+    data['eventsSeen'] = eventsSeen;
     data['unlockedRigs'] = unlockedRigs;
     data['rigSnap'] = rigSnap;
     data['speedRunActive'] = speedRunActive;

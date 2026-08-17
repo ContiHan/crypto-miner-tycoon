@@ -146,12 +146,15 @@ class GameLogic with ChangeNotifier {
   int _snapRigs = 0;
   int _snapCrates = 0;
   int _snapSpins = 0;
-  int _snapBullRuns = 0;
+  int _snapEvents = 0;
   double _snapHash = 0;
 
-  /// Lifetime count of Bull Run events witnessed (drives the event milestone).
-  int bullRunsSeen = 0;
-  bool _wasBullRun = false; // rising-edge tracker so one event counts once
+  /// Lifetime count of market events witnessed — ANY chaos event (good or bad),
+  /// not just Bull Runs. Drives the "witness any market event" rig milestone,
+  /// which a Speed Run can actually reach (a single Bull Run was too rare and
+  /// stalled the ordered reveal). Counted in the ChaosEventSystem.onEventSound
+  /// hook, so it ticks regardless of which tab is open.
+  int eventsSeen = 0;
 
   int _totalRigsOwned() => rigs.fold<int>(0, (a, r) => a + r.amount);
 
@@ -161,7 +164,7 @@ class GameLogic with ChangeNotifier {
     _snapRigs = _totalRigsOwned();
     _snapCrates = cratesOpened;
     _snapSpins = casinoSpins;
-    _snapBullRuns = bullRunsSeen;
+    _snapEvents = eventsSeen;
     _snapHash = globalHashRate;
   }
 
@@ -177,8 +180,8 @@ class GameLogic with ChangeNotifier {
         return globalHashRate >= _snapHash * 2;
       case RigIds.quantumRig: // dip into the STASH
         return cratesOpened >= _snapCrates + 1;
-      case RigIds.fusionRig: // ride a market Bull Run
-        return bullRunsSeen >= _snapBullRuns + 1;
+      case RigIds.fusionRig: // witness any market event (Speed-Run reachable)
+        return eventsSeen >= _snapEvents + 1;
       case RigIds.photonicRig: // play the SWEEP mini-games
         return casinoSpins >= _snapSpins + 3;
       case RigIds.datacenterRig: // scale the farm up
@@ -205,7 +208,7 @@ class GameLogic with ChangeNotifier {
       case RigIds.quantumRig:
         return 'Open a supply crate';
       case RigIds.fusionRig:
-        return 'Ride a Bull Run event';
+        return 'Witness any market event';
       case RigIds.photonicRig:
         return 'Play 3 SWEEP games${p(casinoSpins - _snapSpins, 3)}';
       case RigIds.datacenterRig:
@@ -1506,6 +1509,9 @@ class GameLogic with ChangeNotifier {
       },
       onEventSound: (good) {
         good ? _soundService.playEventGood() : _soundService.playEventBad();
+        // Any market event (good or bad) counts toward the "witness any event"
+        // rig milestone — fires here regardless of the open tab.
+        eventsSeen++;
         // Chaos procs (OG Market Whisper / Pool Hedge Payout) fire off the real
         // event's good/bad polarity.
         _fireProcs(good ? ProcEvent.onGoodChaos : ProcEvent.onBadChaos);
@@ -1753,13 +1759,6 @@ class GameLogic with ChangeNotifier {
   }
 
   void _mine() {
-    // Bull Run rising-edge (income multiplier crossing above 1) — counts each
-    // event once for the rig milestone. Before the hash-rate early-return so it
-    // ticks even with no rigs yet.
-    final nowBull = chaosIncomeMultiplier > 1.01;
-    if (nowBull && !_wasBullRun) bullRunsSeen++;
-    _wasBullRun = nowBull;
-
     // Auto Clicker
     if (_researchManager.isResearched(ResearchIds.aiManager)) {
       _autoClickCounter++;
@@ -2510,13 +2509,13 @@ class GameLogic with ChangeNotifier {
       unlockedStash: unlockedStash,
       unlockedSkill: unlockedSkill,
       unlockedGoal: unlockedGoal,
-      bullRunsSeen: bullRunsSeen,
+      eventsSeen: eventsSeen,
       unlockedRigs: _unlockedRigs.toList(),
       rigSnap: {
         'rigs': _snapRigs,
         'crates': _snapCrates,
         'spins': _snapSpins,
-        'bullRuns': _snapBullRuns,
+        'events': _snapEvents,
         'hash': _snapHash,
       },
       speedRunActive: speedRunActive,
@@ -2688,7 +2687,9 @@ class GameLogic with ChangeNotifier {
 
       // Rig progression (milestone system) — restored AFTER rigs so the
       // grandfather can read them and globalHashRate is computable.
-      bullRunsSeen = _toInt(data['bullRunsSeen']);
+      // Fall back to the old 'bullRunsSeen' key so a pre-rename save keeps its
+      // event baseline.
+      eventsSeen = _toInt(data['eventsSeen'] ?? data['bullRunsSeen']);
       _unlockedRigs
         ..clear()
         ..addAll((data['unlockedRigs'] as List?)?.cast<String>() ?? const []);
@@ -2697,7 +2698,7 @@ class GameLogic with ChangeNotifier {
         _snapRigs = _toInt(rigSnap['rigs']);
         _snapCrates = _toInt(rigSnap['crates']);
         _snapSpins = _toInt(rigSnap['spins']);
-        _snapBullRuns = _toInt(rigSnap['bullRuns']);
+        _snapEvents = _toInt(rigSnap['events'] ?? rigSnap['bullRuns']);
         _snapHash = _toDouble(rigSnap['hash']);
       } else {
         // Save predates the milestone system: reveal everything up to the
