@@ -27,7 +27,8 @@ void main() {
     await tester.pump();
     expect(find.text('RIG FIRMWARE'), findsOneWidget);
     expect(find.text('0 / 3 sockets'), findsOneWidget);
-    expect(find.text('Nonce Cache'), findsOneWidget);
+    // Rarest-first: the legendary affix pins to the top of the pool.
+    expect(find.text('Genesis Windfall'), findsOneWidget);
     expect(find.text('SOCKET'), findsWidgets);
   });
 

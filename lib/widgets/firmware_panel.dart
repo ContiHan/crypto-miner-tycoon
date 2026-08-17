@@ -26,9 +26,21 @@ class FirmwarePanel extends StatelessWidget {
     }
   }
 
+  /// Affix pool sorted rarest-first (legendary → common), catalogue order as a
+  /// stable tiebreak — matches the GOAL list's rarity ordering.
+  List<FirmwareAffix> _sortedByRarity() {
+    final src = game.availableFirmware();
+    final indexed = [for (var i = 0; i < src.length; i++) MapEntry(i, src[i])];
+    indexed.sort((x, y) {
+      final r = y.value.rarity.index.compareTo(x.value.rarity.index);
+      return r != 0 ? r : x.key.compareTo(y.key);
+    });
+    return [for (final e in indexed) e.value];
+  }
+
   @override
   Widget build(BuildContext context) {
-    final affixes = game.availableFirmware();
+    final affixes = _sortedByRarity();
     final used = game.equippedFirmwareCount;
     final cap = game.firmwareCapacity;
 
@@ -52,12 +64,38 @@ class FirmwarePanel extends StatelessWidget {
                     fontSize: 13)),
           ],
         ),
-        const SizedBox(height: 6),
-        const Text(
-          'Socket firmware to add proc triggers to your rig. More sockets come '
-          'from the Firmware Bay (TECH), class Mastery 2, and committing to two '
-          'doctrines. Your loadout survives every reset.',
-          style: TextStyle(color: Colors.white54, fontSize: 12, height: 1.4),
+        const SizedBox(height: 8),
+        // Guide-everywhere: firmware is a LOADOUT, not an unlock ladder — this
+        // answers "why is everything already available?" up front.
+        Container(
+          padding: const EdgeInsets.all(10),
+          decoration: BoxDecoration(
+            color: AppTheme.background,
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: Colors.white12),
+          ),
+          child: const Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'Each firmware chip adds a PROC TRIGGER — a bonus effect that '
+                'fires on an event (a found block, an ability cast, a breach, a '
+                'crit streak).',
+                style:
+                    TextStyle(color: Colors.white70, fontSize: 12, height: 1.4),
+              ),
+              SizedBox(height: 6),
+              Text(
+                'It\'s a LOADOUT, not an unlock ladder: every chip is available '
+                'from the start, but you can only equip a few at once. SOCKETS '
+                'are the limit — you start with 3 and grow to 8 via the Firmware '
+                'Bay (TECH), class Mastery 2, and committing to two doctrines. '
+                'Your loadout survives every reset. Listed rarest-first.',
+                style:
+                    TextStyle(color: Colors.white54, fontSize: 11, height: 1.4),
+              ),
+            ],
+          ),
         ),
         const SizedBox(height: 12),
         for (final a in affixes)
