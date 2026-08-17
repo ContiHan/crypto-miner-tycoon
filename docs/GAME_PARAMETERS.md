@@ -24,7 +24,7 @@ All numeric values are the `[TUNE]` defaults in `lib/core/constants.dart` /
 | **Genesis Blocks / GB** | New Blockchain (`floor(sqrt(chainGovTokens / 520000))`) | multiplies CX+GT **gain** (not raw income) | never (permanent) |
 | **UTXO** (`chips`, internal) | anomaly pop-ups (+1), SWEEP wins | crates; SWEEP stakes | New Blockchain |
 | **Trophies** (`winCount`) | reaching the ending / NG+ | permanent prestige-gain bonus | never |
-| **Mastery XP** (per class) | GovTokens minted **while playing that class** | permanent all-class bonus | full wipe only |
+| **Mastery XP** (per class) | Bitcoin **mined while playing that class** (1 full 21M supply = 1 XP unit) | permanent all-class bonus | full wipe only |
 
 ---
 
@@ -82,9 +82,11 @@ New Blockchain.
 
 - **Prestige gain** scales how much Consensus + GovTokens you bank per fork
   (BTC OG farms prestige fastest; Corporation slowest but brute-force output).
-- **Mastery**: XP = GovTokens minted while playing that class. Level =
-  `floor(sqrt(XP / 10000))`. Total mastery level across all classes grants a tiny
-  permanent hash+income bonus to *every* class. Only a full wipe clears it.
+- **Mastery**: XP = Bitcoin MINED while playing that class (1 full 21M supply
+  mined = 1 XP unit; credited live in `_creditLifetimeEver`, un-farmable by
+  resetting). Level = `floor(sqrt(XP / 10000))`. Total mastery level across all
+  classes grants a tiny permanent hash+income bonus to *every* class. Only a full
+  wipe clears it.
 
 ---
 

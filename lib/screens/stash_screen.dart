@@ -869,6 +869,17 @@ class _StashScreenState extends State<StashScreen>
             ),
           ),
         ),
+        const SizedBox(height: 8),
+        // Persistent compliance line (Google Play): SWEEP is entertainment only —
+        // in-game UTXO has no real-world value and cannot be cashed out. Must stay
+        // visible on the tab itself, not only in a one-time tip.
+        const Center(
+          child: Text(
+            'SIMULATED — in-game UTXO only, no real money or value, nothing to cash out',
+            textAlign: TextAlign.center,
+            style: TextStyle(color: Colors.white38, fontSize: 9.5, height: 1.3),
+          ),
+        ),
         const SizedBox(height: 14),
 
         // NOTE: the cap ("MEMPOOL CONGESTED") is surfaced IN PLACE of the play

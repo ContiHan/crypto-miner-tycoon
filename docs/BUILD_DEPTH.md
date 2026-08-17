@@ -1,7 +1,14 @@
 # Build Depth — ~25 attributes, resistances, exclusive TECH branches, presets & blueprints
 
-Status: **PLANNING ONLY.** No code. Multi-agent design pass + adversarial review
+Status: **IMPLEMENTED** (Slices 0–10, 2026-08). The attribute suite, resistances,
+exclusive TECH doctrines (commitment budget 2), presets + auto-apply, and
+blueprints all shipped — see channels.dart / constants.dart / research_manager.dart
+/ game_logic.dart. Was: PLANNING ONLY. Multi-agent design pass + adversarial review
 (verdict *ship-with-fixes*); the review's cuts/fixes are folded in below (⚑).
+NOTE: a few literal numbers below are stale vs the shipped (gentler) values —
+upkeep cap 15%→**10%** and breach base loss 15%→**10%** (owner-chosen); Mastery XP
+source changed to **per mined 21M supply** (not per GovToken). lib/core/constants.dart
+is the source of truth for all caps.
 Companion to [ATTRIBUTES_AND_ABILITIES.md](ATTRIBUTES_AND_ABILITIES.md) (the 5
 core attributes + the ability kit) and [ENDGAME_REDESIGN.md](ENDGAME_REDESIGN.md).
 

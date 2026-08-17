@@ -468,7 +468,8 @@ class PerksScreen extends StatelessWidget {
   /// Mastery status as bullet lines (or a single hint line when none earned yet).
   List<String> _masteryBullets(GameLogic game) {
     if (game.totalMasteryLevel <= 0) {
-      return const ['None yet — earned from GovTokens minted as this class'];
+      return const ['None yet — earned by MINING as this class (one full 21M '
+          'supply mined = Mastery 1); permanent, kept across resets'];
     }
     return [
       'Lv ${game.currentClassMasteryLevel} — this class',
