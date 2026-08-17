@@ -186,6 +186,61 @@ void main() {
     });
   });
 
+  group('GOAL ordering + rarity (device finding #1)', () {
+    test('rarity is classified for representative tiers', () {
+      expect(achievementRarity('earn_1m'), AchRarity.common);
+      expect(achievementRarity('earn_1t'), AchRarity.rare);
+      expect(achievementRarity('earn_1q'), AchRarity.legendary);
+      expect(achievementRarity('meta_genesis_complete'), AchRarity.legendary);
+      expect(achievementRarity('no_such_id'), AchRarity.common,
+          reason: 'unclassified defaults to common');
+    });
+
+    test('orders unlocked → locked → unknown, rarest first within a group', () {
+      final list = [
+        kAchievements.firstWhere((a) => a.id == 'earn_1m'), // common → claimable
+        kAchievements.firstWhere((a) => a.id == 'earn_1q'), // legendary → locked
+        kAchievements.firstWhere((a) => a.id == 'earn_1t'), // rare → locked
+        kAchievements.firstWhere((a) => a.id == 'secret_pizza'), // secret → unknown
+        kAchievements
+            .firstWhere((a) => a.id == 'meta_genesis_complete'), // legend → claimed
+      ];
+      final ordered = orderedAchievements(
+        list,
+        isClaimable: {'earn_1m'}.contains,
+        isClaimed: {'meta_genesis_complete'}.contains,
+      );
+      expect(ordered.map((a) => a.id).toList(), [
+        'earn_1m', // claimable (unlocked, call-to-action first)
+        'meta_genesis_complete', // claimed (unlocked)
+        'earn_1q', // locked-known, legendary before rare
+        'earn_1t', // locked-known, rare
+        'secret_pizza', // unknown (secret + locked) last
+      ]);
+    });
+
+    test('status groups stay contiguous over the whole catalogue', () {
+      // Pretend the first 8 are claimed; the sort must keep unlocked entirely
+      // ahead of every locked/unknown item.
+      final claimedIds =
+          kAchievements.take(8).map((a) => a.id).toSet();
+      final ordered = orderedAchievements(
+        kAchievements,
+        isClaimable: (_) => false,
+        isClaimed: claimedIds.contains,
+      );
+      var seenLocked = false;
+      for (final a in ordered) {
+        final unlocked = claimedIds.contains(a.id);
+        if (!unlocked) seenLocked = true;
+        if (unlocked) {
+          expect(seenLocked, false,
+              reason: 'an unlocked item (${a.id}) appeared after a locked one');
+        }
+      }
+    });
+  });
+
   group('Reachability', () {
     // lifetimeEarnings is a PER-ERA counter, hard-clamped to maxSupplySats and
     // reset by every prestige. Any earnings achievement whose threshold exceeds

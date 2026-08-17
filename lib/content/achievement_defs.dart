@@ -77,6 +77,11 @@ class AchStats {
 
 enum AchCategory { earnings, rigs, tech, prestige, collection, meta, secret }
 
+/// Rarity tier of an achievement — how deep/hard it is to earn. Drives the GOAL
+/// list sort (rarest first within each status group) and a small rarity accent on
+/// each card. Same 4-tier ladder as Rig Firmware for a consistent visual language.
+enum AchRarity { common, rare, epic, legendary }
+
 /// A single achievement. [secret] ones are hidden ("???") until earned and grant
 /// NO Notoriety (cosmetic only); normal ones each grant Notoriety (a small
 /// permanent income bonus, its own lane away from the SKILL/TECH power budget).
@@ -553,3 +558,111 @@ final List<Achievement> kAchievements = [
         s.rigTypesOwned >= s.rigTypesTotal,
   ),
 ];
+
+/// Rarity per achievement id (by how deep/hard it sits in the game). Anything not
+/// listed defaults to [AchRarity.common]. Kept as a side table so the 50+
+/// Achievement definitions stay untouched; [achievementRarity] reads it.
+const Map<String, AchRarity> _kAchievementRarity = {
+  // Earnings ladder
+  'earn_1m': AchRarity.common,
+  'earn_1b': AchRarity.common,
+  'earn_1t': AchRarity.rare,
+  'earn_100t': AchRarity.epic,
+  'earn_1q': AchRarity.legendary,
+  // Rigs
+  'rigs_10': AchRarity.common,
+  'rigs_100': AchRarity.common,
+  'rigs_500': AchRarity.rare,
+  'rigs_alltypes': AchRarity.rare,
+  'rigs_1000': AchRarity.epic,
+  // Tech
+  'lab_5': AchRarity.common,
+  'lab_all': AchRarity.epic,
+  'perks_10': AchRarity.common,
+  'perks_50': AchRarity.rare,
+  // Prestige
+  'soft_first': AchRarity.common,
+  'consensus_50': AchRarity.common,
+  'hard_first': AchRarity.common,
+  'gov_100': AchRarity.rare,
+  'hard_10': AchRarity.rare,
+  'chain_first': AchRarity.rare,
+  'genesis_5': AchRarity.epic,
+  'consensus_500': AchRarity.epic,
+  'hard_50': AchRarity.epic,
+  'gov_1000': AchRarity.epic,
+  'chain_5': AchRarity.epic,
+  'class_first': AchRarity.rare,
+  'mastery_solo': AchRarity.epic,
+  'mastery_corp': AchRarity.epic,
+  'mastery_og': AchRarity.epic,
+  'mastery_pool': AchRarity.epic,
+  'ng_plus': AchRarity.epic,
+  'speedrun_silver': AchRarity.legendary,
+  // Collection
+  'stash_10': AchRarity.common,
+  'stash_30': AchRarity.rare,
+  'stash_all': AchRarity.epic,
+  'crates_25': AchRarity.common,
+  'chips_5': AchRarity.common,
+  'casino_25': AchRarity.common,
+  'crates_100': AchRarity.rare,
+  'casino_250': AchRarity.rare,
+  // Meta
+  'meta_20': AchRarity.rare,
+  'meta_40': AchRarity.epic,
+  'meta_genesis_complete': AchRarity.legendary,
+  'class_all': AchRarity.legendary,
+  'the_timechain': AchRarity.legendary,
+  // Secret / shadow
+  'secret_sandbox': AchRarity.legendary,
+  'speedrun_satoshi': AchRarity.legendary,
+  'secret_pizza': AchRarity.common,
+  'secret_diamond': AchRarity.rare,
+  'secret_moon': AchRarity.epic,
+  'secret_ngu': AchRarity.rare,
+  'secret_satoshi': AchRarity.legendary,
+  'secret_hodl': AchRarity.epic,
+  'secret_prophet': AchRarity.epic,
+  'secret_jackpot': AchRarity.rare,
+  'secret_ascended': AchRarity.legendary,
+  'secret_gigachad': AchRarity.legendary,
+  'secret_fullnode': AchRarity.legendary,
+};
+
+/// The rarity of an achievement (defaults to common if unclassified).
+AchRarity achievementRarity(String id) =>
+    _kAchievementRarity[id] ?? AchRarity.common;
+
+/// Achievements ordered for the GOAL list: three status groups in this order —
+/// UNLOCKED (claimable first as a call-to-action, then claimed), then LOCKED
+/// (known goals), then UNKNOWN (secret & still locked, shown as "???"). Within
+/// each group, rarest first, ties broken by catalogue order for stability. Pure
+/// so it is unit-testable and produces the same order for the same inputs.
+List<Achievement> orderedAchievements(
+  List<Achievement> all, {
+  required bool Function(String id) isClaimable,
+  required bool Function(String id) isClaimed,
+}) {
+  int statusRank(Achievement a) {
+    final unlocked = isClaimable(a.id) || isClaimed(a.id);
+    if (unlocked) return isClaimable(a.id) ? 0 : 1; // claimable, then claimed
+    if (!a.secret) return 2; // known-locked
+    return 3; // unknown (secret + locked)
+  }
+
+  final indexed = <MapEntry<int, Achievement>>[
+    for (var i = 0; i < all.length; i++) MapEntry(i, all[i])
+  ];
+  indexed.sort((x, y) {
+    final sr = statusRank(x.value).compareTo(statusRank(y.value));
+    if (sr != 0) return sr;
+    // Rarest first within a status group.
+    final rr = achievementRarity(y.value.id)
+        .index
+        .compareTo(achievementRarity(x.value.id).index);
+    if (rr != 0) return rr;
+    return x.key.compareTo(y.key); // stable: catalogue order
+  });
+  return [for (final e in indexed) e.value];
+}

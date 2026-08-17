@@ -24,29 +24,20 @@ class _AchievementsScreenState extends State<AchievementsScreen> {
     AchCategory.secret: Colors.pinkAccent,
   };
 
-  // Display order is captured once per screen mount (claimable first as a call
-  // to action, then claimed, then locked). It is intentionally NOT recomputed
+  // Display order is captured once per screen mount: UNLOCKED (claimable first
+  // as a call-to-action, then claimed) → LOCKED (known goals) → UNKNOWN (secret
+  // + locked), rarest first within each group. It is intentionally NOT recomputed
   // when an item is claimed while the screen stays open: keeping each card in
   // place lets the CLAIM -> checkmark pop animation play where the user tapped,
   // instead of the card teleporting to a new position. Re-sorting happens the
   // next time the screen is entered (it remounts on bottom-nav switch).
   List<Achievement>? _ordered;
 
-  List<Achievement> _orderFor(GameLogic game) {
-    final claimable = <Achievement>[];
-    final claimed = <Achievement>[];
-    final locked = <Achievement>[];
-    for (final a in game.achievements) {
-      if (game.isAchievementClaimable(a.id)) {
-        claimable.add(a);
-      } else if (game.isAchievementClaimed(a.id)) {
-        claimed.add(a);
-      } else {
-        locked.add(a);
-      }
-    }
-    return [...claimable, ...claimed, ...locked];
-  }
+  List<Achievement> _orderFor(GameLogic game) => orderedAchievements(
+        game.achievements,
+        isClaimable: game.isAchievementClaimable,
+        isClaimed: game.isAchievementClaimed,
+      );
 
   @override
   Widget build(BuildContext context) {
@@ -170,6 +161,19 @@ class _AchievementCard extends StatelessWidget {
     required this.onClaim,
   });
 
+  static Color _rarityColor(AchRarity r) {
+    switch (r) {
+      case AchRarity.common:
+        return Colors.blueGrey;
+      case AchRarity.rare:
+        return const Color(0xFF3987e5);
+      case AchRarity.epic:
+        return const Color(0xFF9085e9);
+      case AchRarity.legendary:
+        return const Color(0xFFeda100);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final unlocked = claimable || claimed;
@@ -179,6 +183,8 @@ class _AchievementCard extends StatelessWidget {
     final String desc = hideDetails
         ? 'Secret achievement — discover it by playing.'
         : achievement.description;
+    final rarity = achievementRarity(achievement.id);
+    final rarityColor = _rarityColor(rarity);
 
     return StylizedCard(
       color: claimable
@@ -232,6 +238,24 @@ class _AchievementCard extends StatelessWidget {
                     desc,
                     style: const TextStyle(color: Colors.white60, fontSize: 12),
                   ),
+                  if (!hideDetails) ...[
+                    const SizedBox(height: 4),
+                    Row(
+                      children: [
+                        Icon(Icons.circle, size: 7, color: rarityColor),
+                        const SizedBox(width: 4),
+                        Text(
+                          rarity.name.toUpperCase(),
+                          style: TextStyle(
+                            color: rarityColor,
+                            fontSize: 10,
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 1,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),
