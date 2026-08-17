@@ -70,7 +70,10 @@ credit wallet only, never `speedRunMinedSats`.
 **Sourcing:** STASH **Firmware affixes** (permanent, Time-Capsule-kept) socketed
 into a bounded **RIG FIRMWARE loadout** (3 slots → +1 at META "Firmware Bay" /
 class Mastery 2 / a deep doctrine node → cap ~6); a few class-flavored guaranteed
-TALENT procs; keystone hooks (HAIR TRIGGER, CO-PROCESSOR); onAbilityCast.
+TALENT procs; keystone hooks (⚑ **HAIR TRIGGER does NOT exist** — it is not one
+of the 12 shipped keystones; **CO-PROCESSOR is wired-but-dormant** — no shipped
+keystone equips it, `_hasCoProcessor` is hard-`false`, see the Slice 7b note below);
+onAbilityCast.
 ✅ **IMPLEMENTED (Slice 7b, 2026-08-17):** the on-X engine (Slice 7) + the FIRMWARE
 loadout — [`firmware_system.dart`](../lib/logic/systems/firmware_system.dart)
 (10-affix starter pool, capacity math, graceful over-capacity projection,
@@ -142,21 +145,22 @@ double-dips structurally unreachable.
 | # | Keystone | Doctrine (class) | Upside | Downside |
 |---|---|---|---|---|
 | 1 | ASIC MONOCULTURE* | MEGA-HASH (Corp) | +100% hash | luck ×0.4, no crits |
-| 2 | FURNACE FARM | MEGA-HASH (Corp) | +60% hash | upkeep pinned to 15%, Efficiency/Fee-Hedge do nothing |
+| 2 | FURNACE FARM | MEGA-HASH (Corp) | +60% hash | upkeep pinned to the 10% cap (as-built; was 15%), Fee Hedge does nothing |
 | 3 | SWEAT EQUITY | LEAN-RIG (Solo) | click ×2.5 | passive hash ×0.5, offline ×0.5 |
 | 4 | JUNKYARD RIGS | LEAN-RIG (Solo) | rigCost slammed to −95% floor + fast rebuilds | −40% hash/rig, theft +50% harder |
 | 5 | LOW TIME PREFERENCE* | HODLER (OG) | prestige ×1.5 + offline parity 1.0 | active income −30% |
 | 6 | COLD-WALLET DISCIPLINE | HODLER (OG/Pool) | offline parity + 24h window + Idle Capacity ×2 | foreground income −45%, no crits |
 | 7 | PAPER HANDS* | DEGEN-YIELD (Corp/OG) | GovToken gain ×2 | −25% passive income (as-built; the "Consensus decays" cost was never implemented — a passive-income tax replaces it) |
 | 8 | MARKET MAKER | DEGEN-YIELD (OG/Corp) | positive chaos +50% | negative chaos +50% + resists halved |
-| 9 | LASER EYES* | DEGEN-LUCK (Solo) | crit chance to cap + payout ×2 | non-crit taps do nothing |
-| 10 | DEGENERATE GAMBLER | DEGEN-LUCK (OG/Pool) | SWEEP to EV ceiling + rarity/anomaly maxed | passive income ×0.5, hash ×0.5 |
+| 9 | LASER EYES* | DEGEN-LUCK (Solo) | crit payout ×2 (as-built; no crit-chance lever) | non-crit taps do HALF (click ×0.5) (as-built; was "non-crit taps do nothing") |
+| 10 | DEGENERATE GAMBLER | DEGEN-LUCK (OG/Pool) | luck ×2 for loot/SWEEP (as-built; was "SWEEP to EV ceiling + rarity/anomaly maxed" — it is a ×2, NOT a pin-to-max) | passive income ×0.5, hash ×0.5 |
 | 11 | COLD MINER* | COLD-STORAGE (Pool) | immune to ALL negative events | ALL positive events also never fire |
-| 12 | FORT KNOX | COLD-STORAGE (Pool) | ⚑ resist maxed toward the 0.70 cap + theft near-nullified via vaulting + "+15% security dividend" | luck ×0.5, no crits |
+| 12 | FORT KNOX | COLD-STORAGE (Pool) | ⚑ resist maxed toward the 0.70 cap (resistMult ×1.3) + breach loss ×0.2 — the "+15% security dividend" is **NOT implemented**, and there is no "vaulting" (it's a breachLossMult, not a vault) | luck ×0.5, no crits |
 
 `*` = the 5 from BUILD_DEPTH. ⚑ **FORT KNOX is NOT literal passive immunity** (that
-would break the ≥30%-always-lands rule); it maxes resist + leans on auto-vaulting
-so breaches whiff on a near-empty hot wallet. COLD MINER is the ONE full-immunity
+would break the ≥30%-always-lands rule); it maxes resist (resistMult ×1.3) and cuts
+breach loss to ×0.2 (as-built; the "auto-vaulting" framing never shipped — there is
+no vault, only a theft-resist lever). COLD MINER is the ONE full-immunity
 exception, safe because it's *symmetric* (kills positives too = net-neutral opt-out,
 not a stacking resist). Cross-pair contradictions (COLD MINER + MARKET MAKER)
 self-neutralize into dead picks, and the guide warns.
@@ -180,18 +184,20 @@ hits your spendable wallet. So upkeep only slows how fast you BUY — never the 
 never the supply fill, never Back-in-Time timing (beyond "less cash → buy slower").
 
 **Formula:** load from the FLEET you OWN (`Σ count × tierWeight` — multipliers
-aren't taxed, carpeting the 500th rig is) → `rawUpkeep = 0.15·(1 − 1/(1+load/K))`
-(~0% first rigs, plateaus toward 15%) → reduced by `min(0.75, EnergyEfficiency +
-FeeHedge)` → small class mod (Corp ×1.10, Pool/Solo ×0.90) → `upkeepRate =
-clamp(…, 0, 0.15)`. **Net always in [0.85g, g] before reductions, never <0, never
->g** (skimmed sats burned → no faucet). This finally gives **Energy Efficiency +
-Fee Hedge** real purpose.
+aren't taxed, carpeting the 500th rig is) → `rawUpkeep = 0.10·(1 − 1/(1+load/K))`
+(as-built; was 0.15) (~0% first rigs, plateaus toward 10%) → reduced by
+`min(0.75, FeeHedge)` (⚑ as-built: **ONLY Fee Hedge** — `Channel.costResist` —
+reduces upkeep; there is **no upkeep-reducing "Energy Efficiency" attribute**) →
+small class mod (Corp ×1.10, Pool/Solo ×0.90) → `upkeepRate = clamp(…, 0, 0.10)`
+(as-built; was 0.15). **Net always in [0.90g, g] before reductions** (as-built;
+was 0.85g at the old 15% cap)**, never <0, never >g** (skimmed sats burned → no
+faucet). This finally gives **Fee Hedge** real purpose.
 
 **Chaos dual-duty:** CHEAP ENERGY also halves upkeep (→0) = "FREE POWER — NET
-100%"; COST SPIKE also ×1.5 upkeep (still clamped 0.15) = a "batten down" moment
-Fee Hedge blunts twice. **Offline:** one skim, not stacked. Brute fleets sit ~15%,
-LEAN/Solo/Efficiency ~3–5% → a ~10% net swing that lets a cheap build rival a
-brute without dominating.
+100%"; COST SPIKE also ×1.5 upkeep (still clamped 0.10; as-built, was 0.15) = a
+"batten down" moment Fee Hedge blunts twice. **Offline:** one skim, not stacked.
+Brute fleets sit ~10% (as-built; was ~15%), LEAN/Solo ~3–5% → a net swing that
+lets a cheap build rival a brute without dominating.
 
 ---
 
@@ -200,25 +206,33 @@ brute without dominating.
 ⚑ Owner: BUILT. Renamed from "Hack" (avoids the MINE "HACK" button). Replaces the
 old silent −15% wallet chaos; AIRDROP (+15%) stays as its twin.
 
-**Signature: HOT WALLET vs COLD STORAGE.** Theft touches only your **hot**
-(spendable) wallet. A **Cold Storage vault** is 100% theft-proof (tradeoff:
-liquidity — buys auto-spend hot first; one WITHDRAW tap before a big buy). The
-Cold Storage attribute (a) reduces breach loss %, (b) **auto-vaults** a % of each
-income tick, (c) raises the vault cap → a Fortress build keeps almost nothing hot,
-so breaches whiff.
+**Signature: HOT WALLET vs COLD STORAGE.** ⚑ **This signature depth is NOT shipped
+in v1 (design intent below).** Theft touches only your **hot** (spendable) wallet.
+A **Cold Storage vault** is 100% theft-proof (tradeoff: liquidity — buys auto-spend
+hot first; one WITHDRAW tap before a big buy). The Cold Storage attribute (a)
+reduces breach loss %, (b) **auto-vaults** a % of each income tick, (c) raises the
+vault cap → a Fortress build keeps almost nothing hot, so breaches whiff. — **As
+built, only (a) shipped:** a single theft-**RESIST** lever, the **Cold Storage
+Vault** TECH node → `Channel.theftResist` (≤0.70 cap), that reduces the breach's
+loss %. There is **no** separate hot-vs-cold vault balance, **no** per-tick
+auto-vault, **no** WITHDRAW action, and **no** vault cap; theft steals a flat
+telegraphed % of the whole wallet.
 
 **Can take:** HOT WALLET SATS ONLY. **Never** lifetime/supply/THE LAST SATOSHI,
 GovTokens, Consensus, Genesis, Mastery, Stash, achievements, best times, or chips.
 Permanent progress is structurally untouchable — verified by the review as the
 strongest-designed of the five systems.
 
-**Two-phase telegraph:** THREAT DETECTED (ticker + red shield + ~10s countdown,
-*longer* with Cold Storage) → you tap **SECURE/VAULT**, cast a defensive ability,
-or ignore → BREACH steals `loss% × (1−R)` of what's still hot (base ≤15%, floor
-≥30% of base per the ≤0.70 cap → no passive immunity; only actives fully block).
-**First breach of a run = 0-loss DRILL** (the tutorial). **Offline:** one batched,
-capped breach max. **Frequency floor** ~10–15 min. Tiers: DUST ATTACK / BREACH /
-rare 51% ATTACK (spectacle + brief bounded debuff, still capped).
+**Two-phase telegraph:** THREAT DETECTED (ticker + red shield + a **fixed 10s**
+countdown — ⚑ the Cold-Storage-scaled *longer* telegraph is **NOT shipped**;
+`breachTelegraphSeconds = 10` is a flat constant) → you tap **SECURE/VAULT**, cast
+a defensive ability, or ignore → BREACH steals `loss% × (1−R)` of what's still hot
+(base **10%** (as-built; was ≤15%), floor ≥30% of base per the ≤0.70 cap → no
+passive immunity; only actives fully block). **First breach of a run = 0-loss
+DRILL** (the tutorial). **Offline:** one batched, capped breach max. ⚑ **NOT
+shipped in v1:** the **frequency floor** (~10–15 min) and breach **tiers** (DUST
+ATTACK / BREACH / rare 51% ATTACK) — v1 ships a single flat telegraphed steal, no
+tiers.
 
 ⚑ **Counter-hack bounty:** surviving via a timely defense may roll a small bounty
 — but its **EV must be strictly < the breach loss EV**, else defending becomes
@@ -235,10 +249,28 @@ breaches** (no duration; the telegraph scales with Cold Storage instead).
 
 ---
 
-## Guide coverage (hard requirement — met, with 3 additions ⚑)
-- **Procs:** first-proc coach card · color-coded cause→effect flash+SFX+floating name · Firmware screen in plain language ("WHEN x: y · z% · once/Ns") + live ICD ring · trigger glossary + keyword chips · proc log (news-ticker) · progressive unlock · "?" sheet with live proc-buff totals vs ceilings.
-- **Auras:** the centerpiece **LIVE LIT/DARK indicator** (icon glows while its condition holds, dims when it fails) · unlock explainer · "?" sheet "WHILE ___ : ___ (cost ___)" with a real-time condition dot · long-press preview · per-class stance recommender · switch-lockout sweep · preset integration. ⚑ **Add a softcap "diminishing returns" note** (an aura reads "+0.75 hash" but softcaps to less — teach it or it reads as a bug).
-- **Keystones:** side-by-side UPSIDE-green/DOWNSIDE-red unlock modal + live preview on YOUR build + interaction warnings + fear-removal ("resets each fork + 1 free respec").
+## Guide coverage (hard requirement — ⚑ PARTIAL, not fully met)
+⚑ **Downgraded from "met":** the biggest gap is that **procs fire with NO in-game
+feedback** — no float, no flash, no log. Until that lands, a player has no way to
+see a proc happen. The list below marks what actually shipped vs the design intent.
+- **Procs:** ⚑ **as-built, procs fire with NO in-game feedback** — no floating
+  name, no cause→effect flash, no proc log/news-ticker, no live ICD ring, no "?"
+  sheet with buff-vs-ceiling totals. The Firmware **socket** screen shipped
+  (`firmware_panel.dart`), but the runtime coaching (first-proc coach card ·
+  color-coded flash+SFX+floating name · trigger glossary + keyword chips ·
+  progressive unlock · live totals) did **not**. **Proc firing-feedback is the main
+  remaining guide gap.**
+- **Auras:** the centerpiece **LIVE LIT/DIM indicator** ✅ **shipped** (this pass) —
+  `perks_screen.dart` `_AurasPanel`: ● lit = acting now / ○ = equipped-but-waiting,
+  driven by `auraConditionHolds` · switch-lockout countdown · preset integration.
+  ⚑ **NOT shipped:** the "?" sheet ("WHILE ___ : ___ (cost ___)" with a live
+  condition dot), the long-press preview, and the per-class stance recommender.
+  ⚑ Still to add: a softcap "diminishing returns" note (an aura reads "+0.75 hash"
+  but softcaps to less — teach it or it reads as a bug).
+- **Keystones:** side-by-side UPSIDE-green/DOWNSIDE-red unlock modal + live preview
+  on YOUR build + interaction warnings. ⚑ **Correction:** the loadout **SURVIVES
+  forks** (it is NOT reset each fork) and there is **no respec** — the "resets each
+  fork + 1 free respec" fear-removal copy describes a mechanic that never shipped.
 - **Upkeep:** "% KEPT" power meter + zero-tax onboarding + event inline teaching + "+0.4% power" buy-button hint (⚑ shown BEFORE the buy resolves).
 - **Theft:** the first-breach 0-loss DRILL is the tutorial + hot/cold explainer + persistent SECURE button + AFK-return summary + a cross-linked **DEFENSE codex** (upkeep + theft + Cold Storage + Fee Hedge). ⚑ **Add a "not enough hot" coach tip** (or auto-withdraw-on-purchase).
 - ⚑ **Add** a live readout of the WHOLE temp stack vs its aggregate ceiling (not just procs) so "why did my Bull Run stack flatten" is taught.

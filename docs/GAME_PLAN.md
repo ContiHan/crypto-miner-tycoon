@@ -255,6 +255,10 @@ A casino is the **best controlled currency sink** in the genre — but only if i
 - **Disclose all payout odds in-app** (plinko bucket probabilities, slot symbol frequencies,
   dice/roulette win chances, and the **Stash crate rarity table**). Required for loot boxes; expected by
   IARC. Show effective RTP per game ("returns ~90%").
+  > **As-built (partial).** The SIMULATED / no-cash-out disclaimer and the crate rarity table ship, and
+  > **Hash Flip** discloses its full per-tier probability × payout table. **Effective per-game RTP/EV**
+  > and **Plinko per-bucket probabilities** are only partially surfaced (the Plinko payout bins are drawn
+  > but their exact probabilities aren't listed); Dice/Roulette odds are moot (those games weren't built).
 - Expect the **"Simulated Gambling" IARC descriptor** → roughly **Teen** age rating (confirm you accept
   this — it's the price of having a casino at all).
 
@@ -262,19 +266,38 @@ A casino is the **best controlled currency sink** in the genre — but only if i
 - **Dedicated Casino Token**, bought one-way with sats/chips (sink on entry). Winnings spendable **only
   inside the casino or on exclusive cosmetics/artifacts** — never back into the core wallet (else a
   lucky streak re-inflates the economy).
+  > **⚑ NOT shipped in v1.** The dedicated token was DROPPED — SWEEP wagers and pays in the same
+  > **UTXO/chips** currency as the rest of the game, so winnings *do* re-enter the wallet. The
+  > re-inflation risk this bullet guards against is instead bounded by the per-window `casinoDailyNetCap`
+  > (see below). Tradeoff acknowledged in the header.
 - **EV < 1.0 on every bet** (RTP 85–95%). Unit-test each paytable's `Σ(prob × multiplier) < 1.0`.
+  > **⚑ SUPERSEDED — as-built is the INVERSE.** SWEEP ships **player-favoured EV > 1** on every game
+  > (Hash Flip 1.50 exact; Slots ~1.65; Plinko ~1.55 — all under the `casinoEvCeiling = 2.5` realized-return
+  > clamp), so sweeping the chain always pays out on average. The house edge was replaced by a
+  > **per-real-time-window net cap** as the anti-farm guardrail: net UTXO gain is blocked once it reaches
+  > `casinoDailyNetCap = 400` within `casinoWindowHours = 24` h ("the mempool is congested"; the sweep that
+  > *crosses* the threshold is still paid in full). Compliance holds because it's in-game **UTXO** only
+  > (no real money/value) and outcomes are RNG-decided. The historical negative-EV bullets below are kept
+  > for design history.
   - Plinko (8-row): binomial `C(n,k)·0.5^n`; retune Stake's multipliers down to ~88–92% RTP; offer
     low/med/high risk.
   - Dice: payout `= (1/p)·0.90`. Roulette: single-zero layout, straight-up pays 30:1 (not 35:1) → ~16% edge.
+    ⚑ **Dice and Roulette were NOT shipped in v1** — the three built SWEEP games are **Slots, Hash Flip, Plinko**.
   - Slots: paytable where `Σ(symbol-prob × payout) ≈ 0.90`.
 - **Loss-streak pity** (Genshin-style bounded variance): a "Lucky Break" meter that fills on losses,
   forces a guaranteed win/consolation after N (~8–10) losses. Show the meter.
+  > **⚑ NOT shipped in v1.** No "Lucky Break" pity meter exists — with player-favoured EV > 1 the games
+  > already pay out on average, so a loss-streak backstop was unnecessary.
 - **Agency + juice**: a light skill/timing element (tap-to-set plinko drop, tap-to-stop reel) + heavy
   audio-visual payoff (you already have per-sound `AudioPlayer`s). **Avoid manipulative near-miss
   animations** (ethically dark + rating risk).
 - **Anti-grind**: energy-style spin resource or daily wager cap + escalating minimum bets.
 - **Progressive unlock**: reveal casino after a milestone (e.g. first Hard Fork), then Dice → Plinko →
   Slots → Roulette across further milestones. Each new game = fresh dopamine + new sink.
+  > **⚑ As-built differs.** SWEEP lives inside the **STASH** tab and unlocks on a much earlier gate:
+  > `lifetimeEarnings ≥ 1e6 OR chips ≥ 1 OR cratesOpened ≥ 1` (game_logic.dart), not "after first Hard
+  > Fork." All three games (Slots, Hash Flip, Plinko) arrive **at once** — there is no staged
+  > Dice→Plinko→Slots→Roulette drip.
 - Optionally make the casino its own **mini idle loop** (Plinko-idle: upgrade ball value, crit,
   auto-launcher) funded by Casino Tokens — depth without touching the core economy.
 

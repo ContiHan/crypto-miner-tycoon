@@ -181,7 +181,7 @@ class GameConstants {
 
   // Luck scales SWEEP winnings up, but the realized average return per stake is
   // clamped to this ceiling so even maxed Luck can't make it absurd. Set above
-  // the base EVs (~1.36–1.65) so Luck still meaningfully boosts winnings. The
+  // the base EVs (~1.50–1.65) so Luck still meaningfully boosts winnings. The
   // economy is bounded by [casinoDailyNetCap], not by the return.
   static const double casinoEvCeiling = 2.5;
 

@@ -19,11 +19,11 @@ All numeric values are the `[TUNE]` defaults in `lib/core/constants.dart` /
 | Currency | Earned by | Spent on / effect | Reset by |
 |---|---|---|---|
 | **Sats / BTC** (`wallet`) | mining (passive + taps) | buying rigs; the visible balance | every Hard Fork+ |
-| **GovTokens** (`govTokens`) | Hard Fork (`floor(sqrt(lifetimeSats / 5e8))` × class/trophy/genesis gain) | SKILL nodes; drives `prestigeMultiplier` | New Blockchain |
+| **GovTokens** (`govTokens`) | Hard Fork (`floor(sqrt(lifetimeSats / 5e8))` × class/genesis gain) (as-built; the trophy factor was dropped — see below) | SKILL nodes; drives `prestigeMultiplier` | New Blockchain |
 | **Consensus / CX** | Soft Fork (`floor(cbrt(eraSats / 2e9) …)`) | always-on income bonus | Hard Fork |
 | **Genesis Blocks / GB** | New Blockchain (`floor(sqrt(chainGovTokens / 520000))`) | multiplies CX+GT **gain** (not raw income) | never (permanent) |
 | **UTXO** (`chips`, internal) | anomaly pop-ups (+1), SWEEP wins | crates; SWEEP stakes | New Blockchain |
-| **Trophies** (`winCount`) | reaching the ending / NG+ | permanent prestige-gain bonus | never |
+| ~~**Trophies** (`winCount`)~~ ⚑ RETIRED | — | *(retired with the endgame pivot — `winCount`/trophy multiplier deleted; the factor was ×1, so economy-neutral)* | — |
 | **Mastery XP** (per class) | Bitcoin **mined while playing that class** (1 full 21M supply = 1 XP unit) | permanent all-class bonus | full wipe only |
 
 ---
@@ -72,13 +72,15 @@ Passive racials are additive channel bonuses (always on for the chosen class) pl
 one multiplicative **prestige-gain** hook. Locked for the whole run; re-pick at a
 New Blockchain.
 
-| Class | Hash | Income | Click | RigCost | Luck | Volatility | Prestige gain |
-|---|---|---|---|---|---|---|---|
-| **Prospector** (start) | — | — | — | — | — | — | ×1.0 |
-| **Solo Miner** | — | — | +15% | −20% cost | +10% | — | ×1.0 |
-| **Corporation** | +20% | +15% | — | — | — | +15% (louder) | ×0.85 |
-| **BTC OG** | +5% | — | — | — | +8% | −10% (calmer) | ×1.25 |
-| **Pool Member** | — | +8% | — | — | +10% | −25% (calmest) | ×1.0 |
+| Class | Hash | Income | Click | RigCost | Luck | Volatility | Other racials | Prestige gain |
+|---|---|---|---|---|---|---|---|---|
+| **Prospector** (start) | — | — | — | — | — | — | — | ×1.0 |
+| **Solo Miner** | — | — | +15% | −20% cost | +10% | — | +10% nonce (crit taps), +10% magnetism (anomaly finds) | ×1.0 |
+| **Corporation** | +20% | +15% | — | — | — | +15% (louder) | — | ×0.85 |
+| **BTC OG** | +5% | — | — | — | +8% | −10% (calmer) | +10% offline | ×1.25 |
+| **Pool Member** | — | +8% | — | — | +10% | −25% (calmest) | +5% fortune, +10% sweepLuck, +10% crashResist, +10% durationResist | ×1.0 |
+
+<sub>"Other racials" = additive channel bonuses without a dedicated column above (verified against `class_manager.dart` `kClasses`, as-built): `nonce`→crit-tap odds, `magnetism`→anomaly/glitch finds, `offline`→offline-yield fraction, `fortune`→crate drop-quality shift, `sweepLuck`→SWEEP odds, `crashResist`/`durationResist`→resistance suite. Earlier revisions of this table omitted these rows.</sub>
 
 - **Prestige gain** scales how much Consensus + GovTokens you bank per fork
   (BTC OG farms prestige fastest; Corporation slowest but brute-force output).
@@ -97,11 +99,12 @@ New Blockchain.
 | 1 | **Soft Fork** | Consensus (income bonus = `0.10 × sqrt(CX)`) | TECH only + era sats |
 | 2 | **Hard Fork** | GovTokens (`prestigeMultiplier = 1 + 0.50 × sqrt(GT+spent)`) | wallet, rigs, TECH, SKILL, CX |
 | 3 | **New Blockchain** | Genesis Blocks (`gain × = 1 + 0.5 × sqrt(GB)`) | everything except Stash + GB + endgame spine |
-| ★ | **Ending / NG+** | Trophy (`prestige gain × = 1 + 0.10 × winCount`) | like New Blockchain, keeps the trophy |
+| ~~★~~ | ~~**Ending / NG+**~~ ⚑ RETIRED | *(the NG+ trophy prestige-gain multiplier was retired with the endgame pivot; the win is now THE LAST SATOSHI — mine one full 21M supply — and the post-win loop is Back in Time)* | — |
 
-Genesis Blocks and Trophies multiply the **gain** of the lower currencies, so each
+Genesis Blocks multiply the **gain** of the lower currencies, so each
 deep reset makes future runs farm prestige faster (compounding, but concave via
-`sqrt` so it converges instead of exploding).
+`sqrt` so it converges instead of exploding). (The retired NG+ trophy factor no
+longer participates in this composition.)
 
 ---
 
@@ -136,6 +139,10 @@ In-game **UTXO** only — no real money or value. Deliberately **player-favoured
 | **Packet Relay** (plinko) | ~1.55× | the SAFE game — worst bucket refunds the stake; 20× edges |
 | **Hash Flip** (leading-zeros lottery) | ~1.50× | the HIGH-VARIANCE game — ~76% bust, ~24% pay (2×/5×), rare **30×** "block found" (3%). Same EV as the others, just swingier |
 
+- **Base-EV range:** **1.50–1.65×** as-built — Hash Flip is the floor at **1.50**
+  (`150/100`), Block Scanner the ceiling at **1.65** (`484/293`), Packet Relay
+  ~1.55 in between (EVs live in `casino_service.dart`). *(as-built; the old ~1.36
+  lower bound predates the Hash Flip high-variance rebalance to ~1.50.)*
 - **Luck** boosts payouts up to `casinoEvCeiling = 2.5×`.
 - **Anti-farm cap:** once net gain reaches `casinoDailyNetCap = 400` UTXO within a
   `casinoWindowHours = 24` h window, sweeps are blocked ("MEMPOOL CONGESTED") until

@@ -41,33 +41,33 @@ ceiling, critPayoutMax, integrated mitigation, and two prestige feedback loops.
 
 ## THE AUTHORITATIVE CAP / FLOOR CHECKLIST
 
-`[PRESENT]` already in code · `[DOC]` specified, unimplemented · `[MISSING]` newly
-found, in neither.
+`[PRESENT]` already in code · `[DONE]`/✅ shipped since this audit · `[DOC]`
+specified, unimplemented · `[MISSING]` newly found, in neither.
 
 ### Tier 0 — inviolable (everything leans on these)
 1. `[PRESENT]` **21M/era income clamp** (`maxSupplySats=2.1e15`), applied every accrual AND on click *after* the crit multiply. Never bypass.
 2. `[DO]` **Delete all `sandboxNoCap`/`ignoreCap`/`noCap` paths** (game_logic, mining_manager, game_repository). Highest-priority change — makes #1 truly inviolable; every overshoot becomes pacing, not a money break.
 
 ### Tier 1 — literal nonsensical values reachable (clamp or it goes negative/immune/free)
-3. `[MISSING]` **Combined TECH-cost floor**: `cost = base × max(≈0.05..0.20, 1 − totalTechDiscount)`. R&D −80% + Blueprint −40% = −120% → negative cost. The most dangerous unguarded lane.
-4. `[MISSING]` **Per-channel multiplier floor**: clamp `(1+Σ)` to ≥ ε (~0.01) BEFORE softcap on hash/income/click/volatility. `channels.dart:54` returns a negative `1+Σ` unchanged → negative income/hash + an un-latching win.
-5. `[MISSING]` **Volatility multiplier floor > 0** (special case of #4; 0/negative → chaos-reschedule div-by-zero).
+3. ✅ `[DONE]` **Combined TECH-cost floor** (`techCostFloor=0.05`): `cost = base × max(0.05, 1 − totalTechDiscount)`. R&D −80% + Blueprint −40% = −120% would go negative; the floor blocks it. Was the most dangerous unguarded lane.
+4. ✅ `[DONE]` **Per-channel multiplier floor** (`_channelFloor=0.01` in `channels.dart`): clamps `(1+Σ)` to ≥ 0.01 BEFORE softcap on hash/income/click/volatility, so a debuff stack can no longer yield a negative income/hash or an un-latching win.
+5. ✅ `[DONE]` **Volatility multiplier floor > 0** (special case of #4; the same `_channelFloor=0.01` clamp guards the chaos-reschedule div-by-zero).
 6. `[PRESENT, extend]` **Rig-cost FINAL floor**: clamp the PRODUCT of all cost multipliers (channel factor × chaos × ability) to ≥ 0.05 — today only the channel factor is floored, then ×chaosCostMult × ability ×0.5 can reach ~1.25% of base.
 7. `[DOC]` **Each resistance R < 1.0** after summing its sources, so `(1−R)` can never ≤ 0 (a crash/breach must never PAY the player).
 8. `[DOC]` **Combined per-event mitigation ≤ 0.70**: `R_total = min(0.70, 1 − ∏(1−R_i))` over ALL levers (magnitude + duration + aura + FORT KNOX), PER event type (crash, cost-spike, halving, breach). Supersedes the per-lever 0.75 sub-caps.
 9. `[DOC]` **Stock-to-Flow R ≤ 0.60** (`f' = f + R(1−f) < 1` — never cancels a halving).
 
 ### Tier 2 — pacing / auditability (wall holds without them, but the timed endgame or UI breaks)
-10. `[MISSING]` **Aggregate temp-mult ceiling per channel**, on the OUTSIDE-softcap TEMP LANE only (NOT total): `total = base_softcapped × min(tempProduct, ceiling)`. **incomeTempMax ≈ x6, hashTempMax ≈ x5, clickTempMax ≈ x4** [TUNE via the Back-in-Time pacing sim]. ⚑ re-derive as SUSTAINED values (see #34 min-event-gap), not rare peaks.
-11. `[MISSING]` **`critPayoutMax`** on the FINAL aggregate crit multiplier (Block Reward × LASER EYES × ability × procs), not per-factor. ⚑ Review: **~x50–60, NOT x30** — x30 neuters GARAGE OVERCLOCKER / NONCE CASCADE (guaranteed-crit ability ×8 × LASER EYES ×2 = ×16 already), OR make Block Reward + crit-ability share ONE declared budget.
+10. ✅ `[DONE]` **Aggregate temp-mult ceiling per channel**, on the OUTSIDE-softcap TEMP LANE only (NOT total): `total = base_softcapped × min(tempProduct, ceiling)`. Shipped **incomeTempMax=6, hashTempMax=5, clickTempMax=4** (as-built; matches the ~x6/x5/x4 targets). ⚑ still worth re-deriving as SUSTAINED values (see #34 min-event-gap), not rare peaks.
+11. ✅ `[DONE]` **`critPayoutMax`** (=55) on the FINAL aggregate crit multiplier (Block Reward × LASER EYES × ability × procs), not per-factor — landed in the reviewed ~x50–60 band (x30 would neuter GARAGE OVERCLOCKER / NONCE CASCADE: guaranteed-crit ability ×8 × LASER EYES ×2 = ×16 already).
 12. `[DOC]` **ONE merged temp-buff axis per channel** (proc + ability share it; two exempt lanes must not multiply).
 13. `[DOC]` **Haste aggregate cap 0.40** + absolute CD floors (basic ≥ ~18min, ult ≥ ~13h). Cap the AGGREGATE. GB adds grant-seconds only, never CDR.
 14. `[DOC]` **Offline** `= clamp(0.70+Σ, 0, 1.0)` THEN keystone-mult, result in [0,1.0]; foreground-only; NO procs/buffs/chaos offline.
-15. `[DOC]` **Upkeep** `rawUpkeep∈[0,0.15]`, final `clamp(...,0,0.15)` applied LAST (after class ×1.10 and costSpike ×1.5); reduction `min(0.75, EnergyEff+FeeHedge)`; net ∈ [0.85g, g]; wallet-only; skim BURNED.
+15. `[DOC]` **Upkeep** `rawUpkeep∈[0,0.10]` (as-built `upkeepCap=0.10`; owner chose the gentler 10%, was 0.15), final `clamp(...,0,0.10)` applied LAST (after class ×1.10 and costSpike ×1.5); reduction `min(0.75, EnergyEff+FeeHedge)`; net ∈ [0.90g, g]; wallet-only; skim BURNED.
 16. `[DOC]` **Idle Capacity offline window ≤ ~24h** FINAL (COLD-WALLET DISCIPLINE ×2 must respect, not bypass).
-17. `[MISSING]` **Combined prestige-GAIN cap** OR sim-proven convergence (Consensus Weight ×2.2 × OG 1.25 × PAPER HANDS ×2 × LOW-TIME-PREF ×1.5 × COLD-STORAGE ability ×1.75 × genesis ≈ x58 gain).
+17. ✅ `[DONE]` **Combined prestige-GAIN cap** (`prestigeGainMax=60`) on the TOTAL prestige-gain multiplier; the paper worst-case full stack (Consensus Weight ×2.2 × OG 1.25 × PAPER HANDS ×2 × LOW-TIME-PREF ×1.5 × COLD-STORAGE ability ×1.75 × genesis ≈ x58) sits just under it, and the concave CX/GT accrual + softcap keep it well below in practice.
 18. `[MISSING]` **Seed Capital**: hard cap << 21M (<< first milestone), concave with prestige. ⚑ Review: **WALLET-ONLY** — must be excluded from `lifetimeEarnings`, `speedRunMinedSats`, AND Mastery XP (else it fakes best-time + re-opens the rapid-reset Mastery farm).
-19. `[MISSING]` **Stash click multiplier** (`getClickPowerMultiplier`) — route through `Channel.click` or softcap it (currently a raw `1+Σ` outside the softcap).
+19. ✅ `[DONE]` **Stash click multiplier** — now routed through the softcapped `Channel.click` (`stash_service.dart` feeds `getClickPowerBonus()` into `Channel.click`), so it shares the click softcap with perks/TECH instead of being a raw `1+Σ` outside it.
 
 ### Tier 3 — structural / faucet / anti-loop
 20. `[PRESENT]` crit CHANCE ∈ [0, 0.25]; `onCrit` must NEVER raise crit chance.
@@ -75,13 +75,13 @@ found, in neither.
 22. `[DOC]` UTXO Magnetism ≤ 30%/tick; Prospector's Eye +25% one-step, never mythic. ⚑ DEGENERATE GAMBLER "rarity/anomaly maxed" = *set to these caps*, never bypass them.
 23. `[DOC]` Blueprint discount asymptote 0.40 (`0.40·(1−1/(1+n/6))`).
 24. `[DOC]` **Proc brakes**: GOLDEN RULE (synthetic/auto-tap events fire NO triggers), ICD floors (HOT 8–10s / CRIT 5–6s / WARM 20–30s), token-bucket ~8/10s, per-tick ≤3, firmware slot cap 6 (8 w/ CO-PROCESSOR), offline = NO procs; onAbilityCast must NOT refund the triggering ability; crate-open UTXO refund < crate cost.
-25. `[MISSING]` **Per-window UTXO cap** on proc/anomaly UTXO grants (the supply clamp binds SATS, not UTXO) — or sim-verify limiter×ICD keeps proc-UTXO/hr below crate cost.
+25. ✅ `[DONE]` **Per-window UTXO cap** on proc/anomaly UTXO grants (`procUtxoWindowCap=25` per `procUtxoWindowMs=60000`, a rolling 1-minute window), so firmware can't farm UTXO — the supply clamp binds SATS, not UTXO.
 26. `[DOC]` Counter-hack bounty EV strictly < breach-loss EV (else a farmable +EV faucet) — or CUT the bounty.
-27. `[DOC]` Breach: loss ≤ 15% of HOT wallet ×(1−R≤0.70); hot-only; never permanent progress; offline = one batched capped breach; first breach = 0-loss drill.
+27. `[DOC]` Breach: loss ≤ **10% of HOT wallet** (as-built `breachBaseLoss=0.10`; owner chose the gentler 10%, was 15%) ×(1−R≤0.70); hot-only; never permanent progress; offline = one batched capped breach; first breach = 0-loss drill.
 28. `[DOC]` Aura ceilings routed into EXISTING shared softcaps, NO private lane (passive ≤+0.20, stance ≤+0.75, off-ch resist ≤+0.10, prestige-gain ≤+0.15).
 29. `[DOC]` Keystone equip ≤ 2 + pair-exclusivity; flat-% keystone bonuses declared on-channel-additive OR counted vs the temp ceiling — never a 3rd uncapped lane.
 30. `[DO]` Delete `winCount`/`trophyGainMultiplier` (linear, uncapped) with NG+ retirement.
-31. `[DOC]` `special` scoped to crit-payout ONLY (still called "catch-all" in channels.dart).
+31. `[DOC]` `special` scoped to crit-payout ONLY — ✅ rename DONE: `channels.dart` now documents `Channel.special` as "crit PAYOUT only (BLOCK REWARD)", no longer "catch-all".
 32. `[DOC]` Every GRANT/instant-lump routes through the supply clamp; Back-in-Time lumps credit wallet/lifetime ONLY, excluded from `speedRunMinedSats`; lumps snapshot BASE rate, not buffed rate.
 33. `[PRESENT]` Re-validate `prestigeMult < 1e5` against the FULL stacked gain (#17); keep `isFinite`/`1e300` wallet & lifetime clamps; event-duration hard-max (BULL RIDER "negatives last longer" must not be uncapped).
 34. `[MISSING]` ⚑ **Min inter-chaos-event gap** (or enforced max 1 concurrent positive event via replace-semantics) — Market Exposure has no lower bound on event spacing, so a maxed-volatility build turns "brief buffs" into SUSTAINED uptime. Also make chaos **replace-semantics a MUST-CODE invariant** (only in prose today).
@@ -97,7 +97,7 @@ found, in neither.
 | Click/tap | ~x7 | OVERCLOCK ×2.5 × BLOCK RACE ×3 ≈ **x7.5** | ~x52 | #10 |
 | **Crit payout/tap** | 5 + 5·√Σspecial → **~x20–55** | × LASER EYES ×2 × guaranteed-crit ×8 | **~x880/crit** | #11 critPayoutMax (~x50–60) |
 | Rig cost | 0.05 floor | × CHEAP 0.5 × HOSTILE 0.5 = **0.0125** | 1.25% of base (positive, but < 95% floor) | #6 final-product floor |
-| Net-of-upkeep | — | — | [0.85g, g], never <0/>g | #15 |
+| Net-of-upkeep | — | — | [0.90g, g] (as-built; was 0.85g), never <0/>g | #15 |
 | Resistance | — | Diamond 0.75 × Steel 0.60 → **0.90** | de-facto crash immunity | #8 integrated ≤0.70 |
 | Offline / Haste | — | — | ≤1.0 parity / CD floors | #14 / #13 |
 
@@ -115,8 +115,11 @@ the "fast" ones from a timed-endgame pacing break into a bounded spike.
 > (formula), ✅ X8 (Steel Nerves "NOT hack" noted), ✅ X9 (aura on-channel), and
 > ✅ MASTERY DRIVE cut. **CODE-phase now DONE (2026-08-16):** ✅ X1 (THE LAST
 > SATOSHI win + sandbox/NG+ deletion + save migration shipped) and ✅ X2 (Mastery
-> → per-mined-supply). Remaining = all `[MISSING]` caps in the checklist (future
-> chaos/attributes phases).
+> → per-mined-supply). The former `[MISSING]` enforcement caps have since shipped
+> too — #3–#5 floors, #10 temp ceilings, #11 critPayoutMax, #17 prestige-gain cap,
+> #19 stash-click softcap, and #25 per-window UTXO cap are now in code; essentially
+> all checklist caps are enforced. Remaining are the `[DO]`/`[DOC]` design items
+> plus #18 Seed Capital and #34 min inter-chaos-event gap (future phases).
 
 - ✅ **X1 (biggest) — DONE:** `constants.dart` old win (endgameTargetSats 2.1e20, perWinTrophyBonus, winCount, Sandbox) DELETED; THE LAST SATOSHI win (`lifetimeEarnings >= maxSupplySats`) + save migration (legacy save at cap latches the win; dropped fields ignored) shipped. 21M is now truly inviolable.
 - ✅ **X2 / Mastery — DONE:** Mastery moved to per-mined-supply (`creditMasteryFromMining`, 1 full 21M supply = 1 XP unit = Mastery 1). MASTERY DRIVE stays cut (per-GovToken hook no longer exists).

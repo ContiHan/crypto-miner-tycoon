@@ -46,7 +46,7 @@ by the review (listed so we remember why).
 8. **R&D OPTIMIZATION** — cheaper TECH — `[NEW]` cost lane in research_manager (pairs with blueprints) — cap −80%.
 9. **OFFLINE YIELD** — fraction of live rate earned while closed — `[NEW]` `offline` channel — base 0.70, hard cap 1.0 = parity. `[P0]`
 10. ~~DUST HARVEST~~ `[CUT]` — redundant tap-lump.
-- **ENERGY EFFICIENCY** — cuts an electricity-upkeep skim — `[NEW]` upkeep sink — **optional/late** (heaviest new system; gives Fee Hedge something to bite). Upkeep bounded 0–15% of gross, attr reduces toward 0.
+- **ENERGY EFFICIENCY** — cuts an electricity-upkeep skim — `[NEW]` upkeep sink — **optional/late** (heaviest new system; gives Fee Hedge something to bite). Upkeep bounded 0–10% of gross (as-built; was 15% — `upkeepCap=0.10`), attr reduces toward 0.
 
 **IV. Prestige / Progression** (BTC OG's home; all concave)
 11. **CONSENSUS WEIGHT** — buildable × on CX+GT gain — revives dead `prestige`; `multiplier(prestige, start 1.0, power 0.5)` ⚑ *(pin these params — was only "softcapped")* — CX/GT accrual already concave. `[P0]`
@@ -91,7 +91,7 @@ actives (Pool's STEADY HANDS / CONSENSUS RALLY) grant true immunity.
 | 19 | **FEE HEDGE** | Cost Spike surcharge + Energy upkeep | `surcharge = 0.5·(1−R)` | R 0.70 |
 | 20 | **STOCK-TO-FLOW** | the halving's income cut | `f' = f + R·(1−f)` | R 0.60 (never cancels) |
 | 21 | **STEEL NERVES** | ⚑ DURATION of Crash/Cost-Spike only — **NOT hack/breach** | `dur = base·(1−R)` | R 0.60 |
-| 22 | **COLD STORAGE** | Hack loss (+ optional theft roll) | `loss = 0.15·(1−R)` | R 0.70 |
+| 22 | **COLD STORAGE** | Hack loss (+ optional theft roll) | `loss = 0.10·(1−R)` (as-built; was 0.15 — `breachBaseLoss=0.10`) | R 0.70 |
 
 ⚑ Per-lever caps lowered 0.75→0.70 and the **integrated combined mitigation
 `min(0.70, 1 − ∏(1−Rᵢ))` per event type is AUTHORITATIVE** (see
@@ -130,7 +130,7 @@ horizontal layout just gains "lanes".
 - **6 doctrines in 3 pairs** (each ~6–8 tiers, hangs off the trunk via one GATE):
   1. **MEGA-HASH ⟂ LEAN-RIG** (hash / Production vs rigCost+click / Efficiency)
   2. **HODLER ⟂ DEGEN-YIELD** (Prestige+Offline vs income+market harvest)
-  3. **DEGEN-LUCK ⟂ COLD-STORAGE** (luck/fortune/crit vs the resistance suite)
+  3. **DEGEN-LUCK ⟂ COLD-STORAGE** (luck/fortune/crit vs the resistance suite — ⚑ as-built, one suite member, **Fee Hedge** (`Channel.costResist`), sits on the TRUNK, not the COLD-STORAGE gate, so it is reachable by any build; the gated members are Diamond Hands / Stock-to-Flow / Steel Nerves / Cold Storage Vault)
 
 Almost all existing nodes re-home with **zero effect changes** (hash chain →
 MEGA-HASH; cooling/solar/click → LEAN-RIG; analytics/HFT/DeFi → DEGEN-YIELD).
@@ -140,8 +140,10 @@ A build = a triple → 2³ = 8 archetype silhouettes before class + depth factor
 **Exclusivity (pair-level, v1):** each doctrine starts with a GATE. Buying a gate
 commits the pair → the sibling gate + subtree flip to a `locked` state for the run
 (greyed, lock-chain icon, "LOCKED — chose MEGA-HASH", not purchasable). At most
-one doctrine per pair → up to 3 active, always giving up 3 siblings. FOCUS (all-in
-1) vs GENERALIST (3 shallow) is itself a choice. Trunk + META never lockable.
+one doctrine per pair, and a **commitment budget of 2 pairs** (as-built; was 3 —
+`commitmentBudget=2`) → up to 2 active, giving up their siblings, and the third
+pair stays unentered once the budget is spent. FOCUS (all-in 1) vs GENERALIST (2
+shallow) is itself a choice. Trunk + META never lockable.
 Exclusivity only *removes* access — never grants power or a cheaper path → no
 softcap or the 21M wall is touched.
 
@@ -278,7 +280,7 @@ prestige + SWEEP cap keep even a "grail" synergy inside the rails.
 - ✅ **~25 load-bearing attributes** (distinctness over a round 30).
 - ✅ **Keystone layer added** (Part 3b) — the MOBA/PoE build-definers; ~1 per doctrine, optional later phase.
 - ✅ **Auto-apply preset = default ON, opt-out**, with a first-time guide.
-- ✅ **One free respec per run** to rebuild + save a new preset.
+- ⚑ **One free respec per run** to rebuild + save a new preset — *resolved-but-NOT-yet-built in v1: no clear-tree/respec code shipped (`reset()` on a fork is still the only re-choice path; there is no in-run REROUTE).*
 - ✅ **Preset cap = 3**, auto-named by dominant axis.
 - ✅ **Commitment budget = 2 doctrine pairs** (sharper specialization; → equip ≤2 keystones).
 - ✅ **Upkeep/Energy economy = IN** (owner reversed the earlier defer) — designed as "THE POWER BILL" in [CHAOS_DEPTH_LAYER.md](CHAOS_DEPTH_LAYER.md).

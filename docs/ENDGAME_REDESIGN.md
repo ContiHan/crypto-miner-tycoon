@@ -1,12 +1,18 @@
 # Endgame + Prestige Redesign — "THE LAST SATOSHI"
 
-Status: **IMPLEMENTED** (2026-08-16). The win is now the first era to mine a full
-21M supply (`lifetimeEarnings >= maxSupplySats`); Sandbox / New Genesis+ /
+Status: **MOSTLY IMPLEMENTED** (2026-08-16). The win is now the first era to mine a
+full 21M supply (`lifetimeEarnings >= maxSupplySats`); Sandbox / New Genesis+ /
 `winCount` / `trophyGainMultiplier` / `endgameTargetSats` / `endgameProgress` are
 deleted; the post-credits loop is Back in Time (speed run). Mastery is per-mined
-supply; chips are permanent. See §"What changes in code" — all rows shipped.
-Produced via a multi-agent design pass (3 independent designs → synthesis →
-adversarial review, verdict *ship-with-fixes*; the fixes are folded in below).
+supply; chips are permanent. See §"What changes in code" — the **core spine
+shipped**, but four designed extras did **not** land in v1 (⚑ flagged inline):
+the Bronze/Silver/Gold + sub-hour SATOSHI **time-medal ladder** (only ONE sub-hour
+secret achievement + a first-completion achievement exist), **THE TIMECHAIN**
+capstone, **per-class best times** (only a single global `speedRunBestMs` exists),
+and the tier-3 **NEW BLOCKCHAIN → NEW GENESIS rename** (code/UI still say "New
+Blockchain" everywhere). Produced via a multi-agent design pass (3 independent
+designs → synthesis → adversarial review, verdict *ship-with-fixes*; the fixes are
+folded in below).
 
 ## The problem we're fixing
 
@@ -40,7 +46,7 @@ supply — and the endgame is re-mining that same supply faster, forever.**
 |---|---|---|---|---|---|
 | 1 | **SOFT FORK** | Consensus (CX), +0.10·√CX income | TECH only | everything else | frequent, cheap; mid-chain |
 | 2 | **HARD FORK** | GovTokens (income ×(1+0.5·√GT) + spent on TALENTS) | wallet, era earnings, rigs, TECH, CX, mining state | GovTokens, TALENTS, chips, Time Capsule | main mid-loop; **before** the cap |
-| 3 | **NEW GENESIS** (post-credits button flips to **GO BACK IN TIME**, timed) | Genesis Blocks (×(1+0.5·√GB) on CX+GT gain); picks next class | wallet, era, GovTokens, spent, rigs, TECH, TALENTS, CX, mining | Time Capsule | the chain's **bookend** — see below |
+| 3 | **NEW GENESIS** (post-credits button flips to **GO BACK IN TIME**, timed) ⚑ *rename NOT shipped in v1 — code/UI still say* **NEW BLOCKCHAIN** | Genesis Blocks (×(1+0.5·√GB) on CX+GT gain); picks next class | wallet, era, GovTokens, spent, rigs, TECH, TALENTS, CX, mining | Time Capsule | the chain's **bookend** — see below |
 
 ### SUPPLY MINED OUT is *not* a separate tier — it's the completion of tier 3
 
@@ -63,8 +69,9 @@ cap); at the cap you Genesis.
 **One deep-reset concept** (`_newChainInternal`) powers tier 3. Pre-credits it's
 "NEW GENESIS" (untimed). Post-credits the **same** entry flips to the timed "GO
 BACK IN TIME". This kills the current collision where "NEW BLOCKCHAIN" and a
-standalone "BACK IN TIME" button both showed at once. *(Review's #1 fix: gate the
-BACK IN TIME button on `hasWonGame`, not on the first Hard Fork.)*
+standalone "BACK IN TIME" button both showed at once. *(Review #1 fix — ✅ DONE:
+the timed Back in Time is gated on `hasWonGame` (`speedRunUnlocked => hasWonGame`),
+not on the first Hard Fork.)*
 
 ### "What else should the deep reset wipe?" → nothing more; wipe **less**
 
@@ -108,13 +115,22 @@ primary Mastery engine.
 
 ## Post-credits long tail (optional, play continues)
 
-- Beat your best Back-in-Time time (overall + per class).
+- Beat your best Back-in-Time time. ⚑ **Per-class bests NOT shipped in v1** — only
+  a single *global* `speedRunBestMs` exists (no per-class time storage); the
+  "overall + per class" split is design intent, not built.
 - Time medals off `speedRunBestMs`: Bronze / Silver / Gold / a sub-threshold
-  **SATOSHI** medal. *(Review #3: add `speedRunBestMs` + per-class bests to
-  AchStats for these.)*
+  **SATOSHI** medal. ⚑ **The medal ladder NOT shipped in v1** — what exists is
+  just TWO achievements gated on `speedRunBestMs`: a first-completion one
+  ("Back in Time", `ng_plus`, any finish) and ONE sub-hour secret ("Blitz of the
+  Blocks", `secret_sandbox`, `< 3600000 ms`). No Bronze/Silver/Gold tiers.
+  *(Review #3 partially done: `speedRunBestMs` was added to AchStats; per-class
+  bests were not.)*
 - Completionist capstone **THE TIMECHAIN** — finish a Back-in-Time re-mine with
   all four classes at Mastery ≥ 1. This is an **achievement/medal, NOT a second
-  credits roll** (exactly one clean "beaten" moment).
+  credits roll** (exactly one clean "beaten" moment). ⚑ **NOT shipped in v1** — no
+  such achievement exists. (The closest built achievement is "Jack of All Chains"
+  / `class_all` = master all four classes, which does **not** require a completed
+  Back-in-Time run, so it is not THE TIMECHAIN.)
 
 ## Implementation sketch (reuses existing machinery)
 
@@ -126,17 +142,19 @@ primary Mastery engine.
    `noCap/ignoreCap` plumbing; add the Last-Satoshi latch on
    `lifetimeEarnings >= maxSupplySats`; add `supplyProgress` getter; stop wiping
    `chips` in `_newChainInternal`; gate timed Back-in-Time to `hasWonGame`.
-4. `mining_tab.dart`: linear SUPPLY MINED bar; NEW BLOCKCHAIN → NEW GENESIS
-   (flips to GO BACK IN TIME post-credits, single entry point); cap-banner CTA
-   routes to `startSpeedRun()` post-credits.
+4. `mining_tab.dart`: linear SUPPLY MINED bar; ⚑ the **NEW BLOCKCHAIN → NEW
+   GENESIS** rename did **NOT** ship — the button still reads "NEW BLOCKCHAIN" /
+   "START NEW BLOCKCHAIN" (mining_tab / home_screen); the single-entry-point +
+   post-credits flip and the cap-banner CTA routing to `startSpeedRun()` did ship.
 5. `home_screen.dart` / `ending_overlay.dart`: repurpose GENESIS COMPLETE →
    "THE LAST SATOSHI" finale (VIEW CREDITS + GO BACK IN TIME + KEEP MINING); drop
    NG+/sandbox wiring.
 6. `speed_run*.dart`: copy → "RE-MINING THE SUPPLY" / "SUPPLY RE-MINED"; per-class
    best-time display.
 7. Achievements: repoint `meta_genesis_complete` → hasWonGame ("The Last
-   Satoshi"); `ng_plus` → "first Back in Time"; add time medals + THE TIMECHAIN;
-   drop `winCount`/`inSandbox` from AchStats, add `speedRunBestMs`.
+   Satoshi") ✅; `ng_plus` → "first Back in Time" ✅; drop `winCount`/`inSandbox`
+   from AchStats, add `speedRunBestMs` ✅. ⚑ **time medals + THE TIMECHAIN NOT
+   shipped** — only the one sub-hour secret ("Blitz of the Blocks") was added.
 8. Save migration: tolerate dropped fields; silently latch `hasWonGame` for legacy
    saves already at the cap; leave `masteryXp` as an earned head-start.
 9. Tests: update endgame/speed_run/class/achievement/repository; keep the economy

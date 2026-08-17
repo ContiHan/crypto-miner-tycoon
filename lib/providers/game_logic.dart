@@ -2235,20 +2235,19 @@ class GameLogic with ChangeNotifier {
   /// and GovToken gains.
   /// [chosenClass] is the class to play the NEXT chain as (the picker's choice).
   /// When null the current class carries over (used by sims/tests). Mastery is
-  /// credited incrementally at each Hard Fork (mint time), so nothing needs to be
-  /// credited here.
+  /// credited per MINED supply live in [_creditLifetimeEver] (not at forks), so
+  /// nothing needs to be credited here.
   void newBlockchain({BtcClass? chosenClass}) {
     if (pendingGenesis <= 0) return;
     _newChainInternal(chosenClass: chosenClass);
   }
 
-  /// The New-Blockchain reset body, WITHOUT the pendingGenesis guard, so it can
-  /// also power New Genesis (NG+) from the ending — where the reward is the
-  /// permanent trophy multiplier, not Genesis Blocks (which may be 0). Order is
-  /// load-bearing: applyNewBlockchain -> select -> wipe -> count -> evaluate ->
-  /// save. Do NOT reset any endgame field here (they are the permanent spine
-  /// that survives every prestige). Mastery is NOT credited here — it accrues
-  /// per-mint at each Hard Fork (see [hardFork]).
+  /// The New-Blockchain reset body (Tier-3 deep reset). Order is load-bearing:
+  /// applyNewBlockchain -> select -> wipe -> count -> evaluate -> save. Do NOT
+  /// reset any endgame field here (they are the permanent spine that survives
+  /// every prestige). Mastery is NOT credited here — it accrues per MINED supply
+  /// in [_creditLifetimeEver]. (The old New Genesis / NG+ trophy path that also
+  /// called this was retired with THE LAST SATOSHI endgame pivot.)
   void _newChainInternal({BtcClass? chosenClass}) {
     _soundService.playPrestige(); // dramatic cue for the deepest reset
     _hapticHeavy();
