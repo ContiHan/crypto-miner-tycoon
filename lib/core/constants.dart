@@ -240,6 +240,19 @@ class GameConstants {
   static const double breachBaseLoss = 0.10; // gentler than the 0.15 ceiling
   static const int breachTelegraphSeconds = 10; // countdown to SECURE
 
+  // --- Procs / Rig Firmware (Slice 7 / 7b) ---
+  // Per-window UTXO cap (#25): total chips granted by procs + forced anomalies
+  // within a rolling real-time window, so firmware can't farm UTXO.
+  static const int procUtxoWindowMs = 60 * 1000; // 1-minute window
+  static const int procUtxoWindowCap = 25; // max granted chips per window
+  static const int critStreakThreshold = 4; // consecutive crits → onCritStreak
+  static const double procCdRefundMax = 0.50; // a CD-refund proc shaves ≤50%
+  // RIG FIRMWARE loadout: base sockets, hard cap, and the CO-PROCESSOR override.
+  static const int firmwareBaseSlots = 3;
+  static const int firmwareMaxSlots = 6; // via Firmware Bay / Mastery / doctrine
+  static const int firmwareCoProcessorSlots = 8; // CO-PROCESSOR keystone
+  static const double firmwareCoProcessorChanceMult = 0.60; // −40% proc chance
+
   // Perks
   static const double perkBaseClickPower = 5.0;
   static const double perkClickPowerGrowth = 2.0; // +2 per level

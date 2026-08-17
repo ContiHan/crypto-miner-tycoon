@@ -592,6 +592,7 @@ class GameLogic with ChangeNotifier {
     }
     _firstBreachDone = true; // the drill is spent (or a real breach happened)
     _lastBreachLoss = loss;
+    if (loss > 0) _fireProcs(ProcEvent.onBreach); // firmware "insurance" hooks
     notifyListeners();
     _saveGame();
   }
@@ -889,6 +890,7 @@ class GameLogic with ChangeNotifier {
   }
 
   int _autoClickCounter = 0;
+  int _critStreak = 0; // consecutive real crit taps → onCritStreak proc hook
 
   void buyResearch(String researchId) {
     double cost = _researchManager.tryBuy(
@@ -1144,6 +1146,27 @@ class GameLogic with ChangeNotifier {
   /// auto-tap) fire nothing (GOLDEN RULE). GRANTs are wallet/UTXO only (never
   /// touch lifetime/supply/prestige — safe by construction); BUFFs feed the
   /// merged temp axis (see the temp*Mult getters).
+  // Per-window UTXO cap (#25): rolling real-time budget of proc/anomaly chips.
+  int _utxoWindowStartMs = 0;
+  int _utxoWindowGranted = 0;
+
+  /// Grants up to [want] chips, bounded by the per-window UTXO cap so procs +
+  /// forced anomalies can't farm UTXO. Returns the amount actually granted.
+  int _grantUtxoCapped(int want) {
+    if (want <= 0) return 0;
+    final now = _nowMs();
+    if (now - _utxoWindowStartMs >= GameConstants.procUtxoWindowMs) {
+      _utxoWindowStartMs = now;
+      _utxoWindowGranted = 0;
+    }
+    final room = GameConstants.procUtxoWindowCap - _utxoWindowGranted;
+    if (room <= 0) return 0;
+    final grant = want < room ? want : room;
+    chips += grant;
+    _utxoWindowGranted += grant;
+    return grant;
+  }
+
   void _fireProcs(ProcEvent event, {bool synthetic = false}) {
     if (_inOfflineSim) return;
     final results = _procs.roll(event,
@@ -1159,7 +1182,22 @@ class GameLogic with ChangeNotifier {
           wallet += _baseIncomePerSecond() * r.signal.magnitude;
           break;
         case ProcEffectKind.grantUtxo:
-          chips += r.signal.magnitude.toInt();
+          _grantUtxoCapped(r.signal.magnitude.toInt());
+          break;
+        case ProcEffectKind.grantCrateRoll:
+          // A free STANDARD crate — a bonus roll, still a chip SINK (#25).
+          _stash.openCrate(tier: CrateTier.standard, fortune: fortuneBonus);
+          cratesOpened++;
+          break;
+        case ProcEffectKind.grantAnomaly:
+          // Spawns collectables; their chips route through the capped grant.
+          _anomaly.forceSpawn(r.signal.magnitude.toInt());
+          break;
+        case ProcEffectKind.grantCdRefund:
+          _abilities.refundCooldowns(
+              r.signal.magnitude.clamp(0.0, GameConstants.procCdRefundMax),
+              _nowMs(),
+              abilityHaste);
           break;
         case ProcEffectKind.buff:
           break; // applied live via _procs.tempMult in the temp getters
@@ -1283,6 +1321,7 @@ class GameLogic with ChangeNotifier {
     softForkCount++;
     _soundService.playPrestige();
     _hapticHeavy();
+    _fireProcs(ProcEvent.onSoftFork); // COLD-tier firmware hooks
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
@@ -1378,7 +1417,7 @@ class GameLogic with ChangeNotifier {
     _anomaly = AnomalySystem(
       onChanged: notifyListeners,
       onCollect: () {
-        chips += 1;
+        _grantUtxoCapped(1); // routes through the per-window UTXO cap (#25)
         _soundService.playCoin();
         _evaluateAchievements();
         _saveGame();
@@ -1692,6 +1731,11 @@ class GameLogic with ChangeNotifier {
   /// skips.
   @visibleForTesting
   void debugTick() => _mine();
+
+  /// Test seam: request [n] proc/anomaly UTXO through the per-window cap (#25);
+  /// returns the amount actually granted.
+  @visibleForTesting
+  int debugGrantUtxo(int n) => _grantUtxoCapped(n);
 
   // ---- Achievements ------------------------------------------------------
 
@@ -2073,7 +2117,16 @@ class GameLogic with ChangeNotifier {
     // Procs: only a REAL tap triggers (auto-taps are synthetic → GOLDEN RULE).
     if (playSound) {
       _fireProcs(ProcEvent.onTap);
-      if (isCrit) _fireProcs(ProcEvent.onCrit);
+      if (isCrit) {
+        _fireProcs(ProcEvent.onCrit);
+        // A run of consecutive crits fires the streak hook, then resets.
+        if (++_critStreak >= GameConstants.critStreakThreshold) {
+          _fireProcs(ProcEvent.onCritStreak);
+          _critStreak = 0;
+        }
+      } else {
+        _critStreak = 0;
+      }
     }
 
     _evaluateAchievements();
@@ -2148,6 +2201,7 @@ class GameLogic with ChangeNotifier {
     _prestige.onHardFork();
 
     hardForkCount++;
+    _fireProcs(ProcEvent.onHardFork); // COLD-tier firmware hooks (UTXO survives)
     _evaluateAchievements();
     _saveGame();
     notifyListeners();
@@ -2204,6 +2258,7 @@ class GameLogic with ChangeNotifier {
     _perkManager.reset();
 
     newChainCount++;
+    _fireProcs(ProcEvent.onGenesis); // COLD-tier firmware hooks (deepest reset)
     _evaluateAchievements();
     _saveGame();
     notifyListeners();

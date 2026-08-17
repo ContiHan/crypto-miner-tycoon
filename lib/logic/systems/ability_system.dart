@@ -296,6 +296,19 @@ class AbilitySystem {
 
   void _prune(int nowMs) => _active.removeWhere((a) => a.expiryMs <= nowMs);
 
+  /// Shaves [fraction] (0..1) off every ability's REMAINING cooldown by moving its
+  /// last-used timestamp earlier (a CD-refund proc). Ready abilities are untouched.
+  void refundCooldowns(double fraction, int nowMs, double haste) {
+    if (fraction <= 0) return;
+    for (final def in kAbilities) {
+      final last = lastUsedMs[def.id];
+      if (last == null) continue;
+      final remaining = effectiveCooldownMs(def, haste) - (nowMs - last);
+      if (remaining <= 0) continue;
+      lastUsedMs[def.id] = last - (remaining * fraction).round();
+    }
+  }
+
   /// Product of active abilities' temp multipliers on [channel] (1.0 if none).
   double tempMult(Channel channel, int nowMs) {
     _prune(nowMs);

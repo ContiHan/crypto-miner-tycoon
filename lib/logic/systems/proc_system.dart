@@ -9,6 +9,7 @@ enum ProcEvent {
   onTap,
   onBlockFound,
   onCrit,
+  onCritStreak, // N consecutive crit taps
   onAnomalyCollect,
   onGoodChaos,
   onBadChaos,
@@ -29,6 +30,7 @@ ProcTier _tierOf(ProcEvent e) {
     case ProcEvent.onBlockFound:
       return ProcTier.hot;
     case ProcEvent.onCrit:
+    case ProcEvent.onCritStreak:
       return ProcTier.crit;
     case ProcEvent.onAnomalyCollect:
     case ProcEvent.onGoodChaos:
@@ -60,10 +62,23 @@ int _icdFloorMs(ProcTier t) {
   }
 }
 
-/// The two kinds of proc payoff. A GRANT is instant + supply-safe (never a
-/// permanent stat/prestige currency). A BUFF is a short temp multiplier on the
-/// MERGED temp axis (shared with abilities, aggregate-capped).
-enum ProcEffectKind { grantSats, grantUtxo, buff }
+/// The kinds of proc payoff. A GRANT is instant + supply-safe (never a permanent
+/// stat/prestige currency). A BUFF is a short temp multiplier on the MERGED temp
+/// axis (shared with abilities, aggregate-capped).
+///   grantSats     — magnitude seconds of BASE income (spendable wallet only)
+///   grantUtxo     — magnitude chips (bounded by the per-window UTXO cap #25)
+///   grantCrateRoll— one free STANDARD crate (a bonus roll; still a chip SINK)
+///   grantAnomaly  — force-spawn magnitude anomalies (chips gated by the cap)
+///   grantCdRefund — shave magnitude (fraction) off ability cooldowns
+///   buff          — temp channel multiplier on the merged axis
+enum ProcEffectKind {
+  grantSats,
+  grantUtxo,
+  grantCrateRoll,
+  grantAnomaly,
+  grantCdRefund,
+  buff,
+}
 
 /// A single proc "signal": fires [effect] with [chance] on [event], no more than
 /// once per [icdMs] (>= its tier floor).
