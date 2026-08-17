@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/widgets/firmware_panel.dart';
@@ -17,6 +18,8 @@ Widget _host(GameLogic game) => MaterialApp(
     );
 
 void main() {
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
   testWidgets('renders the affix pool + a live socket counter', (tester) async {
     final game = createTestGameLogic(loadOnStart: false);
     await game.loadGame();

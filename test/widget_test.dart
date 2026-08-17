@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -10,6 +11,15 @@ import 'package:crypto_miner_tycoon/widgets/news_ticker.dart';
 import 'test_helper.dart';
 
 void main() {
+  setUpAll(() {
+    // Deterministic fonts: never fetch over the network in tests. Without this,
+    // a long full-suite run could cache the real font while an isolated run uses
+    // the fallback — different text metrics → intermittent overflow, plus real
+    // HTTP futures pending under load. Both made "HomeScreen navigation works"
+    // flake only at the tail of the full run (it passed 5/5 in isolation).
+    GoogleFonts.config.allowRuntimeFetching = false;
+  });
+
   setUp(() {
     SharedPreferences.setMockInitialValues({});
   });

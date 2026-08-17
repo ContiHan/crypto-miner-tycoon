@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:google_fonts/google_fonts.dart';
 import 'package:provider/provider.dart';
 import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
@@ -19,6 +20,8 @@ Widget _host(GameLogic game) => MaterialApp(
     );
 
 void main() {
+  setUpAll(() => GoogleFonts.config.allowRuntimeFetching = false);
+
   testWidgets('bar hides before a class is chosen', (tester) async {
     final game = createTestGameLogic(loadOnStart: false);
     await game.loadGame();

@@ -92,9 +92,11 @@ void main() {
     final anomalyIcon = find.byIcon(Icons.token); // the UTXO that surfaced
     expect(anomalyIcon, findsOneWidget);
 
-    // Tap it
+    // Tap it. Use a bounded pump (NOT pumpAndSettle) — the MINE tab can host
+    // continuously-repeating animations (the ready-ability pulse once a class is
+    // chosen), which would make pumpAndSettle time out. The collect is synchronous.
     await tester.tap(anomalyIcon);
-    await tester.pumpAndSettle();
+    await tester.pump(const Duration(milliseconds: 400));
 
     expect(game.isAnomalyActive, false);
     expect(game.chips, 1);

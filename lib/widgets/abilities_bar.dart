@@ -41,10 +41,14 @@ class _AbilitiesBarState extends State<AbilitiesBar>
   @override
   void initState() {
     super.initState();
+    // NOTE: not started here. The repeating pulse runs ONLY while the bar is
+    // actually visible (a class is chosen) — see build(). A perpetual controller
+    // on a hidden bar would keep MiningTab animating forever (wasted frames, and
+    // it makes any pumpAndSettle in a widget test time out).
     _pulse = AnimationController(
       vsync: this,
       duration: const Duration(milliseconds: 1600),
-    )..repeat();
+    );
   }
 
   @override
@@ -57,7 +61,11 @@ class _AbilitiesBarState extends State<AbilitiesBar>
   Widget build(BuildContext context) {
     return Consumer<GameLogic>(
       builder: (context, game, _) {
-        if (!game.hasChosenClass) return const SizedBox.shrink();
+        if (!game.hasChosenClass) {
+          if (_pulse.isAnimating) _pulse.stop(); // hidden → don't burn frames
+          return const SizedBox.shrink();
+        }
+        if (!_pulse.isAnimating) _pulse.repeat(); // visible → run the pulse
         final abilities = game.currentClassAbilities
           ..sort((a, b) => a.slot.index.compareTo(b.slot.index));
         return Padding(
