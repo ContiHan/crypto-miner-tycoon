@@ -19,6 +19,7 @@ void showCyberToast(
   String? actionLabel,
   VoidCallback? onTap,
   Duration duration = const Duration(seconds: 4),
+  double topOffset = 10,
 }) {
   final overlay = Overlay.of(context, rootOverlay: true);
   _CyberToastManager.instance.enqueue(
@@ -29,6 +30,7 @@ void showCyberToast(
       actionLabel: actionLabel,
       onTap: onTap,
       duration: duration,
+      topOffset: topOffset,
     ),
   );
 }
@@ -39,12 +41,14 @@ class _ToastReq {
   final String? actionLabel;
   final VoidCallback? onTap;
   final Duration duration;
+  final double topOffset; // below the status bar + app chrome (news ticker)
   const _ToastReq({
     required this.message,
     required this.icon,
     required this.actionLabel,
     required this.onTap,
     required this.duration,
+    required this.topOffset,
   });
 }
 
@@ -99,7 +103,7 @@ class _CyberToastState extends State<_CyberToast>
   static const Color _panel = Color(0xF20A0E12); // near-black, slightly see-through
 
   late final AnimationController _in; // slide + fade entrance/exit
-  late final AnimationController _glitch; // brief damped horizontal jitter
+  late final AnimationController _glitch; // aggressive damped digital jitter
   Timer? _hold;
   bool _leaving = false;
 
@@ -110,10 +114,14 @@ class _CyberToastState extends State<_CyberToast>
         vsync: this, duration: const Duration(milliseconds: 320))
       ..forward();
     _glitch = AnimationController(
-        vsync: this, duration: const Duration(milliseconds: 480))
+        vsync: this, duration: const Duration(milliseconds: 720))
       ..forward();
     _hold = Timer(widget.req.duration, _dismiss);
   }
+
+  // Cheap deterministic per-step "random" for the digital glitch (no Math.random,
+  // which is unavailable / non-reproducible here).
+  double _noise(int step) => (((step * 1103515245 + 12345) % 2048) / 2048.0);
 
   void _dismiss() {
     if (_leaving) return;
@@ -138,21 +146,38 @@ class _CyberToastState extends State<_CyberToast>
   Widget build(BuildContext context) {
     final topInset = MediaQuery.of(context).padding.top;
     return Positioned(
-      top: topInset + 10,
+      top: topInset + widget.req.topOffset,
       left: 12,
       right: 12,
       child: AnimatedBuilder(
         animation: Listenable.merge([_in, _glitch]),
         builder: (context, child) {
           final t = Curves.easeOutCubic.transform(_in.value);
-          // Damped horizontal glitch jitter, strongest at the start.
           final g = _glitch.value;
-          final jitter = g >= 1.0 ? 0.0 : math.sin(g * math.pi * 9) * 5.0 * (1 - g);
+          // AGGRESSIVE digital glitch: stepped horizontal jumps (±16px) + a
+          // little vertical tear + horizontal scale stutter + opacity flicker,
+          // all decaying to nothing by the end.
+          double dx = 0, dy = 0, sx = 1, flick = 1;
+          if (g < 1.0) {
+            final decay = 1 - g;
+            final step = (g * 22).floor(); // ~22 discrete "frames"
+            final n = _noise(step);
+            final m = _noise(step * 7 + 3);
+            dx = (n * 2 - 1) * 16 * decay;
+            dy = (m * 2 - 1) * 4 * decay;
+            sx = 1 + (n - 0.5) * 0.10 * decay;
+            // Hard opacity stutter early in the glitch.
+            flick = (g < 0.4 && step.isOdd) ? 0.35 : 1.0;
+          }
           return Opacity(
-            opacity: t.clamp(0.0, 1.0),
+            opacity: (t * flick).clamp(0.0, 1.0),
             child: Transform.translate(
-              offset: Offset(jitter, (1 - t) * -18),
-              child: child,
+              offset: Offset(dx, dy + (1 - t) * -18),
+              child: Transform(
+                alignment: Alignment.center,
+                transform: Matrix4.diagonal3Values(sx, 1, 1),
+                child: child,
+              ),
             ),
           );
         },
@@ -189,29 +214,33 @@ class _CyberToastState extends State<_CyberToast>
             child: Column(
               mainAxisSize: MainAxisSize.min,
               children: [
-                // Top accent data-bar (cyan→amber gradient).
+                // Top accent data-bar (cyan→amber gradient), thicker + glowing.
                 Container(
-                  height: 2,
-                  decoration: const BoxDecoration(
-                    gradient: LinearGradient(colors: [_cyan, _amber]),
+                  height: 6,
+                  decoration: BoxDecoration(
+                    gradient: const LinearGradient(colors: [_cyan, _amber]),
+                    boxShadow: [
+                      BoxShadow(
+                          color: _cyan.withValues(alpha: 0.55), blurRadius: 8),
+                    ],
                   ),
                 ),
                 Padding(
                   padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+                      const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
                   child: Row(
                     children: [
                       // Icon chip.
                       Container(
-                        width: 30,
-                        height: 30,
+                        width: 34,
+                        height: 34,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: _cyan.withValues(alpha: 0.10),
                           border: Border.all(
                               color: _cyan.withValues(alpha: 0.7), width: 1),
                         ),
-                        child: Icon(widget.req.icon, color: _cyan, size: 17),
+                        child: Icon(widget.req.icon, color: _cyan, size: 19),
                       ),
                       const SizedBox(width: 10),
                       Expanded(
@@ -225,7 +254,7 @@ class _CyberToastState extends State<_CyberToast>
                               overflow: TextOverflow.ellipsis,
                               style: GoogleFonts.orbitron(
                                 color: Colors.white,
-                                fontSize: 12,
+                                fontSize: 13,
                                 fontWeight: FontWeight.bold,
                                 letterSpacing: 0.5,
                                 height: 1.25,

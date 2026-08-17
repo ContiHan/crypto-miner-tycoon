@@ -117,6 +117,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (onLocked && mounted) setState(() => _currentIndex = 2); // fall back to MINE
   }
 
+  // Anchor toasts below the app chrome so they never cover the news ticker
+  // ("burza" strip): AppBar (kToolbarHeight) + the 36px NewsTicker + a small gap.
+  // The status-bar inset is added inside the toast widget.
+  static const double _toastTopOffset = kToolbarHeight + 44;
+
   /// True while a full-screen overlay (ending, credits, WELCOME BACK, speed-run
   /// complete) is on top — toasts must never paint over these (a SnackBar sits
   /// above the Navigator, so without this guard it renders on top of them).
@@ -137,7 +142,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         : '${tabs.join(' & ')} tabs unlocked!';
     // Top-anchored cyberpunk toast (queues after any achievement toast, so both
     // a tab unlock and its co-occurring achievement are seen).
-    showCyberToast(context, message: label, icon: Icons.lock_open_outlined);
+    showCyberToast(context,
+        message: label,
+        icon: Icons.lock_open_outlined,
+        topOffset: _toastTopOffset);
   }
 
   /// Fire the THE LAST SATOSHI ending exactly once when the win first crosses.
@@ -190,6 +198,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       message: label,
       icon: Icons.emoji_events_outlined,
       actionLabel: 'tap to claim',
+      topOffset: _toastTopOffset,
       onTap: () {
         if (mounted) setState(() => _currentIndex = 4); // GOALS tab
       },
