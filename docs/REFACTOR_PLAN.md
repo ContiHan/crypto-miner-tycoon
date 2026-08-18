@@ -213,6 +213,14 @@ Each is independently shippable and suite-gated.
   state+logic (Casino, TabUnlock, Endgame, Settings, EconomyModifiers, +the
   earlier Mining/Research/Perk/Class/Prestige/Ability/Aura/Keystone/Proc/Breach/
   SpeedRun/RigReveal). GameLogic is the coordinator + thin proxy layer.
-- ⏭️ **Next**: residual B4 tail (luck facets / upkeep, if wanted), then Phase C
-  screen splits (stash_screen casino ~700 lines is the big one), then Phase D
-  serialization single-source-of-truth.
+- ✅ **C1 CasinoTab split** — the entire SWEEP casino tab (animation state + the
+  resolve/commit-on-land flow + the WidgetsBindingObserver background-settle) moves
+  out of stash_screen into a self-contained `lib/screens/casino_tab.dart`
+  (`CasinoTab` StatefulWidget). stash_screen keeps the TabController + Market/
+  Collection/Crate code and renders `CasinoTab(game: game)`; it drops the
+  WidgetsBindingObserver entirely. **stash_screen 1527 → 543 lines.** Verified by a
+  2-lens completeness+lifecycle review. ⚠️ The SWEEP animations + the background/
+  dispose stake-settle path have NO widget-test coverage and weren't render-verified
+  (pane down) — NEEDS DEVICE VERIFICATION.
+- ⏭️ **Next**: residual B4 tail (luck facets / upkeep), further Phase C splits
+  (stash_screen still 543; game_logic screens), then Phase D serialization.
