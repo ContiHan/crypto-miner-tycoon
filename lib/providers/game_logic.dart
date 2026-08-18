@@ -35,6 +35,7 @@ import '../logic/systems/keystone_system.dart';
 import '../logic/systems/firmware_system.dart';
 import '../logic/systems/breach_system.dart';
 import '../logic/systems/speed_run_system.dart';
+import '../logic/systems/rig_reveal_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -149,136 +150,29 @@ class GameLogic with ChangeNotifier {
   // Runtime rigs are built from the data-driven catalog (lib/content/rig_defs).
   List<Rig> rigs = createRigs();
 
-  /// Rig ids the player has REVEALED this era (sticky, persisted). Each later
-  /// rig's unlock is a distinct MILESTONE measured relative to a SNAPSHOT taken
-  /// when the previous rig unlocked ([_snap*] below), so a task can never be
-  /// pre-satisfied out of order, and revealing one rig never cascades into the
-  /// next (its snapshot resets to "now"). Cleared on any rig-wiping reset.
-  final Set<String> _unlockedRigs = {};
+  /// Progressive rig reveal (milestone unlocks) — extracted subsystem. Reads live
+  /// counters via suppliers; GameLogic keeps thin proxies for the public API.
+  late final RigRevealSystem _rigReveal = RigRevealSystem(
+    rigs: () => rigs,
+    cratesOpened: () => cratesOpened,
+    casinoSpins: () => casinoSpins,
+    globalHashRate: () => globalHashRate,
+  );
 
-  // Baselines snapshotted when the current unlock target advanced; the next rig's
-  // milestone is progress SINCE these.
-  int _snapRigs = 0;
-  int _snapCrates = 0;
-  int _snapSpins = 0;
-  int _snapEvents = 0;
-  double _snapHash = 0;
-
-  /// Lifetime count of market events witnessed — ANY chaos event (good or bad),
-  /// not just Bull Runs. Drives the "witness any market event" rig milestone,
-  /// which a Speed Run can actually reach (a single Bull Run was too rare and
-  /// stalled the ordered reveal). Counted in the ChaosEventSystem.onEventSound
-  /// hook, so it ticks regardless of which tab is open.
-  int eventsSeen = 0;
-
-  int _totalRigsOwned() => rigs.fold<int>(0, (a, r) => a + r.amount);
-
-  /// Re-baseline the milestone snapshot to the current counters — called when a
-  /// rig reveals (the target advances) and after any reset that wipes rigs.
-  void _snapshotRigTarget() {
-    _snapRigs = _totalRigsOwned();
-    _snapCrates = cratesOpened;
-    _snapSpins = casinoSpins;
-    _snapEvents = eventsSeen;
-    _snapHash = globalHashRate;
-  }
-
-  /// Each rig's unlock MILESTONE — a distinct task drawn from a different system,
-  /// measured as progress SINCE the target snapshot (see [_snapshotRigTarget]).
-  bool _rigConditionMet(String id) {
-    switch (id) {
-      case RigIds.gpuRig: // buy your first rig
-        return _totalRigsOwned() >= _snapRigs + 1;
-      case RigIds.asicRig: // buy a few more rigs
-        return _totalRigsOwned() >= _snapRigs + 3;
-      case RigIds.miningFarm: // double your hash rate
-        return globalHashRate >= _snapHash * 2;
-      case RigIds.quantumRig: // dip into the STASH
-        return cratesOpened >= _snapCrates + 1;
-      case RigIds.fusionRig: // witness any market event (Speed-Run reachable)
-        return eventsSeen >= _snapEvents + 1;
-      case RigIds.photonicRig: // play the SWEEP mini-games
-        return casinoSpins >= _snapSpins + 3;
-      case RigIds.datacenterRig: // scale the farm up
-        return _totalRigsOwned() >= _snapRigs + 6;
-      case RigIds.dysonRig: // quadruple your hash rate
-        return globalHashRate >= _snapHash * 4;
-      case RigIds.singularityRig: // a serious mining empire
-        return _totalRigsOwned() >= _snapRigs + 12;
-      default:
-        return false;
-    }
-  }
+  /// Lifetime count of market events witnessed (owned by the reveal system;
+  /// incremented in the ChaosEventSystem.onEventSound hook). Kept settable for
+  /// tests.
+  int get eventsSeen => _rigReveal.eventsSeen;
+  set eventsSeen(int v) => _rigReveal.eventsSeen = v;
 
   /// The locked-rig teaser hint (with live progress) for the next rig.
-  String rigUnlockHint(String id) {
-    String p(int cur, int need) => ' (${cur.clamp(0, need)}/$need)';
-    switch (id) {
-      case RigIds.gpuRig:
-        return 'Buy your first rig';
-      case RigIds.asicRig:
-        return 'Buy 3 more rigs${p(_totalRigsOwned() - _snapRigs, 3)}';
-      case RigIds.miningFarm:
-        return 'Double your hash rate';
-      case RigIds.quantumRig:
-        return 'Open a supply crate';
-      case RigIds.fusionRig:
-        return 'Witness any market event';
-      case RigIds.photonicRig:
-        return 'Play 3 SWEEP games${p(casinoSpins - _snapSpins, 3)}';
-      case RigIds.datacenterRig:
-        return 'Buy 6 more rigs${p(_totalRigsOwned() - _snapRigs, 6)}';
-      case RigIds.dysonRig:
-        return 'Quadruple your hash rate';
-      case RigIds.singularityRig:
-        return 'Own 12 more rigs${p(_totalRigsOwned() - _snapRigs, 12)}';
-      default:
-        return 'Keep playing to reveal';
-    }
-  }
+  String rigUnlockHint(String id) => _rigReveal.hint(id);
 
-  /// Whether rig [i] is revealed. ORDERED: the first rig always shows; each later
-  /// rig needs the previous revealed AND its milestone met since the snapshot.
-  /// Owned or already-latched rigs always show.
-  bool _rigRevealed(int i) {
-    final r = rigs[i];
-    if (r.amount > 0 || i == 0 || _unlockedRigs.contains(r.id)) return true;
-    if (!_rigRevealed(i - 1)) return false; // keep the reveal order
-    return _rigConditionMet(r.id);
-  }
+  /// Rigs the player should currently SEE (start with the first; reveal in order).
+  List<Rig> get visibleRigs => _rigReveal.visibleRigs;
 
-  /// Latch newly-revealed rigs and re-snapshot for the NEXT milestone. Running
-  /// this from [_evaluateAchievements] (every tick + action) means the snapshot
-  /// resets the instant a rig reveals, so at most one rig reveals per completed
-  /// milestone (no cascade).
-  void _refreshRigUnlocks() {
-    for (int i = 1; i < rigs.length; i++) {
-      final id = rigs[i].id;
-      if (!_unlockedRigs.contains(id) && _rigRevealed(i)) {
-        _unlockedRigs.add(id);
-        _snapshotRigTarget(); // baseline for the next rig's milestone
-      }
-    }
-  }
-
-  /// Rigs the player should currently SEE. You start with just the first rig; the
-  /// rest reveal one at a time as you buy the previous tier (see [_rigRevealed]).
-  List<Rig> get visibleRigs {
-    final out = <Rig>[];
-    for (int i = 0; i < rigs.length; i++) {
-      if (_rigRevealed(i)) out.add(rigs[i]);
-    }
-    return out;
-  }
-
-  /// The next still-locked rig, shown as a "???" silhouette teaser so the player
-  /// always has a visible next goal (progressive discovery). Null if all revealed.
-  Rig? get nextLockedRig {
-    for (int i = 0; i < rigs.length; i++) {
-      if (!_rigRevealed(i)) return rigs[i];
-    }
-    return null;
-  }
+  /// The next still-locked rig (a "???" teaser), or null if all revealed.
+  Rig? get nextLockedRig => _rigReveal.nextLockedRig;
 
   int govTokens = 0;
   int chips = 0;
@@ -910,8 +804,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
-    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
-    _snapshotRigTarget(); // baseline milestones from the fresh era
+    _rigReveal.resetAndSnapshot(); // re-progress rig reveals from the first rig
 
     notifyListeners();
   }
@@ -2078,7 +1971,7 @@ class GameLogic with ChangeNotifier {
     // the first achievement unlocking GOAL) happen WITHOUT its own overlapping
     // cue — one celebratory sound per frame, not a double-chime.
     _refreshTabUnlocks(suppressSound: playedAchievementCue);
-    _refreshRigUnlocks();
+    _rigReveal.refresh();
   }
 
   /// Reveal bottom-nav tabs as the player progresses (sticky — never re-locks).
@@ -2337,8 +2230,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
-    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
-    _snapshotRigTarget(); // baseline milestones from the fresh era
+    _rigReveal.resetAndSnapshot(); // re-progress rig reveals from the first rig
 
     // Reset Research (ResearchManager)
     _researchManager.reset();
@@ -2398,8 +2290,7 @@ class GameLogic with ChangeNotifier {
     for (var rig in rigs) {
       rig.amount = 0;
     }
-    _unlockedRigs.clear(); // re-progress rig reveals from the first rig
-    _snapshotRigTarget(); // baseline milestones from the fresh era
+    _rigReveal.resetAndSnapshot(); // re-progress rig reveals from the first rig
     _researchManager.reset();
     _respecUsed = false; // fresh era → the free respec refreshes
     _perkManager.reset();
@@ -2556,13 +2447,13 @@ class GameLogic with ChangeNotifier {
       unlockedSkill: unlockedSkill,
       unlockedGoal: unlockedGoal,
       eventsSeen: eventsSeen,
-      unlockedRigs: _unlockedRigs.toList(),
+      unlockedRigs: _rigReveal.unlockedRigs.toList(),
       rigSnap: {
-        'rigs': _snapRigs,
-        'crates': _snapCrates,
-        'spins': _snapSpins,
-        'events': _snapEvents,
-        'hash': _snapHash,
+        'rigs': _rigReveal.snapRigs,
+        'crates': _rigReveal.snapCrates,
+        'spins': _rigReveal.snapSpins,
+        'events': _rigReveal.snapEvents,
+        'hash': _rigReveal.snapHash,
       },
       speedRunActive: _speedRun.active,
       speedRunStartMs: _speedRun.startMs,
@@ -2736,16 +2627,16 @@ class GameLogic with ChangeNotifier {
       // Fall back to the old 'bullRunsSeen' key so a pre-rename save keeps its
       // event baseline.
       eventsSeen = _toInt(data['eventsSeen'] ?? data['bullRunsSeen']);
-      _unlockedRigs
+      _rigReveal.unlockedRigs
         ..clear()
         ..addAll((data['unlockedRigs'] as List?)?.cast<String>() ?? const []);
       final rigSnap = data['rigSnap'];
       if (rigSnap is Map) {
-        _snapRigs = _toInt(rigSnap['rigs']);
-        _snapCrates = _toInt(rigSnap['crates']);
-        _snapSpins = _toInt(rigSnap['spins']);
-        _snapEvents = _toInt(rigSnap['events'] ?? rigSnap['bullRuns']);
-        _snapHash = _toDouble(rigSnap['hash']);
+        _rigReveal.snapRigs = _toInt(rigSnap['rigs']);
+        _rigReveal.snapCrates = _toInt(rigSnap['crates']);
+        _rigReveal.snapSpins = _toInt(rigSnap['spins']);
+        _rigReveal.snapEvents = _toInt(rigSnap['events'] ?? rigSnap['bullRuns']);
+        _rigReveal.snapHash = _toDouble(rigSnap['hash']);
       } else {
         // Save predates the milestone system: reveal everything up to the
         // highest-owned rig and baseline the snapshot to NOW, so the next rig's
@@ -2755,9 +2646,9 @@ class GameLogic with ChangeNotifier {
           if (rigs[i].amount > 0) highestOwned = i;
         }
         for (var i = 1; i <= highestOwned; i++) {
-          _unlockedRigs.add(rigs[i].id);
+          _rigReveal.unlockedRigs.add(rigs[i].id);
         }
-        _snapshotRigTarget();
+        _rigReveal.snapshotTarget();
       }
 
       // Load Research Manager Data
