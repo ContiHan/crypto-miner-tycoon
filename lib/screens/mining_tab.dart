@@ -613,13 +613,13 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                         selector: (_, g) {
                           // A signature that changes on exactly the events that
                           // should rebuild the cards: a purchase (amount), a cost
-                          // change (getRigCost folds in the rig-cost channel +
-                          // chaos), an affordability flip (wallet vs cost), or a
-                          // fiat toggle. getRigCost is stable between income ticks,
-                          // so the wallet ticking up alone does NOT change it.
+                          // change (getRigCostInSats folds in the rig-cost channel
+                          // + chaos), an affordability flip (wallet vs cost), or a
+                          // fiat toggle. It is stable between income ticks, so the
+                          // wallet ticking up alone does NOT change it.
                           final sb = StringBuffer();
                           for (final r in g.visibleRigs) {
-                            final cost = g.getRigCost(r);
+                            final cost = g.getRigCostInSats(r);
                             sb
                               ..write(r.id)
                               ..write(':')

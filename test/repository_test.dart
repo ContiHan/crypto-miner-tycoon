@@ -22,7 +22,6 @@ Future<void> _save(GameRepository repo, {double wallet = 0}) {
     blockReward: 50,
     blocksMined: 0,
     nextHalvingThreshold: 5000,
-    bitcoinExchangeRate: 1.0,
   );
 }
 
@@ -69,7 +68,6 @@ void main() {
         blockReward: 50,
         blocksMined: 10,
         nextHalvingThreshold: 20,
-        bitcoinExchangeRate: 1.0,
         chips: 5,
       );
 
@@ -104,7 +102,6 @@ void main() {
         blockReward: 0,
         blocksMined: 0,
         nextHalvingThreshold: 0,
-        bitcoinExchangeRate: 0,
       );
 
       final data = await gameRepo.loadGameState();
@@ -130,7 +127,6 @@ void main() {
         blockReward: 50,
         blocksMined: 0,
         nextHalvingThreshold: 5000,
-        bitcoinExchangeRate: 1.0,
         currentClass: 'btcOg',
         mastery: {'corporation': 40000.0, 'btcOg': 12345.0},
       );
@@ -167,7 +163,6 @@ void main() {
         blockReward: 50,
         blocksMined: 0,
         nextHalvingThreshold: 5000,
-        bitcoinExchangeRate: 1.0,
         lifetimeEverSats: 2.5e17,
         hasWonGame: true,
       );
@@ -215,7 +210,6 @@ void main() {
         blockReward: 50,
         blocksMined: 0,
         nextHalvingThreshold: 5000,
-        bitcoinExchangeRate: 1.0,
         lifetimeEverSats: double.infinity,
       );
       final data = await gameRepo.loadGameState();
@@ -344,7 +338,6 @@ void main() {
         blockReward: double.infinity,
         blocksMined: 0,
         nextHalvingThreshold: 5000,
-        bitcoinExchangeRate: 1.0,
       );
 
       final data = await repo.loadGameState();

@@ -139,10 +139,6 @@ class GameLogic with ChangeNotifier {
   set nextHalvingThreshold(int value) =>
       _miningManager.nextHalvingThreshold = value;
 
-  double get bitcoinExchangeRate => _miningManager.bitcoinExchangeRate;
-  set bitcoinExchangeRate(double value) =>
-      _miningManager.bitcoinExchangeRate = value;
-
   /// Cosmetic conversion of a sat value into the "astronomical fiat" display
   /// used by the $/₿ toggle. Purely visual — no gameplay effect.
   double toFiat(double sats) => sats * GameConstants.cosmeticUsdPerSat;
@@ -816,7 +812,6 @@ class GameLogic with ChangeNotifier {
     double cost = _researchManager.tryBuy(
       researchId,
       wallet,
-      _miningManager.bitcoinExchangeRate,
     );
 
     if (cost > 0) {
@@ -977,8 +972,7 @@ class GameLogic with ChangeNotifier {
     while (progress) {
       progress = false;
       for (final id in ids) {
-        final cost = _researchManager.tryBuy(
-            id, wallet, _miningManager.bitcoinExchangeRate);
+        final cost = _researchManager.tryBuy(id, wallet);
         if (cost > 0) {
           wallet -= cost;
           bought++;
@@ -1043,10 +1037,7 @@ class GameLogic with ChangeNotifier {
       ),
     );
     if (node.id.isEmpty) return 0;
-    return _researchManager.getCostInSats(
-      node,
-      _miningManager.bitcoinExchangeRate,
-    );
+    return _researchManager.getCostInSats(node);
   }
 
   // RPG class + Mastery (Phase 3). Prospector until the first New Blockchain.
@@ -2338,7 +2329,9 @@ class GameLogic with ChangeNotifier {
     return bought;
   }
 
-  double getRigCostInCredits(Rig rig) {
+  /// The live sat cost of the next unit of [rig] (rig-cost discount channel +
+  /// keystone/ability cost mods, capped + floored by calculateRigCost).
+  double getRigCostInSats(Rig rig) {
     // Total rig-cost discount (perks + cooling/solar research + stash) comes
     // from the RIG_COST channel; calculateRigCost applies the 95% channel cap and
     // the 5% final-product floor. Ability cost buffs (HOSTILE TAKEOVER ×0.5) feed
@@ -2355,12 +2348,6 @@ class GameLogic with ChangeNotifier {
       abilityCostMultiplier: _inOfflineSim ? 1.0 : _abilities.rigCostMult(_nowMs()),
     );
   }
-
-  double getRigCost(Rig rig) {
-    return getRigCostInCredits(rig) / _miningManager.bitcoinExchangeRate;
-  }
-
-  double getRigCostInSats(Rig rig) => getRigCost(rig);
 
   void buyPerk(String perkId) {
     int cost = _perkManager.tryBuy(perkId, govTokens, _classManager.current);
@@ -2420,7 +2407,6 @@ class GameLogic with ChangeNotifier {
       blockReward: _miningManager.blockReward,
       blocksMined: _miningManager.blocksMined,
       nextHalvingThreshold: _miningManager.nextHalvingThreshold,
-      bitcoinExchangeRate: _miningManager.bitcoinExchangeRate,
       chips: chips,
       stash: _stash.saveStash(),
       consensus: _prestige.consensus,
@@ -2512,9 +2498,8 @@ class GameLogic with ChangeNotifier {
       _miningManager.blockReward = _toDouble(data['blockReward']);
       _miningManager.blocksMined = _toInt(data['blocksMined']);
       _miningManager.nextHalvingThreshold = _toInt(data['nextHalvingThreshold']);
-      // Migration: force the (now neutralised) exchange rate to 1.0, ignoring any
-      // large value saved by the old compounding mechanic.
-      _miningManager.bitcoinExchangeRate = 1.0;
+      // (The old 'bitcoinExchangeRate' mechanic was fully neutralised — always 1.0
+      // — and has been removed; any legacy key in old saves is simply ignored.)
 
       // Prestige tier-1 (Soft Fork / Consensus)
       _prestige.consensus = _toInt(data['consensus']);

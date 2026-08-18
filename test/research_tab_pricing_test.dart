@@ -6,7 +6,7 @@ import 'package:crypto_miner_tycoon/screens/research_tab.dart';
 import 'test_helper.dart';
 
 void main() {
-  group('LAB pricing follows the exchange rate (bug #2)', () {
+  group('LAB pricing uses the sats cost', () {
     // The TECH tree is now a graph; the BUY button lives in the tap sheet. Use a
     // large surface so the (0,0)-anchored root node sits inside the viewport.
     Future<void> pumpTree(WidgetTester tester, GameLogic game) async {
@@ -23,24 +23,18 @@ void main() {
       await tester.pump();
     }
 
-    testWidgets('BTC price adapts to the rate and affordability uses sats cost',
+    testWidgets('node shows its sats cost; affordability uses that cost',
         (tester) async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
-      // After hard forks the exchange rate climbs. Basic Overclocking costs 500
-      // credits, so the real charge becomes 500 / 10 = 50 sats.
-      game.bitcoinExchangeRate = 10.0;
-      game.wallet = 100; // 100 sats: below raw 500, above the true 50.
+      game.wallet = 1000; // >= the 500 base cost
 
       await pumpTree(tester, game);
 
-      // The node sublabel shows the rate-adjusted sats price (50), not raw 500.
-      expect(find.textContaining('50 Ş'), findsOneWidget);
-      expect(find.textContaining('500'), findsNothing);
+      // The node sublabel shows the sats price (500).
+      expect(find.textContaining('500'), findsWidgets);
 
-      // Tap the root node to open its sheet; the BUY button must be enabled
-      // (100 sats >= 50 sats). The buggy version compared 100 vs the raw 500.
+      // Tap the root node; BUY is enabled since 1000 >= 500.
       await tester.tap(find.text('BASIC OVERCLOCKING'));
       await tester.pumpAndSettle();
       final buttonFinder = find.byType(ElevatedButton);
@@ -48,12 +42,10 @@ void main() {
       expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNotNull);
     });
 
-    testWidgets('buying at a raised rate deducts only the sats cost',
-        (tester) async {
+    testWidgets('buying deducts the sats cost', (tester) async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.bitcoinExchangeRate = 10.0;
-      game.wallet = 100;
+      game.wallet = 1000;
 
       await pumpTree(tester, game);
 
@@ -63,7 +55,7 @@ void main() {
       await tester.pump();
 
       expect(game.isResearched('basic_overclock'), true);
-      expect(game.wallet, 50, reason: '100 sats - (500 credits / rate 10)');
+      expect(game.wallet, 500, reason: '1000 sats - 500 base cost');
     });
   });
 }

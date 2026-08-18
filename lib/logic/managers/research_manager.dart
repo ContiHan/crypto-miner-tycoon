@@ -919,7 +919,6 @@ class ResearchManager {
   double tryBuy(
     String researchId,
     double currentWallet,
-    double bitcoinExchangeRate,
   ) {
     int index = researchNodes.indexWhere((r) => r.id == researchId);
     if (index == -1) return 0;
@@ -929,7 +928,7 @@ class ResearchManager {
     // Exclusive doctrines: can't buy into a locked sibling / a 3rd pair.
     if (isDoctrineLocked(researchId)) return 0;
 
-    double costSats = getCostInSats(node, bitcoinExchangeRate);
+    double costSats = getCostInSats(node);
 
     if (currentWallet >= costSats) {
       node.isCompleted = true;
@@ -942,9 +941,8 @@ class ResearchManager {
     return 0;
   }
 
-  double getCostInSats(ResearchNode node, double bitcoinExchangeRate) {
-    final double base =
-        bitcoinExchangeRate <= 0 ? node.cost : node.cost / bitcoinExchangeRate;
+  double getCostInSats(ResearchNode node) {
+    final double base = node.cost;
     // Combined discount (blueprint now; a future R&D doctrine adds here), with the
     // #3 FLOOR so stacked discounts can never drive the price below techCostFloor.
     final double totalDiscount = blueprintDiscount(node.id);

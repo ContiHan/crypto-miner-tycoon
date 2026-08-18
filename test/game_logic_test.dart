@@ -37,7 +37,7 @@ void main() {
     test('Buying a Rig should deduct money and increase amount', () async {
       game.wallet = 1000;
       final cpuRigId = 'cpu_rig';
-      final initialCost = game.getRigCost(
+      final initialCost = game.getRigCostInSats(
         game.rigs.firstWhere((r) => r.id == cpuRigId),
       );
 
@@ -71,17 +71,10 @@ void main() {
       expect(hashAfter, closeTo(1.05, 0.001));
     });
 
-    test('Research Cost scales with Exchange Rate', () {
-      // Base Cost: 500 (Basic Overclock)
-      // Rate: 1.0 -> Cost 500 Sats
-      game.bitcoinExchangeRate = 1.0;
-      double cost1 = game.getResearchCost('basic_overclock');
-      expect(cost1, 500.0);
-
-      // Rate: 2.0 -> Cost 250 Sats
-      game.bitcoinExchangeRate = 2.0;
-      double cost2 = game.getResearchCost('basic_overclock');
-      expect(cost2, 250.0);
+    test('Research cost is the flat base sats cost (no exchange rate)', () {
+      // The old compounding exchange-rate mechanic was removed — a node's cost is
+      // just its base sats cost (500 for Basic Overclock), before blueprint discount.
+      expect(game.getResearchCost('basic_overclock'), 500.0);
     });
 
     test('Offline Earnings should calculate correctly', () async {
@@ -192,7 +185,7 @@ void main() {
       // 3. Test Cheap Energy (Cost Discount)
       game.chaosCostMultiplier = 0.7; // 30% off
       Rig cpu = game.rigs.firstWhere((r) => r.id == 'cpu_rig');
-      expect(game.getRigCost(cpu), 70.0);
+      expect(game.getRigCostInSats(cpu), 70.0);
     });
   });
 }

@@ -149,7 +149,6 @@ class FakeGameRepository implements GameRepository {
     'blockReward': 50.0 * 100000000,
     'blocksMined': 0,
     'nextHalvingThreshold': 5000,
-    'bitcoinExchangeRate': 1.0,
     'networkDifficulty': 100.0,
   };
 
@@ -187,7 +186,6 @@ class FakeGameRepository implements GameRepository {
     required double blockReward,
     required int blocksMined,
     required int nextHalvingThreshold,
-    required double bitcoinExchangeRate,
     int chips = 0,
     Map<String, dynamic>? stash,
     int consensus = 0,
@@ -304,7 +302,6 @@ class FakeGameRepository implements GameRepository {
     data['blockReward'] = blockReward;
     data['blocksMined'] = blocksMined;
     data['nextHalvingThreshold'] = nextHalvingThreshold;
-    data['bitcoinExchangeRate'] = bitcoinExchangeRate;
 
     // Mirror the real repository, which stamps the save time inside the blob.
     data['last_save_time'] = DateTime.now().millisecondsSinceEpoch;

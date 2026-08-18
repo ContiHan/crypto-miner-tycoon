@@ -65,7 +65,7 @@ void main() {
       m.researchNodes
           .firstWhere((n) => n.id == ResearchIds.geothermalCooling)
           .isUnlocked = true; // requirement-unlocked but doctrine-locked
-      final cost = m.tryBuy(ResearchIds.geothermalCooling, 1e18, 1.0);
+      final cost = m.tryBuy(ResearchIds.geothermalCooling, 1e18);
       expect(cost, 0);
       expect(m.isResearched(ResearchIds.geothermalCooling), false);
     });

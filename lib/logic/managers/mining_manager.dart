@@ -6,10 +6,6 @@ class MiningManager {
   double blockReward = GameConstants.initialBlockReward;
   int blocksMined = 0;
   int nextHalvingThreshold = GameConstants.halvingFirstThreshold;
-  // Neutralised in the Phase 1 redesign: kept at 1.0 for save compatibility.
-  // Cross-era progression now comes from the prestige income multiplier, not a
-  // compounding exchange rate (which overflowed to Infinity late-game).
-  double bitcoinExchangeRate = 1.0;
 
   // Dependencies on GameLogic state (passed in or callbacks) could be tricky.
   // Instead, we return results of mining ticks.
@@ -20,15 +16,14 @@ class MiningManager {
     blockReward = GameConstants.initialBlockReward;
     blocksMined = 0;
     nextHalvingThreshold = GameConstants.halvingFirstThreshold;
-    bitcoinExchangeRate = 1.0;
   }
 
   void hardForkReset() {
     blocksMined = 0;
     blockReward = GameConstants.initialBlockReward;
     nextHalvingThreshold = GameConstants.halvingFirstThreshold;
-    // Exchange rate stays 1.0 (neutralised). Cross-era power now comes from the
-    // prestige income multiplier applied in GameLogic, not from this field.
+    // Cross-era power comes from the prestige income multiplier applied in
+    // GameLogic (the old compounding exchange-rate mechanic was removed).
   }
 
   // Calculate Network Difficulty

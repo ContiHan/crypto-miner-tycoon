@@ -30,18 +30,18 @@ void main() {
       final rm = ResearchManager();
       final node = rm.researchNodes
           .firstWhere((n) => n.id == ResearchIds.basicOverclock);
-      final base = rm.getCostInSats(node, 1.0);
+      final base = rm.getCostInSats(node);
       expect(base, node.cost);
 
       rm.researchCount[node.id] = 12; // ~26.7% off
-      final discounted = rm.getCostInSats(node, 1.0);
+      final discounted = rm.getCostInSats(node);
       expect(discounted, lessThan(base));
       expect(discounted, closeTo(base * (1 - rm.blueprintDiscount(node.id)), 1e-6));
 
       // Even at an extreme count the discount caps at 40%, so cost stays at
       // 60% of base — always well above the 5% techCostFloor.
       rm.researchCount[node.id] = 1000000;
-      final capped = rm.getCostInSats(node, 1.0);
+      final capped = rm.getCostInSats(node);
       expect(capped, greaterThanOrEqualTo(base * GameConstants.techCostFloor));
       expect(capped, closeTo(base * (1 - GameConstants.blueprintMaxDiscount), base * 1e-3));
     });
@@ -50,8 +50,8 @@ void main() {
       final rm = ResearchManager();
       final node = rm.researchNodes
           .firstWhere((n) => n.id == ResearchIds.basicOverclock);
-      final cost = rm.getCostInSats(node, 1.0);
-      rm.tryBuy(ResearchIds.basicOverclock, cost, 1.0);
+      final cost = rm.getCostInSats(node);
+      rm.tryBuy(ResearchIds.basicOverclock, cost);
       expect(rm.researchCount[ResearchIds.basicOverclock], 1);
     });
 
@@ -59,7 +59,7 @@ void main() {
       final rm = ResearchManager();
       final node = rm.researchNodes
           .firstWhere((n) => n.id == ResearchIds.basicOverclock);
-      rm.tryBuy(ResearchIds.basicOverclock, rm.getCostInSats(node, 1.0), 1.0);
+      rm.tryBuy(ResearchIds.basicOverclock, rm.getCostInSats(node));
       expect(node.isCompleted, true);
       expect(rm.researchCount[ResearchIds.basicOverclock], 1);
 

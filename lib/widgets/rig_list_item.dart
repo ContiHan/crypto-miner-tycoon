@@ -135,7 +135,7 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
 
   @override
   Widget build(BuildContext context) {
-      final double actualCost = widget.game.getRigCost(widget.rig);
+      final double actualCost = widget.game.getRigCostInSats(widget.rig);
       final canAfford = widget.game.wallet >= actualCost;
       final neonColor = _getRigColor(widget.rig.id);
 
@@ -273,9 +273,9 @@ class _RigListItemState extends State<RigListItem> with SingleTickerProviderStat
                           ),
                           Text(
                             widget.game.showFiatPrices
-                                ? '\$ ${Formatter.formatNumber(widget.game.toFiat(widget.game.getRigCost(widget.rig)))}'
+                                ? '\$ ${Formatter.formatNumber(widget.game.toFiat(widget.game.getRigCostInSats(widget.rig)))}'
                                 : Formatter.formatBitcoin(
-                                    widget.game.getRigCost(widget.rig)),
+                                    widget.game.getRigCostInSats(widget.rig)),
                             style: const TextStyle(
                               fontSize: 12,
                               height: 1.05,

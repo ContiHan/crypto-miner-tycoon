@@ -35,7 +35,6 @@ class GameRepository {
     'blockReward',
     'blocksMined',
     'nextHalvingThreshold',
-    'bitcoinExchangeRate',
   ];
 
   Future<void> saveGameState({
@@ -62,7 +61,6 @@ class GameRepository {
     required double blockReward,
     required int blocksMined,
     required int nextHalvingThreshold,
-    required double bitcoinExchangeRate,
     int chips = 0,
     Map<String, dynamic>? stash,
     int consensus = 0,
@@ -132,7 +130,6 @@ class GameRepository {
       'blockReward': fin(blockReward),
       'blocksMined': blocksMined,
       'nextHalvingThreshold': nextHalvingThreshold,
-      'bitcoinExchangeRate': fin(bitcoinExchangeRate, 1.0),
       'consensus': consensus,
       'lifetimeAtLastSoftFork': fin(lifetimeAtLastSoftFork),
       'genesisBlocks': genesisBlocks,
@@ -231,7 +228,6 @@ class GameRepository {
       'blocksMined': asInt(m['blocksMined'], 0),
       'nextHalvingThreshold':
           asInt(m['nextHalvingThreshold'], GameConstants.halvingFirstThreshold),
-      'bitcoinExchangeRate': asDouble(m['bitcoinExchangeRate'], 1.0),
       'consensus': asInt(m['consensus'], 0),
       'lifetimeAtLastSoftFork': asDouble(m['lifetimeAtLastSoftFork'], 0),
       'genesisBlocks': asInt(m['genesisBlocks'], 0),
@@ -352,7 +348,6 @@ class GameRepository {
     data['blocksMined'] = prefs.getInt('blocksMined') ?? 0;
     data['nextHalvingThreshold'] = prefs.getInt('nextHalvingThreshold') ??
         GameConstants.halvingFirstThreshold;
-    data['bitcoinExchangeRate'] = prefs.getDouble('bitcoinExchangeRate') ?? 1.0;
     data['last_save_time'] = prefs.getInt('last_save_time');
 
     // Each decode is isolated: one corrupt key no longer takes down the load.
