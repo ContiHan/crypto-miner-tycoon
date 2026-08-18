@@ -483,23 +483,22 @@ class PerksScreen extends StatelessWidget {
                   // Plain-language rules so the mechanic is self-explanatory.
                   const Text(
                     'Pick 1 STANCE and up to 3 AURAS (conditional passives). '
-                    'KEYSTONES (up to 2) are build-defining levers that unlock by '
-                    'committing a doctrine in TECH. Filling an empty slot is '
-                    'instant; swapping or removing one has a 60s lockout.',
+                    'KEYSTONES (up to 2) are build-defining levers you unlock by '
+                    'finishing a TECH branch to its capstone. Filling an empty slot '
+                    'is instant; swapping or removing one has a 60s lockout.',
                     style: TextStyle(
                         color: Colors.white54, fontSize: 11, height: 1.4),
                   ),
                   AurasPanel(game: game),
                   KeystonesPanel(game: game),
-                  // When no doctrine is committed yet, the keystones panel is
+                  // When no branch capstone is owned yet, the keystones panel is
                   // empty — say why instead of showing nothing.
                   if (game.availableKeystones().isEmpty)
                     const Padding(
                       padding: EdgeInsets.only(top: 10),
                       child: Text(
-                        'KEYSTONES — none yet. Commit a doctrine in the TECH tree '
-                        '(buy any node in a doctrine branch) to unlock its '
-                        'keystone here.',
+                        'KEYSTONES — none yet. Finish a TECH branch to its capstone '
+                        'node to unlock that branch\'s keystones here.',
                         style: TextStyle(color: Colors.white38, fontSize: 11),
                       ),
                     ),

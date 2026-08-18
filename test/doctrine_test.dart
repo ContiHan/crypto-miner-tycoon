@@ -2,72 +2,83 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/managers/research_manager.dart';
 
+// TECH V2 "Three Engines": no more doctrines/opposed-pair locks. The tree is
+// 3 branches (A/B/C) + a free core spine, bounded by a per-fork Research-Point
+// budget; keystones unlock at each branch capstone.
 void main() {
-  group('TECH doctrines — exclusivity + budget', () {
+  group('TECH V2 — branches + Research-Point budget', () {
     ResearchManager rm() => ResearchManager();
     void complete(ResearchManager m, String id) =>
         m.researchNodes.firstWhere((n) => n.id == id).isCompleted = true;
 
-    test('membership: trunk / meta / doctrine tags', () {
+    test('branch membership: core spine is null, engines are A/B/C', () {
       final m = rm();
-      expect(m.doctrineOf(ResearchIds.basicOverclock), Doctrine.trunk);
-      expect(m.doctrineOf(ResearchIds.aiManager), Doctrine.meta);
-      expect(m.doctrineOf(ResearchIds.advancedOverclock), Doctrine.megaHash);
-      expect(m.doctrineOf(ResearchIds.geothermalCooling), Doctrine.leanRig);
-      expect(m.doctrineOf(ResearchIds.autonomousDaemons), Doctrine.hodler);
-      expect(m.doctrineOf(ResearchIds.diamondHands), Doctrine.coldStorage);
+      expect(m.branchOf(ResearchIds.genesisCore), isNull);
+      expect(m.branchOf(ResearchIds.chipFab), isNull);
+      expect(m.branchOf(ResearchIds.basicOverclock), 'A');
+      expect(m.branchOf(ResearchIds.ergonomicRig), 'B');
+      expect(m.branchOf(ResearchIds.luckyNonce), 'C');
+      expect(m.branchOf(ResearchIds.doubleDropManifold), 'C');
     });
 
-    test('SELF-CONSISTENCY: every node\'s prereqs are trunk/meta or same doctrine',
-        () {
-      // This is the invariant that lets exclusivity work WITHOUT re-wiring the
-      // requirement graph: committing a doctrine can never strand a reachable
-      // node, because a doctrine node only depends on shared hubs or its own kind.
+    test('each branch resolves to its capstone', () {
       final m = rm();
+      expect(m.capstoneIdOf('A'), ResearchIds.centralBank);
+      expect(m.capstoneIdOf('B'), ResearchIds.powerCapacitors);
+      expect(m.capstoneIdOf('C'), ResearchIds.whalesEye);
+    });
+
+    test('branch-consistency: every node prereq is core or the SAME branch', () {
+      // This invariant is why RP + branch-depth prereqs can never strand a node.
+      final m = rm();
+      final byId = {for (final n in m.researchNodes) n.id: n};
       for (final n in m.researchNodes) {
-        final d = m.doctrineOf(n.id);
-        if (d == Doctrine.trunk || d == Doctrine.meta) continue;
+        if (n.branch == null) continue;
         for (final r in n.requirements) {
-          final rd = m.doctrineOf(r);
-          expect(
-              rd == Doctrine.trunk || rd == Doctrine.meta || rd == d, true,
-              reason: '${n.id} ($d) requires $r ($rd) — cross-doctrine prereq!');
+          final rb = byId[r]?.branch;
+          expect(rb == null || rb == n.branch, true,
+              reason: '${n.id} (${n.branch}) requires $r ($rb) — cross-branch!');
         }
       }
     });
 
-    test('committing a doctrine LOCKS its sibling, not itself', () {
+    test('rpSpent sums completed rpCost; the free core is 0 RP', () {
       final m = rm();
-      expect(m.isDoctrineLocked(ResearchIds.geothermalCooling), false);
-      complete(m, ResearchIds.advancedOverclock); // commit MEGA-HASH
-      expect(m.committedDoctrines().contains(Doctrine.megaHash), true);
-      // sibling LEAN-RIG is now locked; MEGA-HASH stays open.
-      expect(m.isDoctrineLocked(ResearchIds.geothermalCooling), true);
-      expect(m.isDoctrineLocked(ResearchIds.neuralNet), false);
-      // trunk/meta never lock.
-      expect(m.isDoctrineLocked(ResearchIds.betterCooling), false);
-      expect(m.isDoctrineLocked(ResearchIds.aiManager), false);
+      expect(m.rpSpent, 0);
+      complete(m, ResearchIds.genesisCore); // rpCost 0
+      complete(m, ResearchIds.chipFab); // rpCost 0
+      expect(m.rpSpent, 0);
+      complete(m, ResearchIds.basicOverclock); // 1
+      complete(m, ResearchIds.centralBank); // 2 (capstone)
+      expect(m.rpSpent, 3);
     });
 
-    test('commitment budget = 2 pairs; the 3rd pair is locked', () {
+    test('branchesWithCapstoneOwned tracks finished branches', () {
       final m = rm();
-      complete(m, ResearchIds.advancedOverclock); // pair 1 (MEGA-HASH)
-      complete(m, ResearchIds.autonomousDaemons); // pair 2 (HODLER)
-      expect(m.committedPairCount(), 2);
-      // The 3rd pair (DEGEN-LUCK ⟂ COLD-STORAGE) is entirely locked now.
-      expect(m.isDoctrineLocked(ResearchIds.noncePrediction), true);
-      expect(m.isDoctrineLocked(ResearchIds.diamondHands), true);
+      expect(m.branchesWithCapstoneOwned(), isEmpty);
+      complete(m, ResearchIds.centralBank);
+      expect(m.branchesWithCapstoneOwned(), {'A'});
     });
 
-    test('tryBuy refuses a doctrine-locked node', () {
+    test('tryBuy refuses once the RP budget is spent', () {
       final m = rm();
-      complete(m, ResearchIds.advancedOverclock); // commit MEGA-HASH → LEAN-RIG locked
-      m.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.geothermalCooling)
-          .isUnlocked = true; // requirement-unlocked but doctrine-locked
-      final cost = m.tryBuy(ResearchIds.geothermalCooling, 1e18);
-      expect(cost, 0);
-      expect(m.isResearched(ResearchIds.geothermalCooling), false);
+      complete(m, ResearchIds.genesisCore); // free root → engines' roots unlock
+      m.refreshUnlocks();
+      // Budget 1: one 1-RP node fits.
+      expect(m.tryBuy(ResearchIds.basicOverclock, 1e18, rpBudget: 1),
+          greaterThan(0));
+      // A second 1-RP node would exceed the budget of 1.
+      expect(m.tryBuy(ResearchIds.ergonomicRig, 1e18, rpBudget: 1), 0);
+      // A bigger budget lets it through.
+      expect(m.tryBuy(ResearchIds.ergonomicRig, 1e18, rpBudget: 5),
+          greaterThan(0));
+    });
+
+    test('tryBuy enforces prerequisites (branch-depth gate)', () {
+      final m = rm();
+      // neuralNet needs basicOverclock (unowned) → refused even with RP + money.
+      expect(m.tryBuy(ResearchIds.neuralNet, 1e18, rpBudget: 99), 0);
+      expect(m.isResearched(ResearchIds.neuralNet), false);
     });
   });
 }

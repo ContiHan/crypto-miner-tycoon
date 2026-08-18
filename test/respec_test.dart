@@ -1,6 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
-import 'package:crypto_miner_tycoon/logic/managers/research_manager.dart';
 import 'test_helper.dart';
 
 /// F-C: one free respec per era. Clears the TECH tree (uncommitting doctrines)
@@ -28,25 +27,32 @@ void main() {
 
       game.respecTech();
 
-      expect(game.researchNodes.any((n) => n.isCompleted), false,
-          reason: 'respec clears every completed node');
+      // Every RP-spent pick is cleared; the always-owned free genesis core stays.
+      expect(game.researchNodes.any((n) => n.isCompleted && n.rpCost > 0), false,
+          reason: 'respec clears every researched (RP-spent) node');
+      expect(game.rpSpent, 0);
       expect(game.respecSpent, true);
       expect(game.respecAvailable, false, reason: 'only one per era');
     });
 
-    test('uncommits doctrines (frees the locked sibling)', () async {
+    test('clears owned nodes (frees Research Points + branch capstones)',
+        () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      // Commit the MEGA-HASH doctrine by completing one of its nodes.
+      // Own a branch node and its capstone.
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.advancedOverclock)
+          .firstWhere((n) => n.id == ResearchIds.basicOverclock)
           .isCompleted = true;
-      expect(game.committedDoctrines(), contains(Doctrine.megaHash));
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.centralBank)
+          .isCompleted = true;
+      expect(game.ownedCapstones(), contains('A'));
+      expect(game.rpSpent, greaterThan(0));
 
       game.respecTech();
 
-      expect(game.committedDoctrines(), isEmpty,
-          reason: 'respec frees all committed doctrines');
+      expect(game.ownedCapstones(), isEmpty);
+      expect(game.rpSpent, 0, reason: 'respec frees the whole RP budget');
     });
 
     test('keeps blueprints (re-tech is still discounted)', () async {

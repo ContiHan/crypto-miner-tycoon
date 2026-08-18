@@ -709,6 +709,7 @@ class GameLogic with ChangeNotifier {
     double cost = _researchManager.tryBuy(
       researchId,
       wallet,
+      rpBudget: rpBudget,
     );
 
     if (cost > 0) {
@@ -722,13 +723,25 @@ class GameLogic with ChangeNotifier {
 
   bool isResearched(String id) => _researchManager.isResearched(id);
 
-  // ---- TECH doctrines (Phase 3) -----------------------------------------
-  Doctrine researchDoctrine(String id) => _researchManager.doctrineOf(id);
-  bool isResearchDoctrineLocked(String id) =>
-      _researchManager.isDoctrineLocked(id);
-  int get committedDoctrinePairs => _researchManager.committedPairCount();
-  Set<Doctrine> committedDoctrines() => _researchManager.committedDoctrines();
-  static const int doctrineCommitmentBudget = ResearchManager.commitmentBudget;
+  // ---- TECH V2: branches + Research-Point budget ------------------------
+  /// The branch ('A'/'B'/'C') a TECH node belongs to (null = the free core spine).
+  String? researchBranch(String id) => _researchManager.branchOf(id);
+
+  /// Branches whose CAPSTONE node is owned — this unlocks that branch's keystones.
+  Set<String> ownedCapstones() => _researchManager.branchesWithCapstoneOwned();
+
+  /// Research Points already spent (Σ rpCost of completed nodes).
+  int get rpSpent => _researchManager.rpSpent;
+
+  /// The per-fork Research-Point budget, grown by prestige breakthroughs (4→18):
+  /// base + Hard Forks (cap +5) + Genesis Blocks (+2 each, cap +6) + Mastery
+  /// (+1 per 2 levels, cap +4). Re-spent in full every fork (free respec).
+  int get rpBudget {
+    final b = (3 + min(5, hardForkCount)) +
+        min(6, 2 * _prestige.genesisBlocks) +
+        min(4, totalMasteryLevel ~/ 2);
+    return b.clamp(4, 18).toInt();
+  }
 
   // ---- One free respec per run (BUILD_DEPTH) ----------------------------
   // Clears the TECH tree (uncommitting doctrines) once per era, so a mis-committed
@@ -737,9 +750,11 @@ class GameLogic with ChangeNotifier {
   // (which resets research anyway).
   bool _respecUsed = false;
 
-  /// True when the one-per-era respec is available (something is completed to clear).
+  /// True when the one-per-era respec is available (an RP-spent pick exists to
+  /// clear). The always-owned genesis core and the free core-spine unlocks
+  /// (rpCost 0) never count — clearing them refunds nothing.
   bool get respecAvailable =>
-      !_respecUsed && researchNodes.any((n) => n.isCompleted);
+      !_respecUsed && researchNodes.any((n) => n.isCompleted && n.rpCost > 0);
 
   /// True once the free respec has been spent this era (UI shows a dim hint).
   bool get respecSpent => _respecUsed;
@@ -764,12 +779,12 @@ class GameLogic with ChangeNotifier {
   KeystoneModifiers get keystoneMods => _keystones.aggregate();
 
   List<KeystoneDef> availableKeystones() =>
-      _keystones.availableOrEquipped(committedDoctrines());
+      _keystones.availableOrEquipped(ownedCapstones());
   bool isKeystoneEquipped(String id) => _keystones.isEquipped(id);
   int get equippedKeystoneCount => _keystones.equipped.length;
 
   void toggleKeystone(String id) {
-    _keystones.toggle(id, committedDoctrines());
+    _keystones.toggle(id, ownedCapstones());
     notifyListeners();
     _saveGame();
   }
@@ -782,13 +797,13 @@ class GameLogic with ChangeNotifier {
   /// is wired and dormant).
   bool get _hasCoProcessor => false;
 
-  /// Live Rig Firmware socket count: base 3 + Firmware Bay (META node) + current-
-  /// class Mastery 2 + 2 committed doctrine pairs, capped at 6 — or 8 under a
-  /// CO-PROCESSOR keystone.
+  /// Live Rig Firmware socket count: base 3 + Firmware Bay (core node) + current-
+  /// class Mastery 2 + a deep-TECH bonus (≥2 branch capstones owned), capped at 6 —
+  /// or 8 under a CO-PROCESSOR keystone.
   int get firmwareCapacity {
     final bonus = (_researchManager.isResearched(ResearchIds.firmwareBay) ? 1 : 0) +
         (currentClassMasteryLevel >= 2 ? 1 : 0) +
-        (committedDoctrinePairs >= 2 ? 1 : 0);
+        (ownedCapstones().length >= 2 ? 1 : 0);
     return FirmwareSystem.capacity(
         bonusSlots: bonus, coProcessor: _hasCoProcessor);
   }
@@ -875,6 +890,7 @@ class GameLogic with ChangeNotifier {
     final bought = _researchManager.maybeAutoApply(
       getWallet: () => wallet,
       setWallet: (v) => wallet = v,
+      rpBudget: rpBudget,
     );
     if (bought > 0) {
       notifyListeners();
@@ -1167,6 +1183,8 @@ class GameLogic with ChangeNotifier {
   // Tier-3 prestige (New Blockchain / Genesis Blocks). Genesis Blocks multiply
   // the GAIN of the two lower prestige currencies rather than adding raw income.
   int get genesisBlocks => _prestige.genesisBlocks;
+  @visibleForTesting
+  set debugGenesisBlocks(int v) => _prestige.genesisBlocks = v;
   int get pendingGenesis => _prestige.pendingGenesis();
   double get genesisGainMultiplier => _prestige.genesisGainMultiplier;
 

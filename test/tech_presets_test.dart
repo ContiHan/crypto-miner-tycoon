@@ -7,6 +7,8 @@ import 'fakes.dart';
 
 /// TECH PRESETS (Phase 3 QoL): save a build, one-tap re-apply, auto-apply after
 /// resets. Presets survive prestige resets; only a full Wipe clears them.
+/// TECH V2: nodes are RP-budgeted; a fresh game's budget is 4 RP, and the free
+/// core `genesisCore` must be owned before the branch roots unlock.
 GameLogic _game(FakeGameRepository repo) => GameLogic(
       gameRepository: repo,
       settingsRepository: FakeSettingsRepository(),
@@ -24,10 +26,11 @@ void main() {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       game.wallet = 1e15;
-      // Buy the hash spine: basicOverclock (root) then advanced/neuralNet (hash).
+      // The Foundry hash spine (all Channel.hash → "Hash Whale").
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
-      game.buyResearch(ResearchIds.advancedOverclock);
       game.buyResearch(ResearchIds.neuralNet);
+      game.buyResearch(ResearchIds.quantumEntanglement);
       game.saveTechPreset();
 
       expect(game.techPresets.length, 1);
@@ -40,6 +43,7 @@ void main() {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       game.wallet = 1e15;
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
       for (var i = 0; i < 4; i++) {
         game.saveTechPreset();
@@ -51,9 +55,10 @@ void main() {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       game.wallet = 1e15;
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
-      game.buyResearch(ResearchIds.advancedOverclock);
       game.buyResearch(ResearchIds.neuralNet);
+      game.buyResearch(ResearchIds.quantumEntanglement);
       game.saveTechPreset();
 
       // Hard Fork wipes research (needs GovTokens available first).
@@ -65,8 +70,8 @@ void main() {
       final bought = game.applyTechPreset(0);
       expect(bought, greaterThanOrEqualTo(3));
       expect(game.isResearched(ResearchIds.basicOverclock), true);
-      expect(game.isResearched(ResearchIds.advancedOverclock), true);
       expect(game.isResearched(ResearchIds.neuralNet), true);
+      expect(game.isResearched(ResearchIds.quantumEntanglement), true);
     });
 
     test('overwrite updates ANY slot with the current build (device finding #6)',
@@ -75,26 +80,26 @@ void main() {
       await game.loadGame();
       game.wallet = 1e15;
 
-      // Slot 0: a hash build. Slot 1: a lean (rig-cost) build.
+      // Slot 0: a hash build. Slot 1: adds a click node.
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
-      game.buyResearch(ResearchIds.advancedOverclock);
+      game.buyResearch(ResearchIds.neuralNet);
       game.saveTechPreset(); // slot 0 = Hash Whale
-      game.buyResearch(ResearchIds.betterCooling); // rigCost
+      game.buyResearch(ResearchIds.ergonomicRig); // Golden Nonce root (click)
       game.saveTechPreset(); // slot 1
       expect(game.techPresets.length, 2);
       final slot0NameBefore = game.techPresets[0].name;
 
-      // Research more, then OVERWRITE slot 0 (the older one) — previously only the
-      // newest could be managed.
-      game.buyResearch(ResearchIds.neuralNet);
+      // Research more, then OVERWRITE slot 0 (the older one).
+      game.buyResearch(ResearchIds.quantumEntanglement);
       final ok = game.overwriteTechPreset(0);
       expect(ok, true);
-      expect(game.techPresets[0].nodeIds.contains(ResearchIds.neuralNet), true,
+      expect(game.techPresets[0].nodeIds.contains(ResearchIds.quantumEntanglement),
+          true,
           reason: 'slot 0 now holds the current build');
-      expect(game.techPresets[0].nodeIds.contains(ResearchIds.betterCooling), true);
+      expect(game.techPresets[0].nodeIds.contains(ResearchIds.ergonomicRig), true);
       expect(game.activeTechPreset, 0, reason: 'overwrite makes the slot active');
       expect(game.techPresets.length, 2, reason: 'overwrite does not add a slot');
-      // Name may re-derive from the new dominant channel.
       expect(game.techPresets[0].name, isNot(equals('')));
       expect(slot0NameBefore, isNotEmpty);
     });
@@ -103,6 +108,7 @@ void main() {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       game.wallet = 1e15;
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
       game.saveTechPreset();
       // Clear the completed set → overwriting a slot has nothing to snapshot.
@@ -116,11 +122,12 @@ void main() {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       game.wallet = 1e15;
+      game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
       game.saveTechPreset(); // 0
-      game.buyResearch(ResearchIds.advancedOverclock);
-      game.saveTechPreset(); // 1
       game.buyResearch(ResearchIds.neuralNet);
+      game.saveTechPreset(); // 1
+      game.buyResearch(ResearchIds.quantumEntanglement);
       game.saveTechPreset(); // 2 (active)
       expect(game.techPresets.length, 3);
       expect(game.activeTechPreset, 2);
@@ -139,6 +146,7 @@ void main() {
       final g1 = _game(repo);
       await g1.loadGame();
       g1.wallet = 1e15;
+      g1.buyResearch(ResearchIds.genesisCore);
       g1.buyResearch(ResearchIds.basicOverclock);
       g1.saveTechPreset();
 

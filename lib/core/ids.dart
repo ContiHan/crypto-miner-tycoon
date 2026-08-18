@@ -70,6 +70,19 @@ class ResearchIds {
   static const String powerCapacitors = 'power_capacitors'; // OVERCHARGE (buff magnitude)
   static const String sentimentAnalysis = 'sentiment_analysis'; // BULL BIAS (chaos tilt)
   static const String firmwareBay = 'firmware_bay'; // META: +1 Rig Firmware socket
+
+  // --- TECH V2 "Three Engines" new node ids ---
+  static const String genesisCore = 'genesis_core'; // free root
+  static const String coldStorageLogistics = 'cold_storage_logistics'; // A6
+  static const String reinvestmentEngine = 'reinvestment_engine'; // A7 ★
+  static const String aiCoPilot = 'ai_copilot'; // B5
+  static const String goldenNonceProtocol = 'golden_nonce_protocol'; // B6 ★
+  static const String luckyNonce = 'lucky_nonce'; // C1 root (first TECH luck)
+  static const String volatilityEngine = 'volatility_engine'; // C3
+  static const String hardenedVault = 'hardened_vault'; // C5
+  static const String diamondNerves = 'diamond_nerves'; // C7
+  static const String doubleDropManifold = 'double_drop_manifold'; // C6 ★ (doubleDrop)
+  static const String whalesEye = 'whales_eye'; // C8 capstone
 }
 
 class PerkIds {

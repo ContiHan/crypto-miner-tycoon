@@ -30,19 +30,20 @@ void main() {
       expect(game.offlineFraction, closeTo(0.80, 1e-9));
     });
 
-    test('offline TECH nodes raise the fraction and it hard-caps at 1.0', () async {
+    test('offline TECH node raises the fraction; a parity keystone hard-caps at 1.0',
+        () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.autonomousDaemons)
-          .isCompleted = true; // +0.15 -> 0.85
+          .firstWhere((n) => n.id == ResearchIds.coldStorageLogistics)
+          .isCompleted = true; // offline +0.15 -> 0.85
       expect(game.offlineFraction, closeTo(0.85, 1e-9));
+      // Own the Foundry capstone → equip Low Time Preference (forces offline
+      // parity), which clamps the fraction to its 1.0 cap.
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.miningDaemonSwarm)
-          .isCompleted = true; // +0.15 -> 1.00
-      expect(game.offlineFraction, closeTo(1.0, 1e-9));
-      // OG on top would be 1.10 -> clamped to 1.0 (never out-earns live).
-      game.debugSelectClass(BtcClass.btcOg);
+          .firstWhere((n) => n.id == ResearchIds.centralBank)
+          .isCompleted = true;
+      game.toggleKeystone('ks_low_time_preference');
       expect(game.offlineFraction, closeTo(1.0, 1e-9));
     });
 
@@ -120,17 +121,15 @@ void main() {
     test('prestige TECH nodes raise CX + GovToken GAIN', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 1.28e11; // cbrt(1.28e11/2e9)=4 Consensus at gain 1.0
-      final baseCX = game.pendingConsensus; // 4
-      final baseGT = game.pendingGovTokens; // sqrt(256)=16
+      game.lifetimeEarnings = 2e13; // cbrt(1e4)=21.5 CX, sqrt(4e4)=200 GT at gain 1.0
+      final baseCX = game.pendingConsensus; // 21
+      final baseGT = game.pendingGovTokens; // 200
 
-      // Both prestige nodes: Σprestige 0.75 → multiplier(prestige,1,0.5)=
-      // softcap(1.75,1,0.5)≈1.32, enough to cross the floor (4→5, 16→21).
+      // The Central Bank capstone grants prestige +0.25 → consensusWeightMultiplier
+      // = softcap(1.25,1,0.5) = sqrt(1.25) ≈ 1.118; a large base guarantees the
+      // 11.8% bump crosses the integer floor (21→24, 200→223).
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.consensusProtocol)
-          .isCompleted = true;
-      game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.governanceCartel)
+          .firstWhere((n) => n.id == ResearchIds.centralBank)
           .isCompleted = true;
       expect(game.consensusWeightMultiplier, greaterThan(1.0));
       expect(game.pendingConsensus, greaterThan(baseCX));
@@ -146,10 +145,7 @@ void main() {
       // not available; instead assert the clamp holds for an extreme channel sum
       // by checking the getter never exceeds prestigeGainMax even with OG + nodes.
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.consensusProtocol)
-          .isCompleted = true;
-      game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.governanceCartel)
+          .firstWhere((n) => n.id == ResearchIds.centralBank)
           .isCompleted = true;
       expect(game.prestigeGainMultiplier,
           lessThanOrEqualTo(GameConstants.prestigeGainMax));
@@ -235,12 +231,15 @@ void main() {
       await game.loadGame();
       expect(game.idleCapacitySeconds, closeTo(8 * 3600, 1e-6));
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.batteryBank)
-          .isCompleted = true; // +8h -> 16h
+          .firstWhere((n) => n.id == ResearchIds.coldStorageLogistics)
+          .isCompleted = true; // idle +8h -> 16h
       expect(game.idleCapacitySeconds, closeTo(16 * 3600, 1e-6));
+      // Own the Golden Nonce capstone → Cold Wallet Discipline (idle ×2): 32h,
+      // clamped to the 24h cap.
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.gridStorage)
-          .isCompleted = true; // +8h -> 24h cap
+          .firstWhere((n) => n.id == ResearchIds.powerCapacitors)
+          .isCompleted = true;
+      game.toggleKeystone('ks_cold_wallet_discipline');
       expect(game.idleCapacitySeconds, closeTo(24 * 3600, 1e-6));
     });
 
@@ -284,10 +283,10 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       expect(game.crashResistance, 0.0);
-      // Diamond Hands node (+0.25) + Pool racial (+0.10) = 0.35.
+      // Hardened Vault node (crashResist +0.25) + Pool racial (+0.10) = 0.35.
       game.debugSelectClass(BtcClass.poolMember);
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.diamondHands)
+          .firstWhere((n) => n.id == ResearchIds.hardenedVault)
           .isCompleted = true;
       expect(game.crashResistance, closeTo(0.35, 1e-9));
       expect(game.durationResistance, closeTo(0.10, 1e-9)); // Pool racial only
@@ -412,16 +411,16 @@ void main() {
       game.secureBreach();
       expect(game.wallet, 1000);
 
-      // Cold Storage (+0.40 theftResist) → loss = 1000 × 0.10 × 0.60 = 60.
+      // Hardened Vault (+0.25 theftResist) → loss uses the 0.75 remaining factor.
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.coldStorageVault)
+          .firstWhere((n) => n.id == ResearchIds.hardenedVault)
           .isCompleted = true;
-      expect(game.theftResistance, closeTo(0.40, 1e-9));
+      expect(game.theftResistance, closeTo(0.25, 1e-9));
       game.wallet = 1000;
       game.debugStartBreach();
       game.resolveBreach(secured: false);
       expect(game.wallet,
-          closeTo(1000 - 1000 * GameConstants.breachBaseLoss * 0.60, 1e-6));
+          closeTo(1000 - 1000 * GameConstants.breachBaseLoss * 0.75, 1e-6));
     });
 
     test('Stock-to-Flow lifts a halved reward but never cancels the halving', () {

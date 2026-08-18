@@ -7,8 +7,9 @@ import 'test_helper.dart';
 
 void main() {
   group('LAB pricing uses the sats cost', () {
-    // The TECH tree is now a graph; the BUY button lives in the tap sheet. Use a
-    // large surface so the (0,0)-anchored root node sits inside the viewport.
+    // TECH V2 is an accordion of branches; THE FOUNDRY (branch A) opens by
+    // default and its root node is "Overclocked Cores". The sats price + BUY
+    // button live in the tap sheet. A tall surface keeps the node on-screen.
     Future<void> pumpTree(WidgetTester tester, GameLogic game) async {
       tester.view.physicalSize = const Size(1400, 1600);
       tester.view.devicePixelRatio = 1.0;
@@ -31,12 +32,14 @@ void main() {
 
       await pumpTree(tester, game);
 
-      // The node sublabel shows the sats price (500).
-      expect(find.textContaining('500'), findsWidgets);
+      // The branch-A root node is visible (branch opens by default).
+      expect(find.text('Overclocked Cores'), findsOneWidget);
 
-      // Tap the root node; BUY is enabled since 1000 >= 500.
-      await tester.tap(find.text('BASIC OVERCLOCKING'));
+      // Tap it: the sheet surfaces the 500-sat price and an enabled RESEARCH
+      // button (1000 >= 500).
+      await tester.tap(find.text('Overclocked Cores'));
       await tester.pumpAndSettle();
+      expect(find.textContaining('500'), findsWidgets);
       final buttonFinder = find.byType(ElevatedButton);
       expect(buttonFinder, findsOneWidget);
       expect(tester.widget<ElevatedButton>(buttonFinder).onPressed, isNotNull);
@@ -49,7 +52,7 @@ void main() {
 
       await pumpTree(tester, game);
 
-      await tester.tap(find.text('BASIC OVERCLOCKING')); // open the sheet
+      await tester.tap(find.text('Overclocked Cores')); // open the sheet
       await tester.pumpAndSettle();
       await tester.tap(find.byType(ElevatedButton)); // RESEARCH
       await tester.pump();

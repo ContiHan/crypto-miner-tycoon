@@ -25,79 +25,29 @@ class TechPreset {
   }
 }
 
-/// TECH doctrines. TRUNK (the shared cheap on-ramp) + META (never-lockable
-/// utility) are always available. The other six form three OPPOSED PAIRS
-/// (megaHash⟂leanRig, hodler⟂degenYield, degenLuck⟂coldStorage): committing one
-/// (buying any of its nodes) LOCKS its sibling for the run, and you may commit at
-/// most [ResearchManager.commitmentBudget] pairs. Keystones live at each
-/// doctrine's capstone.
-enum Doctrine {
-  trunk,
-  meta,
-  megaHash,
-  leanRig,
-  hodler,
-  degenYield,
-  degenLuck,
-  coldStorage,
-}
-
-/// The sibling doctrine within a pair (null for trunk/meta, which never lock).
-Doctrine? doctrineSibling(Doctrine d) {
-  switch (d) {
-    case Doctrine.megaHash:
-      return Doctrine.leanRig;
-    case Doctrine.leanRig:
-      return Doctrine.megaHash;
-    case Doctrine.hodler:
-      return Doctrine.degenYield;
-    case Doctrine.degenYield:
-      return Doctrine.hodler;
-    case Doctrine.degenLuck:
-      return Doctrine.coldStorage;
-    case Doctrine.coldStorage:
-      return Doctrine.degenLuck;
-    case Doctrine.trunk:
-    case Doctrine.meta:
-      return null;
-  }
-}
-
+/// The three TECH V2 branches (see docs/TECH_TREE_REDESIGN_V2.md). Nodes carry a
+/// `branch` string ('A' Foundry / 'B' Golden Nonce / 'C' Degen); the free CORE
+/// spine has none. No opposed-pair locks — how many nodes you can own is bounded
+/// by the per-fork Research-Point budget. Keystones unlock at each branch capstone.
 class ResearchManager {
   // Data-driven LAB catalog. Most nodes declare an (effectChannel, effectValue)
   // applied generically via contributeChannels — adding a channel-effect node is
   // a one-line data edit. A null effectChannel marks a SPECIAL node (Chip Fab
   // per-rig-type bonus, AI auto-clicker) handled explicitly elsewhere.
   List<ResearchNode> researchNodes = [
+    // === TECH V2 "Three Engines" ===
+    // CORE spine (free — rpCost 0; sats-gated utility, absorbs the old
+    // firmware/auto-click/chip-fab meta). Genesis Core is the shared root.
     ResearchNode(
-      id: ResearchIds.basicOverclock,
-      name: 'Basic Overclocking',
-      description: '+5% Global Hash Rate',
-      cost: 500,
-      icon: Icons.speed,
+      id: ResearchIds.genesisCore,
+      name: 'Genesis Core',
+      description: 'The mining rig boots. Unlocks the three research engines.',
+      cost: 100,
+      icon: Icons.hub,
       isUnlocked: true,
-      effectChannel: Channel.hash,
-      effectValue: GameConstants.researchHashBonus, // 0.05
-    ),
-    ResearchNode(
-      id: ResearchIds.betterCooling,
-      name: 'Better Cooling',
-      description: 'Rigs are 10% cheaper',
-      cost: 2500,
-      icon: Icons.ac_unit,
-      requirements: [ResearchIds.basicOverclock],
-      effectChannel: Channel.rigCost,
-      effectValue: GameConstants.coolingDiscount, // 0.10
-    ),
-    ResearchNode(
-      id: ResearchIds.solarPower,
-      name: 'Solar Power',
-      description: 'Energy Efficiency: Rigs are 15% cheaper',
-      cost: 10000,
-      icon: Icons.sunny,
-      requirements: [ResearchIds.betterCooling],
-      effectChannel: Channel.rigCost,
-      effectValue: GameConstants.solarDiscount, // 0.15
+      isCompleted: true, // free root — always owned so the engines' roots unlock
+      tier: 0,
+      rpCost: 0,
     ),
     ResearchNode(
       id: ResearchIds.chipFab,
@@ -105,8 +55,9 @@ class ResearchManager {
       description: '+20% CPU & GPU Hash Rate',
       cost: 50000,
       icon: Icons.memory,
-      requirements: [ResearchIds.basicOverclock],
-      // SPECIAL: per-rig-type bonus, not a global channel.
+      requirements: [ResearchIds.genesisCore],
+      tier: 0,
+      rpCost: 0,
     ),
     ResearchNode(
       id: ResearchIds.aiManager,
@@ -115,50 +66,46 @@ class ResearchManager {
       cost: 1000000,
       icon: Icons.psychology,
       requirements: [ResearchIds.chipFab],
-      // SPECIAL: mechanic, no channel bonus.
+      tier: 0,
+      rpCost: 0,
     ),
-    // --- New data-driven nodes (channel effects; no new code needed) ---
     ResearchNode(
-      id: ResearchIds.advancedOverclock,
-      name: 'Advanced Overclocking',
+      id: ResearchIds.firmwareBay,
+      name: 'Firmware Bay',
+      description: '+1 Rig Firmware socket',
+      cost: 15000000,
+      icon: Icons.dashboard_customize,
+      requirements: [ResearchIds.aiManager],
+      tier: 0,
+      rpCost: 0,
+    ),
+    // === A - THE FOUNDRY (hash + income) ===
+    ResearchNode(
+      id: ResearchIds.basicOverclock,
+      name: 'Overclocked Cores',
       description: '+15% Global Hash Rate',
-      cost: 250000,
-      icon: Icons.electric_bolt,
-      requirements: [ResearchIds.basicOverclock],
+      cost: 500,
+      icon: Icons.speed,
+      requirements: [ResearchIds.genesisCore],
       effectChannel: Channel.hash,
       effectValue: 0.15,
-    ),
-    ResearchNode(
-      id: ResearchIds.bulkProcurement,
-      name: 'Bulk Procurement',
-      description: 'Rigs are 10% cheaper',
-      cost: 500000,
-      icon: Icons.local_shipping,
-      requirements: [ResearchIds.solarPower],
-      effectChannel: Channel.rigCost,
-      effectValue: 0.10,
+      branch: 'A',
+      tier: 1,
+      rpCost: 1,
     ),
     ResearchNode(
       id: ResearchIds.neuralNet,
       name: 'Neural Net Miner',
-      description: '+25% Global Hash Rate',
-      cost: 5000000,
-      icon: Icons.hub,
-      requirements: [ResearchIds.advancedOverclock],
-      effectChannel: Channel.hash,
-      effectValue: 0.25,
-    ),
-
-    // --- Volume expansion: HASH branch (deeper overclocking) ---
-    ResearchNode(
-      id: ResearchIds.distributedComputing,
-      name: 'Distributed Computing',
       description: '+30% Global Hash Rate',
-      cost: 750000,
-      icon: Icons.dns,
-      requirements: [ResearchIds.neuralNet],
+      cost: 500000,
+      icon: Icons.hub,
+      requirements: [ResearchIds.basicOverclock],
       effectChannel: Channel.hash,
-      effectValue: 0.30,
+      effectValue: 0.3,
+      branch: 'A',
+      lane: 'L',
+      tier: 2,
+      rpCost: 1,
     ),
     ResearchNode(
       id: ResearchIds.quantumEntanglement,
@@ -166,461 +113,296 @@ class ResearchManager {
       description: '+50% Global Hash Rate',
       cost: 20000000,
       icon: Icons.blur_on,
-      requirements: [ResearchIds.distributedComputing],
+      requirements: [ResearchIds.neuralNet],
       effectChannel: Channel.hash,
-      effectValue: 0.50,
+      effectValue: 0.5,
+      branch: 'A',
+      lane: 'L',
+      tier: 3,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.quantumOverclock,
-      name: 'Quantum Overclocking',
-      description: '+40% Global Hash Rate',
-      cost: 15000000,
-      icon: Icons.scatter_plot,
+      id: ResearchIds.coldStorageLogistics,
+      name: 'Cold Storage Logistics',
+      description: 'Rigs 20% cheaper, +15% offline, +8h idle',
+      cost: 4000000,
+      icon: Icons.ac_unit,
       requirements: [ResearchIds.quantumEntanglement],
-      effectChannel: Channel.hash,
-      effectValue: 0.40,
+      effects: {Channel.rigCost: 0.2, Channel.offline: 0.15, Channel.idle: 8.0},
+      branch: 'A',
+      lane: 'L',
+      tier: 4,
+      rpCost: 1,
     ),
-    ResearchNode(
-      id: ResearchIds.fusionOverclock,
-      name: 'Fusion Overclocking',
-      description: '+60% Global Hash Rate',
-      cost: 75000000,
-      icon: Icons.local_fire_department,
-      requirements: [ResearchIds.quantumOverclock],
-      effectChannel: Channel.hash,
-      effectValue: 0.60,
-    ),
-
-    // --- Volume expansion: RIG-COST branch (efficiency) ---
-    ResearchNode(
-      id: ResearchIds.geothermalCooling,
-      name: 'Geothermal Cooling',
-      description: 'Rigs are 12% cheaper',
-      cost: 2000000,
-      icon: Icons.thermostat,
-      requirements: [ResearchIds.macroScripts],
-      effectChannel: Channel.rigCost,
-      effectValue: 0.12,
-    ),
-    ResearchNode(
-      id: ResearchIds.nanofabrication,
-      name: 'Nanofabrication',
-      description: 'Rigs are 15% cheaper',
-      cost: 20000000,
-      icon: Icons.precision_manufacturing,
-      requirements: [ResearchIds.neuralInterface],
-      effectChannel: Channel.rigCost,
-      effectValue: 0.15,
-    ),
-
-    // --- Volume expansion: INCOME branch (yield engineering) ---
     ResearchNode(
       id: ResearchIds.marketAnalytics,
       name: 'Market Analytics',
-      description: '+10% Mining Income',
-      cost: 5000,
+      description: '+20% Income',
+      cost: 100000,
       icon: Icons.analytics,
       requirements: [ResearchIds.basicOverclock],
       effectChannel: Channel.income,
-      effectValue: 0.10,
+      effectValue: 0.2,
+      branch: 'A',
+      lane: 'R',
+      tier: 2,
+      rpCost: 1,
     ),
     ResearchNode(
       id: ResearchIds.highFrequencyTrading,
       name: 'High-Frequency Trading',
-      description: '+20% Mining Income',
-      cost: 100000,
-      icon: Icons.candlestick_chart,
+      description: '+35% Income',
+      cost: 2000000,
+      icon: Icons.trending_up,
       requirements: [ResearchIds.marketAnalytics],
       effectChannel: Channel.income,
-      effectValue: 0.20,
+      effectValue: 0.35,
+      branch: 'A',
+      lane: 'R',
+      tier: 3,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.coldStorage,
-      name: 'Cold Storage Vault',
-      description: '+15% Mining Income',
-      cost: 300000,
-      icon: Icons.savings,
-      requirements: [ResearchIds.solarPower],
-      effectChannel: Channel.income,
-      effectValue: 0.15,
-    ),
-    ResearchNode(
-      id: ResearchIds.defiYield,
-      name: 'DeFi Yield Farming',
-      description: '+30% Mining Income',
-      cost: 2000000,
-      icon: Icons.account_balance,
+      id: ResearchIds.reinvestmentEngine,
+      name: 'Reinvestment Engine',
+      description: '+10% Income (synergy node - full effect soon)',
+      cost: 100000000,
+      icon: Icons.autorenew,
       requirements: [ResearchIds.highFrequencyTrading],
       effectChannel: Channel.income,
-      effectValue: 0.30,
-    ),
-    ResearchNode(
-      id: ResearchIds.taxHaven,
-      name: 'Offshore Tax Haven',
-      description: '+25% Mining Income',
-      cost: 10000000,
-      icon: Icons.beach_access,
-      requirements: [ResearchIds.defiYield],
-      effectChannel: Channel.income,
-      effectValue: 0.25,
-    ),
-    ResearchNode(
-      id: ResearchIds.liquidityMining,
-      name: 'Liquidity Mining',
-      description: '+40% Mining Income',
-      cost: 40000000,
-      icon: Icons.water_drop,
-      requirements: [ResearchIds.taxHaven],
-      effectChannel: Channel.income,
-      effectValue: 0.40,
-    ),
-
-    // --- Volume expansion: CLICK branch (manual power) ---
-    ResearchNode(
-      id: ResearchIds.ergonomicRig,
-      name: 'Ergonomic Rig',
-      description: '+25% Click Power',
-      cost: 20000,
-      icon: Icons.mouse,
-      requirements: [ResearchIds.basicOverclock],
-      effectChannel: Channel.click,
-      effectValue: 0.25,
-    ),
-    ResearchNode(
-      id: ResearchIds.macroScripts,
-      name: 'Macro Scripts',
-      description: '+50% Click Power',
-      cost: 400000,
-      icon: Icons.code,
-      requirements: [ResearchIds.ergonomicRig],
-      effectChannel: Channel.click,
-      effectValue: 0.50,
-    ),
-
-    // --- Volume expansion 2: deep tech tree ---
-    ResearchNode(
-      id: ResearchIds.plasmaOverclock,
-      name: 'Plasma Overclocking',
-      description: '+70% Global Hash Rate',
-      cost: 200000000,
-      icon: Icons.flare,
-      requirements: [ResearchIds.fusionOverclock],
-      effectChannel: Channel.hash,
-      effectValue: 0.70,
-    ),
-    ResearchNode(
-      id: ResearchIds.antimatterCores,
-      name: 'Antimatter Cores',
-      description: '+80% Global Hash Rate',
-      cost: 1000000000,
-      icon: Icons.bubble_chart,
-      requirements: [ResearchIds.plasmaOverclock],
-      effectChannel: Channel.hash,
-      effectValue: 0.80,
-    ),
-    ResearchNode(
-      id: ResearchIds.zeroPointHash,
-      name: 'Zero-Point Hashing',
-      description: '+100% Global Hash Rate',
-      cost: 5000000000,
-      icon: Icons.all_inclusive,
-      requirements: [ResearchIds.antimatterCores],
-      effectChannel: Channel.hash,
-      effectValue: 1.0,
-    ),
-    ResearchNode(
-      id: ResearchIds.orbitalLogistics,
-      name: 'Orbital Logistics',
-      description: 'Rigs are 10% cheaper',
-      cost: 100000000,
-      icon: Icons.satellite_alt,
-      requirements: [ResearchIds.quantumReflexes],
-      effectChannel: Channel.rigCost,
-      effectValue: 0.10,
-    ),
-    ResearchNode(
-      id: ResearchIds.selfReplicatingRigs,
-      name: 'Self-Replicating Rigs',
-      description: 'Rigs are 10% cheaper',
-      cost: 2000000000,
-      icon: Icons.copy_all,
-      requirements: [ResearchIds.orbitalLogistics],
-      effectChannel: Channel.rigCost,
-      effectValue: 0.10,
-    ),
-    ResearchNode(
-      id: ResearchIds.algorithmicTrading,
-      name: 'Algorithmic Trading',
-      description: '+30% Mining Income',
-      cost: 100000000,
-      icon: Icons.query_stats,
-      requirements: [ResearchIds.liquidityMining],
-      effectChannel: Channel.income,
-      effectValue: 0.30,
-    ),
-    ResearchNode(
-      id: ResearchIds.hedgeFund,
-      name: 'Hedge Fund',
-      description: '+40% Mining Income',
-      cost: 1000000000,
-      icon: Icons.account_balance_wallet,
-      requirements: [ResearchIds.algorithmicTrading],
-      effectChannel: Channel.income,
-      effectValue: 0.40,
+      effectValue: 0.1,
+      branch: 'A',
+      lane: 'R',
+      tier: 4,
+      rpCost: 1,
     ),
     ResearchNode(
       id: ResearchIds.centralBank,
-      name: 'Own The Central Bank',
-      description: '+50% Mining Income',
+      name: 'The Central Bank',
+      description: '+50% Income, +40% Hash, +25% Prestige',
       cost: 10000000000,
       icon: Icons.account_balance,
-      requirements: [ResearchIds.hedgeFund],
-      effectChannel: Channel.income,
-      effectValue: 0.50,
+      requirements: [ResearchIds.coldStorageLogistics, ResearchIds.reinvestmentEngine],
+      effects: {Channel.income: 0.5, Channel.hash: 0.4, Channel.prestige: 0.25},
+      branch: 'A',
+      tier: 5,
+      rpCost: 2,
     ),
+    // === B - THE GOLDEN NONCE (click + crit) ===
     ResearchNode(
-      id: ResearchIds.neuralInterface,
-      name: 'Neural Interface',
-      description: '+75% Click Power',
-      cost: 2000000,
-      icon: Icons.psychology_alt,
-      requirements: [ResearchIds.geothermalCooling],
+      id: ResearchIds.ergonomicRig,
+      name: 'Ergonomic Rig',
+      description: '+30% Click Power',
+      cost: 20000,
+      icon: Icons.back_hand,
+      requirements: [ResearchIds.genesisCore],
       effectChannel: Channel.click,
-      effectValue: 0.75,
+      effectValue: 0.3,
+      branch: 'B',
+      tier: 1,
+      rpCost: 1,
     ),
-    ResearchNode(
-      id: ResearchIds.quantumReflexes,
-      name: 'Quantum Reflexes',
-      description: '+100% Click Power',
-      cost: 50000000,
-      icon: Icons.touch_app,
-      requirements: [ResearchIds.nanofabrication],
-      effectChannel: Channel.click,
-      effectValue: 1.0,
-    ),
-
-    // --- OFFLINE YIELD branch (Autonomous Daemons) ---
-    // Raise the fraction of live income earned while the app is closed (base 70%).
-    ResearchNode(
-      id: ResearchIds.autonomousDaemons,
-      name: 'Autonomous Daemons',
-      description: '+15% Offline Earnings',
-      cost: 1000000,
-      icon: Icons.smart_toy,
-      requirements: [ResearchIds.coldStorage],
-      effectChannel: Channel.offline,
-      effectValue: 0.15,
-    ),
-    ResearchNode(
-      id: ResearchIds.miningDaemonSwarm,
-      name: 'Mining Daemon Swarm',
-      description: '+15% Offline Earnings',
-      cost: 25000000,
-      icon: Icons.hive,
-      requirements: [ResearchIds.batteryBank], // HODLER spine (after battery)
-      effectChannel: Channel.offline,
-      effectValue: 0.15,
-    ),
-
-    // --- BLOCK REWARD branch (crit payout, Channel.special) ---
-    // Raises how much a critical tap pays (base 5x), concave + hard-capped.
-    ResearchNode(
-      id: ResearchIds.precisionHashing,
-      name: 'Precision Hashing',
-      description: '+50% Block Reward',
-      cost: 2000000,
-      icon: Icons.center_focus_strong,
-      requirements: [ResearchIds.noncePrediction],
-      effectChannel: Channel.special,
-      effectValue: 0.50,
-    ),
-
-    // --- CONSENSUS WEIGHT branch (prestige gain, Channel.prestige) ---
-    // Multiplies Consensus + GovToken GAIN (softcapped, feedback-safe).
-    ResearchNode(
-      id: ResearchIds.consensusProtocol,
-      name: 'Consensus Protocol',
-      description: '+25% Prestige Gain',
-      cost: 5000000,
-      icon: Icons.how_to_vote,
-      requirements: [ResearchIds.gridStorage], // HODLER spine (after idle)
-      effectChannel: Channel.prestige,
-      effectValue: 0.25,
-    ),
-    ResearchNode(
-      id: ResearchIds.governanceCartel,
-      name: 'Governance Cartel',
-      description: '+50% Prestige Gain',
-      cost: 200000000,
-      icon: Icons.gavel,
-      requirements: [ResearchIds.consensusProtocol],
-      effectChannel: Channel.prestige,
-      effectValue: 0.50,
-    ),
-
-    // --- PROSPECTOR'S EYE branch (crate drop-quality, Channel.fortune) ---
-    // Chance to bump each crate roll up one rarity (hard-capped combined at 25%).
-    ResearchNode(
-      id: ResearchIds.assayLab,
-      name: 'Assay Lab',
-      description: '+10% Drop Quality',
-      cost: 8000000,
-      icon: Icons.biotech,
-      requirements: [ResearchIds.utxoMagnet],
-      effectChannel: Channel.fortune,
-      effectValue: 0.10,
-    ),
-
-    // --- LUCK-FACET branches (crit / SWEEP / anomaly luck; Phase 1 decouple) ---
     ResearchNode(
       id: ResearchIds.noncePrediction,
       name: 'Nonce Prediction',
-      description: '+10% Crit Chance Luck',
+      description: '+10% Crit Chance',
       cost: 3000000,
       icon: Icons.casino,
       requirements: [ResearchIds.ergonomicRig],
       effectChannel: Channel.nonce,
-      effectValue: 0.10,
+      effectValue: 0.1,
+      branch: 'B',
+      lane: 'L',
+      tier: 2,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.mempoolSniffer,
-      name: 'Mempool Sniffer',
-      description: '+10% SWEEP Luck',
-      cost: 3000000,
-      icon: Icons.travel_explore,
+      id: ResearchIds.precisionHashing,
+      name: 'Precision Hashing',
+      description: '+50% Crit Payout',
+      cost: 20000000,
+      icon: Icons.center_focus_strong,
+      requirements: [ResearchIds.noncePrediction],
+      effectChannel: Channel.special,
+      effectValue: 0.5,
+      branch: 'B',
+      lane: 'L',
+      tier: 3,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.goldenNonceProtocol,
+      name: 'Golden Nonce Protocol',
+      description: '+5% Crit Chance (guaranteed golden nonce soon)',
+      cost: 60000000,
+      icon: Icons.stars,
       requirements: [ResearchIds.precisionHashing],
-      effectChannel: Channel.sweepLuck,
-      effectValue: 0.10,
+      effectChannel: Channel.nonce,
+      effectValue: 0.05,
+      branch: 'B',
+      lane: 'L',
+      tier: 4,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.macroScripts,
+      name: 'Macro Scripts',
+      description: '+60% Click Power',
+      cost: 400000,
+      icon: Icons.terminal,
+      requirements: [ResearchIds.ergonomicRig],
+      effectChannel: Channel.click,
+      effectValue: 0.6,
+      branch: 'B',
+      lane: 'R',
+      tier: 2,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.aiCoPilot,
+      name: 'AI Co-Pilot',
+      description: '+15% Click Power (faster auto-tap soon)',
+      cost: 15000000,
+      icon: Icons.smart_toy,
+      requirements: [ResearchIds.macroScripts],
+      effectChannel: Channel.click,
+      effectValue: 0.15,
+      branch: 'B',
+      lane: 'R',
+      tier: 3,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.immersionCooling,
+      name: 'Immersion Cooling',
+      description: '-25% Ability Cooldown',
+      cost: 5000000,
+      icon: Icons.water_drop,
+      requirements: [ResearchIds.aiCoPilot],
+      effectChannel: Channel.haste,
+      effectValue: 0.25,
+      branch: 'B',
+      lane: 'R',
+      tier: 4,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.powerCapacitors,
+      name: 'Overclock The Core',
+      description: '+75% Click, +50% Crit Payout, +40% Overcharge',
+      cost: 10000000000,
+      icon: Icons.bolt,
+      requirements: [ResearchIds.goldenNonceProtocol, ResearchIds.immersionCooling],
+      effects: {Channel.click: 0.75, Channel.special: 0.5, Channel.overcharge: 0.4},
+      branch: 'B',
+      tier: 5,
+      rpCost: 2,
+    ),
+    // === C - THE DEGEN (luck + loot + chaos) ===
+    ResearchNode(
+      id: ResearchIds.luckyNonce,
+      name: 'Lucky Nonce',
+      description: '+8% Luck (crit, sweep, crate and anomaly odds)',
+      cost: 200000,
+      icon: Icons.auto_awesome,
+      requirements: [ResearchIds.genesisCore],
+      effectChannel: Channel.luck,
+      effectValue: 0.08,
+      branch: 'C',
+      tier: 1,
+      rpCost: 1,
     ),
     ResearchNode(
       id: ResearchIds.utxoMagnet,
       name: 'UTXO Magnet',
-      description: '+10% Anomaly Luck',
+      description: '+10% Anomaly Luck, +10% SWEEP Luck',
       cost: 3000000,
       icon: Icons.explore,
-      requirements: [ResearchIds.mempoolSniffer],
-      effectChannel: Channel.magnetism,
-      effectValue: 0.10,
-    ),
-
-    // --- IDLE CAPACITY branch (offline window, base 8h → cap 24h) ---
-    ResearchNode(
-      id: ResearchIds.batteryBank,
-      name: 'Battery Bank',
-      description: '+8h Idle Capacity',
-      cost: 4000000,
-      icon: Icons.battery_charging_full,
-      requirements: [ResearchIds.autonomousDaemons], // HODLER spine (idle=patience)
-      effectChannel: Channel.idle,
-      effectValue: 8.0, // hours
+      requirements: [ResearchIds.luckyNonce],
+      effects: {Channel.magnetism: 0.1, Channel.sweepLuck: 0.1},
+      branch: 'C',
+      lane: 'L',
+      tier: 2,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.gridStorage,
-      name: 'Grid Storage',
-      description: '+8h Idle Capacity',
+      id: ResearchIds.assayLab,
+      name: 'Assay Lab',
+      description: '+12% Crate Drop Quality (+1 rarity)',
+      cost: 8000000,
+      icon: Icons.science,
+      requirements: [ResearchIds.utxoMagnet],
+      effectChannel: Channel.fortune,
+      effectValue: 0.12,
+      branch: 'C',
+      lane: 'L',
+      tier: 3,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.doubleDropManifold,
+      name: 'Double-Drop Manifold',
+      description: '+15% chance a crate open yields a SECOND crate',
       cost: 60000000,
-      icon: Icons.ev_station,
-      requirements: [ResearchIds.miningDaemonSwarm], // HODLER spine
-      effectChannel: Channel.idle,
-      effectValue: 8.0, // hours (base 8 + 8 + 8 -> 24h cap)
-    ),
-
-    // --- RESISTANCE branch (Phase 2 — softens negative chaos, never immune) ---
-    ResearchNode(
-      id: ResearchIds.diamondHands,
-      name: 'Diamond Hands',
-      description: '+25% Crash Resistance',
-      cost: 6000000,
-      icon: Icons.diamond,
-      requirements: [ResearchIds.coldStorage],
-      effectChannel: Channel.crashResist,
-      effectValue: 0.25,
+      icon: Icons.inventory_2,
+      requirements: [ResearchIds.assayLab],
+      effectChannel: Channel.doubleDrop,
+      effectValue: 0.15,
+      branch: 'C',
+      lane: 'L',
+      tier: 4,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.feeHedge,
-      name: 'Fee Hedge',
-      description: '+25% Cost-Spike Resistance',
+      id: ResearchIds.volatilityEngine,
+      name: 'Volatility Engine',
+      description: '+25% Event Frequency, tilts chaos positive',
+      cost: 12000000,
+      icon: Icons.show_chart,
+      requirements: [ResearchIds.luckyNonce],
+      effects: {Channel.volatility: 0.25, Channel.bullBias: 1.0},
+      branch: 'C',
+      lane: 'R',
+      tier: 2,
+      rpCost: 1,
+    ),
+    ResearchNode(
+      id: ResearchIds.hardenedVault,
+      name: 'Hardened Vault',
+      description: '+25% Crash / Theft / Cost resist',
       cost: 6000000,
       icon: Icons.shield,
-      requirements: [ResearchIds.bulkProcurement],
-      effectChannel: Channel.costResist,
-      effectValue: 0.25,
+      requirements: [ResearchIds.volatilityEngine],
+      effects: {Channel.crashResist: 0.25, Channel.theftResist: 0.25, Channel.costResist: 0.25},
+      branch: 'C',
+      lane: 'R',
+      tier: 3,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.stockToFlow,
-      name: 'Stock-to-Flow',
-      description: '+30% Halving Resistance',
+      id: ResearchIds.diamondNerves,
+      name: 'Diamond Nerves',
+      description: '+30% Halving / Duration resist',
       cost: 40000000,
-      icon: Icons.stacked_line_chart,
-      requirements: [ResearchIds.diamondHands],
-      effectChannel: Channel.halvingResist,
-      effectValue: 0.30,
+      icon: Icons.diamond,
+      requirements: [ResearchIds.hardenedVault],
+      effects: {Channel.halvingResist: 0.3, Channel.durationResist: 0.3},
+      branch: 'C',
+      lane: 'R',
+      tier: 4,
+      rpCost: 1,
     ),
     ResearchNode(
-      id: ResearchIds.steelNerves,
-      name: 'Steel Nerves',
-      description: '+30% Event Duration Cut',
-      cost: 20000000,
-      icon: Icons.self_improvement,
-      requirements: [ResearchIds.stockToFlow],
-      effectChannel: Channel.durationResist,
-      effectValue: 0.30,
-    ),
-    // COLD STORAGE — reduces THE BREACH's hot-wallet theft (Channel.theftResist).
-    ResearchNode(
-      id: ResearchIds.coldStorageVault,
-      name: 'Cold Storage Vault',
-      description: '+40% Breach Resistance',
-      cost: 30000000,
-      icon: Icons.lock,
-      requirements: [ResearchIds.steelNerves],
-      effectChannel: Channel.theftResist,
-      effectValue: 0.40,
-    ),
-    // --- Ability enhancers (Slice 72b) — TRUNK, so any build can reach them ---
-    // RIG COOLING: shortens ability cooldowns (Channel.haste, cap 0.40).
-    ResearchNode(
-      id: ResearchIds.immersionCooling,
-      name: 'Immersion Cooling',
-      description: 'RIG COOLING: ability cooldowns −20%',
-      cost: 5000000,
-      icon: Icons.ac_unit,
-      requirements: [ResearchIds.betterCooling],
-      effectChannel: Channel.haste,
-      effectValue: 0.20,
-    ),
-    // OVERCHARGE: amplifies active ability BUFF magnitude + grant-seconds (cap 0.50).
-    ResearchNode(
-      id: ResearchIds.powerCapacitors,
-      name: 'Power Capacitors',
-      description: 'OVERCHARGE: ability buffs +25% stronger',
-      cost: 8000000,
-      icon: Icons.battery_charging_full,
-      requirements: [ResearchIds.solarPower],
-      effectChannel: Channel.overcharge,
-      effectValue: 0.25,
-    ),
-    // BULL BIAS: tilts chaos events toward positives (never zeroes negatives).
-    ResearchNode(
-      id: ResearchIds.sentimentAnalysis,
-      name: 'Sentiment Analysis',
-      description: 'BULL BIAS: positive market events roll more often',
-      cost: 12000000,
-      icon: Icons.insights,
-      requirements: [ResearchIds.marketAnalytics],
-      effectChannel: Channel.bullBias,
-      effectValue: 1.0,
-    ),
-    // META: FIRMWARE BAY — a special node (no channel) that grants +1 Rig Firmware
-    // socket while researched (see GameLogic.firmwareCapacity).
-    ResearchNode(
-      id: ResearchIds.firmwareBay,
-      name: 'Firmware Bay',
-      description: '+1 Rig Firmware socket',
-      cost: 15000000,
-      icon: Icons.developer_board,
-      requirements: [ResearchIds.aiManager],
-      // SPECIAL: grants a firmware slot, not a channel bonus.
+      id: ResearchIds.whalesEye,
+      name: 'The Whale\'s Eye',
+      description: '+15% Luck, +10% Double-Drop, +8% Drop Quality',
+      cost: 10000000000,
+      icon: Icons.visibility,
+      requirements: [ResearchIds.doubleDropManifold, ResearchIds.diamondNerves],
+      effects: {Channel.luck: 0.15, Channel.doubleDrop: 0.1, Channel.fortune: 0.08},
+      branch: 'C',
+      tier: 5,
+      rpCost: 2,
     ),
   ];
 
@@ -828,7 +610,8 @@ class ResearchManager {
   /// seam. Returns how many nodes were bought.
   int rebuildFromPreset(TechPreset preset,
       {required double Function() getWallet,
-      required void Function(double) setWallet}) {
+      required void Function(double) setWallet,
+      int rpBudget = 1 << 30}) {
     int bought = 0;
     final ids = preset.nodeIds.toList()
       ..sort((a, b) => _costById(a).compareTo(_costById(b)));
@@ -836,7 +619,7 @@ class ResearchManager {
     while (progress) {
       progress = false;
       for (final id in ids) {
-        final cost = tryBuy(id, getWallet());
+        final cost = tryBuy(id, getWallet(), rpBudget: rpBudget);
         if (cost > 0) {
           setWallet(getWallet() - cost);
           bought++;
@@ -853,7 +636,8 @@ class ResearchManager {
   /// the nodes bought this call — >0 signals the caller to notify + save.
   int maybeAutoApply(
       {required double Function() getWallet,
-      required void Function(double) setWallet}) {
+      required void Function(double) setWallet,
+      int rpBudget = 1 << 30}) {
     if (!autoApplyPresets) {
       _flushRetechSpend();
       return 0;
@@ -874,8 +658,8 @@ class ResearchManager {
       return 0;
     }
     final before = getWallet();
-    final bought =
-        rebuildFromPreset(preset, getWallet: getWallet, setWallet: setWallet);
+    final bought = rebuildFromPreset(preset,
+        getWallet: getWallet, setWallet: setWallet, rpBudget: rpBudget);
     if (bought > 0) {
       _retechSpendAccum += (before - getWallet()); // BTC spent this tick
     } else {
@@ -886,109 +670,53 @@ class ResearchManager {
 
   void reset() {
     for (var node in researchNodes) {
+      // The free Genesis Core root stays owned so the engines' roots stay reachable.
+      if (node.id == ResearchIds.genesisCore) {
+        node.isCompleted = true;
+        node.isUnlocked = true;
+        continue;
+      }
       node.isCompleted = false;
       node.isUnlocked = node.requirements.isEmpty;
     }
+    _checkUnlocks(); // re-unlock the branch roots (their prereq, the core, is owned)
     // NOTE: researchCount (blueprints) is intentionally NOT cleared here — it is
     // permanent across prestige resets.
   }
 
-  // ---- Doctrines / exclusivity (Phase 3) ---------------------------------
-  // Owner: commitment budget = 2 pairs. Membership is a single central map so
-  // the requirement graph stays self-consistent: every doctrine node's prereqs
-  // are TRUNK (shared hubs) or same-doctrine, so committing a doctrine never
-  // strands a reachable node.
-  static const int commitmentBudget = 2;
+  // ---- TECH V2: branches + Research-Point budget -------------------------
+  /// The branch a node belongs to ('A'/'B'/'C'), or null for the free core spine.
+  String? branchOf(String id) {
+    final i = researchNodes.indexWhere((n) => n.id == id);
+    return i == -1 ? null : researchNodes[i].branch;
+  }
 
-  static const Map<String, Doctrine> _doctrineOf = {
-    // META (never lockable)
-    ResearchIds.aiManager: Doctrine.meta,
-    ResearchIds.firmwareBay: Doctrine.meta,
-    // MEGA-HASH
-    ResearchIds.advancedOverclock: Doctrine.megaHash,
-    ResearchIds.neuralNet: Doctrine.megaHash,
-    ResearchIds.distributedComputing: Doctrine.megaHash,
-    ResearchIds.quantumEntanglement: Doctrine.megaHash,
-    ResearchIds.quantumOverclock: Doctrine.megaHash,
-    ResearchIds.fusionOverclock: Doctrine.megaHash,
-    ResearchIds.plasmaOverclock: Doctrine.megaHash,
-    ResearchIds.antimatterCores: Doctrine.megaHash,
-    ResearchIds.zeroPointHash: Doctrine.megaHash,
-    // LEAN-RIG
-    ResearchIds.geothermalCooling: Doctrine.leanRig,
-    ResearchIds.nanofabrication: Doctrine.leanRig,
-    ResearchIds.orbitalLogistics: Doctrine.leanRig,
-    ResearchIds.selfReplicatingRigs: Doctrine.leanRig,
-    ResearchIds.macroScripts: Doctrine.leanRig,
-    ResearchIds.neuralInterface: Doctrine.leanRig,
-    ResearchIds.quantumReflexes: Doctrine.leanRig,
-    // DEGEN-YIELD
-    ResearchIds.defiYield: Doctrine.degenYield,
-    ResearchIds.taxHaven: Doctrine.degenYield,
-    ResearchIds.liquidityMining: Doctrine.degenYield,
-    ResearchIds.algorithmicTrading: Doctrine.degenYield,
-    ResearchIds.hedgeFund: Doctrine.degenYield,
-    ResearchIds.centralBank: Doctrine.degenYield,
-    // HODLER
-    ResearchIds.autonomousDaemons: Doctrine.hodler,
-    ResearchIds.miningDaemonSwarm: Doctrine.hodler,
-    ResearchIds.consensusProtocol: Doctrine.hodler,
-    ResearchIds.governanceCartel: Doctrine.hodler,
-    // DEGEN-LUCK
-    ResearchIds.precisionHashing: Doctrine.degenLuck,
-    ResearchIds.noncePrediction: Doctrine.degenLuck,
-    ResearchIds.mempoolSniffer: Doctrine.degenLuck,
-    ResearchIds.utxoMagnet: Doctrine.degenLuck,
-    ResearchIds.assayLab: Doctrine.degenLuck,
-    // COLD-STORAGE
-    ResearchIds.diamondHands: Doctrine.coldStorage,
-    ResearchIds.stockToFlow: Doctrine.coldStorage,
-    ResearchIds.steelNerves: Doctrine.coldStorage,
-    ResearchIds.coldStorageVault: Doctrine.coldStorage,
-    ResearchIds.batteryBank: Doctrine.hodler, // idle = patience, moved from fortress
-    ResearchIds.gridStorage: Doctrine.hodler,
-    // everything else (basicOverclock, chipFab, betterCooling, solarPower,
-    // marketAnalytics, ergonomicRig, coldStorage(income), bulkProcurement,
-    // highFrequencyTrading) is TRUNK by default.
-  };
-
-  Doctrine doctrineOf(String id) => _doctrineOf[id] ?? Doctrine.trunk;
-
-  /// Doctrines the run has committed to (any completed node), excluding trunk/meta.
-  Set<Doctrine> committedDoctrines() {
-    final s = <Doctrine>{};
+  /// The capstone (tier-5) node id of [branch], or null.
+  String? capstoneIdOf(String branch) {
     for (final n in researchNodes) {
-      if (!n.isCompleted) continue;
-      final d = doctrineOf(n.id);
-      if (d != Doctrine.trunk && d != Doctrine.meta) s.add(d);
+      if (n.branch == branch && n.tier == 5) return n.id;
+    }
+    return null;
+  }
+
+  /// Branches whose CAPSTONE node is owned — this is what unlocks that branch's
+  /// keystones (replaces the old "doctrine committed" gate).
+  Set<String> branchesWithCapstoneOwned() {
+    final s = <String>{};
+    for (final n in researchNodes) {
+      if (n.tier == 5 && n.isCompleted && n.branch != null) s.add(n.branch!);
     }
     return s;
   }
 
-  /// How many opposed PAIRS have a committed doctrine (0..3).
-  int committedPairCount() {
-    final c = committedDoctrines();
-    var pairs = 0;
-    if (c.contains(Doctrine.megaHash) || c.contains(Doctrine.leanRig)) pairs++;
-    if (c.contains(Doctrine.hodler) || c.contains(Doctrine.degenYield)) pairs++;
-    if (c.contains(Doctrine.degenLuck) || c.contains(Doctrine.coldStorage)) {
-      pairs++;
+  /// Research Points currently spent = sum of the rpCost of every completed node.
+  /// The free core spine (rpCost 0) never consumes budget.
+  int get rpSpent {
+    var t = 0;
+    for (final n in researchNodes) {
+      if (n.isCompleted) t += n.rpCost;
     }
-    return pairs;
-  }
-
-  /// A node is doctrine-locked when its sibling doctrine is committed, or when
-  /// entering its (not-yet-committed) pair would exceed the commitment budget.
-  /// trunk/meta are never locked.
-  bool isDoctrineLocked(String id) {
-    final d = doctrineOf(id);
-    if (d == Doctrine.trunk || d == Doctrine.meta) return false;
-    final committed = committedDoctrines();
-    if (committed.contains(d)) return false; // already in this doctrine
-    final sib = doctrineSibling(d);
-    if (sib != null && committed.contains(sib)) return true; // chose the other side
-    if (committedPairCount() >= commitmentBudget) return true; // budget spent
-    return false;
+    return t;
   }
 
   /// Re-derives unlock state from completed nodes. Called after loading a save so
@@ -1000,24 +728,32 @@ class ResearchManager {
   /// Adds every completed node's declared channel effect to [ch].
   void contributeChannels(Channels ch) {
     for (final node in researchNodes) {
-      if (node.isCompleted && node.effectChannel != null) {
+      if (!node.isCompleted) continue;
+      if (node.effectChannel != null) {
         ch.add(node.effectChannel!, node.effectValue);
       }
+      // TECH V2 multi-channel nodes (capstones etc.) add every declared effect.
+      node.effects.forEach(ch.add);
     }
   }
 
-  // Returns cost if success (so caller can deduct wallet), 0 if failed
+  // Returns cost if success (so caller can deduct wallet), 0 if failed.
+  // [rpBudget] caps how much total rpCost the completed nodes may sum to (the
+  // per-fork Research-Point budget); default unbounded for callers that don't gate.
   double tryBuy(
     String researchId,
-    double currentWallet,
-  ) {
+    double currentWallet, {
+    int rpBudget = 1 << 30,
+  }) {
     int index = researchNodes.indexWhere((r) => r.id == researchId);
     if (index == -1) return 0;
 
     ResearchNode node = researchNodes[index];
     if (node.isCompleted) return 0;
-    // Exclusive doctrines: can't buy into a locked sibling / a 3rd pair.
-    if (isDoctrineLocked(researchId)) return 0;
+    // Branch-depth gate: every prerequisite must already be owned.
+    if (!node.requirements.every(isResearched)) return 0;
+    // Research-Point budget: owning this node must not exceed the fork's budget.
+    if (rpSpent + node.rpCost > rpBudget) return 0;
 
     double costSats = getCostInSats(node);
 

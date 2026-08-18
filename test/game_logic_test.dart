@@ -68,7 +68,7 @@ void main() {
       double hashAfter = game.globalHashRate;
 
       expect(hashAfter, greaterThan(hashBefore));
-      expect(hashAfter, closeTo(1.05, 0.001));
+      expect(hashAfter, closeTo(1.15, 0.001)); // Overclocked Cores now +15%
     });
 
     test('Research cost is the flat base sats cost (no exchange rate)', () {

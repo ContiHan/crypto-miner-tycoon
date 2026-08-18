@@ -153,7 +153,7 @@ void main() {
       await game.loadGame();
       expect(game.abilityHaste, 0.0);
       complete(game, 'immersion_cooling');
-      expect(game.abilityHaste, closeTo(0.20, 1e-9));
+      expect(game.abilityHaste, closeTo(0.25, 1e-9));
     });
 
     test('OVERCHARGE amplifies an ability buff magnitude (not 1.0 buffs)',
@@ -162,11 +162,11 @@ void main() {
       await game.loadGame();
       game.debugSelectClass(BtcClass.corporation);
       expect(game.overchargeFactor, 1.0);
-      complete(game, 'power_capacitors'); // +0.25 overcharge
-      expect(game.overchargeFactor, closeTo(1.25, 1e-9));
-      // SPIN UP THE FARM is hash ×2.5; overcharged bonus: 1 + 1.5×1.25 = 2.875.
+      complete(game, 'power_capacitors'); // +0.40 overcharge (B capstone)
+      expect(game.overchargeFactor, closeTo(1.4, 1e-9));
+      // SPIN UP THE FARM is hash ×2.5; overcharged bonus: 1 + 1.5×1.4 = 3.1.
       expect(game.castAbility('corp_spin_up'), true);
-      expect(game.abilityHashMult, closeTo(2.875, 1e-6));
+      expect(game.abilityHashMult, closeTo(3.1, 1e-6));
     });
 
     test('BULL BIAS (Sentiment Analysis) raises the chaos-tilt strength',
@@ -174,7 +174,7 @@ void main() {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
       expect(game.bullBiasStrength, 0.0);
-      complete(game, 'sentiment_analysis');
+      complete(game, 'volatility_engine'); // C-branch node carries the bull-bias tilt
       expect(game.bullBiasStrength, closeTo(1.0, 1e-9));
     });
   });

@@ -66,8 +66,8 @@ void main() {
       expect(baseWindow, greaterThanOrEqualTo(GameConstants.breachTelegraphSeconds - 1));
 
       game.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.coldStorageVault)
-          .isCompleted = true; // +0.40 theftResist
+          .firstWhere((n) => n.id == ResearchIds.hardenedVault)
+          .isCompleted = true; // +0.25 theftResist (among others)
       game.debugStartBreach();
       expect(game.breachSecondsRemaining, greaterThan(baseWindow),
           reason: 'Cold Storage buys extra reaction time');

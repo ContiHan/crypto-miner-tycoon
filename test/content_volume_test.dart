@@ -13,9 +13,9 @@ void main() {
     test('expected catalogue sizes', () {
       expect(PerkManager.defs.length, 33,
           reason: 'skill nodes: 1 universal + 4 class trees of 8');
-      expect(ResearchManager().researchNodes.length, 52,
-          reason: 'lab (Phase 0:+6, Phase 1:+5, Phase 2:+4, Phase 5:+1 Cold Storage, '
-              'Slice 72b:+3 ability enhancers, Slice 73b:+1 Firmware Bay)');
+      expect(ResearchManager().researchNodes.length, 28,
+          reason: 'TECH V2 "Three Engines": 1 genesis core + 3 free core-spine '
+              'unlocks + 3 branches x 8 nodes (7 tree + 1 capstone)');
       expect(StashService.allArtifacts.length, 84,
           reason: 'stash artifacts (+4 BLOCK REWARD, +2 PROSPECTOR\'S EYE)');
     });
@@ -159,10 +159,10 @@ void main() {
           .isCompleted = true;
 
       expect(game.buildChannels().multiplier(Channel.income),
-          closeTo(1.10, 1e-9));
-      // The +10% income channel must actually reach earnings (this fails if the
+          closeTo(1.20, 1e-9));
+      // The +20% income channel must actually reach earnings (this fails if the
       // incomeMultiplier is dropped from the accrual/click paths).
-      expect(game.estimatedClickValue, closeTo(base * 1.10, base * 1e-4));
+      expect(game.estimatedClickValue, closeTo(base * 1.20, base * 1e-4));
     });
 
     test('completing a click node raises the click multiplier', () async {
@@ -175,7 +175,7 @@ void main() {
           .isCompleted = true;
 
       expect(game.buildChannels().multiplier(Channel.click),
-          closeTo(1.25, 1e-9));
+          closeTo(1.30, 1e-9));
       expect(game.estimatedClickValue, greaterThan(base));
     });
 
@@ -191,13 +191,13 @@ void main() {
       expect(game.estimatedClickValue, closeTo(base * 2.0, base * 1e-4),
           reason: 'stash click must reach earnings through the click channel');
 
-      // Add a click-CHANNEL source (+25%): they SUM within the channel
-      // (1 + 1.0 + 0.25 = x2.25), not multiply — additive-within-channel, no
+      // Add a click-CHANNEL source (+30%): they SUM within the channel
+      // (1 + 1.0 + 0.30 = x2.30), not multiply — additive-within-channel, no
       // double-count.
       game.researchNodes
           .firstWhere((n) => n.id == ResearchIds.ergonomicRig)
           .isCompleted = true;
-      expect(game.estimatedClickValue, closeTo(base * 2.25, base * 1e-4),
+      expect(game.estimatedClickValue, closeTo(base * 2.30, base * 1e-4),
           reason: 'stash click and click channel are additive within the channel');
     });
   });
@@ -211,7 +211,7 @@ void main() {
           .firstWhere((n) => n.id == ResearchIds.basicOverclock)
           .isCompleted = true;
       final added = rm.researchNodes
-          .firstWhere((n) => n.id == ResearchIds.advancedOverclock);
+          .firstWhere((n) => n.id == ResearchIds.neuralNet);
       expect(added.isUnlocked, false, reason: 'added-later node starts locked');
 
       rm.refreshUnlocks();
@@ -266,6 +266,8 @@ void main() {
         Channel.haste, // RIG COOLING (consumed via abilityHaste → cooldowns)
         Channel.overcharge, // OVERCHARGE (consumed via overchargeFactor → buffs)
         Channel.bullBias, // BULL BIAS (consumed via bullBiasStrength → chaos roll)
+        Channel.doubleDrop, // LOOT GOBLIN (consumed via doubleDropChance → bonus crate)
+        Channel.volatility, // event frequency (consumed via chaos roll cadence)
       };
       PerkManager.defs.forEach((id, def) {
         if (def.channel != null) {

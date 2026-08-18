@@ -15,14 +15,14 @@ void main() {
       // the research + skill-node + stash contributions.
       game.debugSelectClass(BtcClass.soloMiner);
 
-      game.buyResearch(ResearchIds.basicOverclock); // hash +0.05
+      game.buyResearch(ResearchIds.basicOverclock); // hash +0.15
       game.perks['solo_fusion'] = 2; // hash +0.06 (2 * 0.03)
       game.stashService.loadStash({
         'artifacts': {'old_hdd': 1}, // hash +0.02
       });
 
       expect(game.buildChannels().sum(Channel.hash),
-          closeTo(0.05 + 0.06 + 0.02, 1e-9));
+          closeTo(0.15 + 0.06 + 0.02, 1e-9));
     });
 
     test('a NEW data-driven research node contributes with no extra code',
@@ -31,10 +31,11 @@ void main() {
       await game.loadGame();
       game.wallet = 1e12;
 
-      game.buyResearch(ResearchIds.basicOverclock); // +0.05
-      game.buyResearch(ResearchIds.advancedOverclock); // +0.15 (new node)
+      game.buyResearch(ResearchIds.genesisCore); // free root
+      game.buyResearch(ResearchIds.basicOverclock); // +0.15
+      game.buyResearch(ResearchIds.neuralNet); // +0.30 (data-driven, no extra code)
 
-      expect(game.buildChannels().sum(Channel.hash), closeTo(0.20, 1e-9));
+      expect(game.buildChannels().sum(Channel.hash), closeTo(0.45, 1e-9));
     });
 
     test('rig-cost channel sums research + class-skill discounts', () async {
@@ -44,11 +45,15 @@ void main() {
       // Corporation has NO rigCost racial.
       game.debugSelectClass(BtcClass.corporation);
 
-      game.buyResearch(ResearchIds.betterCooling); // rigCost +0.10
+      // Cold Storage Logistics grants rigCost +0.20 (among others); complete it
+      // directly (its buy needs the deep A-lane chain, irrelevant to this sum).
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.coldStorageLogistics)
+          .isCompleted = true;
       game.perks['corp_acquisition'] = 2; // rigCost +0.06 (2 * 0.03)
 
       expect(game.buildChannels().sum(Channel.rigCost),
-          closeTo(0.10 + 0.06, 1e-9));
+          closeTo(0.20 + 0.06, 1e-9));
     });
 
     test('a skill rig-cost discount is capped at its max level', () {
