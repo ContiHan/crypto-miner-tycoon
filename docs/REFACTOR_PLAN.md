@@ -183,5 +183,13 @@ Each is independently shippable and suite-gated.
   save via proxies, load via restore()+healWonIf(), reset via reset(). Verified by
   a 2-lens adversarial review (win-once/offline-defer + serialization/self-heal —
   CLEAN). Screens/widgets/endgame tests untouched.
-- ⏭️ **B3 SettingsController** — NEXT (sound/haptics/fiat/onboarding flags +
-  _seenTips + _haptic* helpers).
+- ✅ **B3 SettingsController** — sound/haptics/fiat/onboarding flags + `_seenTips`
+  + the typed haptic helpers + toggle/persist/load → `lib/logic/systems/
+  settings_controller.dart`. Injected seams: SettingsRepository, setMuted +
+  playClick callbacks (no SoundService coupling), notify. GameLogic keeps flag
+  getters + `hasSeenTip`/`markTipSeen`/toggle*/`completeOnboarding` proxies and
+  thin `_hapticLight/Medium/Heavy` wrappers so the ~15 haptic call sites +
+  settings/onboarding/tip UI are unchanged; load routes through `_settings.load()`.
+  Dropped the now-unused `flutter/services` import from game_logic.
+- ⏭️ **Next**: per plan order, C1 (casino UI split, pairs with B1) or continue
+  B4 (EconomyModifiers, ~300 lines — biggest bulk) / B5 (auto-apply → ResearchManager).

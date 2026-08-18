@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math';
 import 'package:flutter/material.dart';
-import 'package:flutter/services.dart';
 
 import '../core/constants.dart';
 import '../core/ids.dart';
@@ -39,6 +38,7 @@ import '../logic/systems/rig_reveal_system.dart';
 import '../logic/systems/casino_manager.dart';
 import '../logic/systems/tab_unlock_system.dart';
 import '../logic/systems/endgame_system.dart';
+import '../logic/systems/settings_controller.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -598,17 +598,12 @@ class GameLogic with ChangeNotifier {
       .sum(Channel.fortune)
       .clamp(0.0, GameConstants.fortuneMaxTierShiftChance);
 
-  // Fire-and-forget haptics that never throw (no platform channel in tests) and
-  // honour the user's haptics toggle. Typed by intensity so call sites read
-  // clearly: light = taps/buys, medium = unlocks, heavy = prestige/jackpot/crit.
-  void _haptic(Future<void> Function() f) {
-    if (!hapticsEnabled) return;
-    f().catchError((_) {});
-  }
-
-  void _hapticLight() => _haptic(HapticFeedback.lightImpact);
-  void _hapticMedium() => _haptic(HapticFeedback.mediumImpact);
-  void _hapticHeavy() => _haptic(HapticFeedback.heavyImpact);
+  // Typed haptics delegate to SettingsController (which owns the toggle + the
+  // fire-and-forget/never-throw logic). Thin wrappers keep the many call sites
+  // here unchanged. light = taps/buys, medium = unlocks, heavy = prestige/crit.
+  void _hapticLight() => _settings.hapticLight();
+  void _hapticMedium() => _settings.hapticMedium();
+  void _hapticHeavy() => _settings.hapticHeavy();
 
   /// Claim an unlocked achievement — activates its Notoriety income bonus.
   bool claimAchievement(String id) {
@@ -636,14 +631,21 @@ class GameLogic with ChangeNotifier {
   final List<Achievement> pendingAchievementToasts = [];
   void clearAchievementToasts() => pendingAchievementToasts.clear();
 
-  bool soundEnabled = true;
-  bool hapticsEnabled = true; // Vibration feedback toggle (see _haptic)
-  bool showFiatPrices = false; // Toggle for "Astronomical" Credit prices
-  bool onboardingComplete = false; // first-run coach marks shown once
-  // Per-screen first-visit tips already dismissed (e.g. 'tab_skill'). Persisted
-  // in settings like [onboardingComplete] so each screen's intro shows only once.
-  final Set<String> _seenTips = {};
-  bool hasSeenTip(String id) => _seenTips.contains(id);
+  // User preferences (sound/haptics/fiat/onboarding + seen-tips) live in
+  // SettingsController; GameLogic proxies the flags + toggle methods so the
+  // settings screen, onboarding, and first-visit tips are unchanged.
+  late final SettingsController _settings = SettingsController(
+    repo: _settingsRepo,
+    setMuted: (m) => _soundService.setMuted(m),
+    playClick: () => _soundService.playClick(),
+    notify: notifyListeners,
+  );
+
+  bool get soundEnabled => _settings.soundEnabled;
+  bool get hapticsEnabled => _settings.hapticsEnabled;
+  bool get showFiatPrices => _settings.showFiatPrices;
+  bool get onboardingComplete => _settings.onboardingComplete;
+  bool hasSeenTip(String id) => _settings.hasSeenTip(id);
 
   // Offline Earnings (UI Display)
   double? offlineEarningsAmount;
@@ -653,51 +655,15 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 
-  Future<void> toggleSound() async {
-    soundEnabled = !soundEnabled;
-    // Bridge the setting to the actual audio player; without this the toggle
-    // was purely cosmetic (SoundService.setMuted had no call sites).
-    _soundService.setMuted(!soundEnabled);
-    await _persistSettings();
-    notifyListeners();
-  }
-
-  Future<void> toggleHaptics() async {
-    hapticsEnabled = !hapticsEnabled;
-    if (hapticsEnabled) _hapticLight(); // let the user feel it turn on
-    await _persistSettings();
-    notifyListeners();
-  }
-
-  Future<void> toggleFiatDisplay() async {
-    showFiatPrices = !showFiatPrices;
-    _soundService.playClick(); // light UI click on the currency toggle
-    await _persistSettings();
-    notifyListeners();
-  }
-
-  Future<void> _persistSettings() => _settingsRepo.saveSettings(
-        soundEnabled: soundEnabled,
-        hapticsEnabled: hapticsEnabled,
-        showFiatPrices: showFiatPrices,
-        onboardingComplete: onboardingComplete,
-        seenTips: _seenTips.toList(),
-      );
+  Future<void> toggleSound() => _settings.toggleSound();
+  Future<void> toggleHaptics() => _settings.toggleHaptics();
+  Future<void> toggleFiatDisplay() => _settings.toggleFiatDisplay();
 
   /// Marks the first-run onboarding as seen so it never shows again.
-  Future<void> completeOnboarding() async {
-    if (onboardingComplete) return;
-    onboardingComplete = true;
-    await _persistSettings();
-    notifyListeners();
-  }
+  Future<void> completeOnboarding() => _settings.completeOnboarding();
 
   /// Marks a per-screen first-visit tip [id] as seen so it never shows again.
-  Future<void> markTipSeen(String id) async {
-    if (!_seenTips.add(id)) return; // already seen — no write, no rebuild
-    await _persistSettings();
-    notifyListeners();
-  }
+  Future<void> markTipSeen(String id) => _settings.markTipSeen(id);
 
   /// A light click for generic UI interactions (e.g. bottom-nav tab switches)
   /// that have no dedicated effect of their own.
@@ -2386,16 +2352,7 @@ class GameLogic with ChangeNotifier {
   Future<void> loadGame() async {
     final splashStartMs = DateTime.now().millisecondsSinceEpoch;
     try {
-      final settings = await _settingsRepo.loadSettings();
-      soundEnabled = settings['sound_enabled'] ?? true;
-      hapticsEnabled = settings['haptics_enabled'] ?? true;
-      showFiatPrices = settings['show_fiat_prices'] ?? false;
-      onboardingComplete = settings['onboarding_complete'] ?? false;
-      _seenTips
-        ..clear()
-        ..addAll(
-            (settings['seen_tips'] as List?)?.cast<String>() ?? const []);
-      _soundService.setMuted(!soundEnabled);
+      await _settings.load();
 
       final data = await _gameRepo.loadGameState();
 
