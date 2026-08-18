@@ -162,4 +162,19 @@ Each is independently shippable and suite-gated.
   `FirmwareRarity`/`AchRarity` stay as domain enums (73 AchRarity refs); a third
   enum nothing adopts would be dead indirection. STASH's 6-tier `ArtifactRarity`
   is a genuinely different palette, left untouched.
-- ⏭️ **B1 CasinoManager** — NEXT.
+- ✅ **B1 CasinoManager** `c1754da` — whole SWEEP economy (window cap + resolve/
+  commit split) → `lib/logic/systems/casino_manager.dart` wrapping CasinoService.
+  chips stays in GameLogic (crate shop shares it), seamed get/set; counters +
+  window fields move into the manager; full public casino API proxied (STASH +
+  casino_test untouched). Verified by a 3-lens adversarial review (currency /
+  window-cap / silent+serialization — all CLEAN). game_logic −125 net lines.
+- ✅ **B2a TabUnlockSystem** — the 4 sticky nav-tab reveal flags + pending-toast
+  queue + the threshold ladder (`refresh`) → `lib/logic/systems/tab_unlock_system.dart`.
+  Thresholds read GameLogic via suppliers; unlock cue/save/notify injected.
+  GameLogic proxies unlockedTech/Stash/Skill/Goal (get+set for tests),
+  pendingTabUnlockToasts, clearTabUnlockToasts, debugUnlockAllTabs; save/load/reset
+  wire through restore()/reset(). home_screen + disclosure tests untouched.
+- ⏭️ **B2b endgame win-latch** (lifetimeEverSats / hasWonGame / pendingWinCelebration
+  + `_creditLifetimeEver` + clearWinCelebration + speedRunUnlocked) — NEXT. Split
+  out of B2 because `_creditLifetimeEver` is on the mine/click/offline hot paths and
+  deserves its own gate.

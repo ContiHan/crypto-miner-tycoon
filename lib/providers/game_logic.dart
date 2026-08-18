@@ -37,6 +37,7 @@ import '../logic/systems/breach_system.dart';
 import '../logic/systems/speed_run_system.dart';
 import '../logic/systems/rig_reveal_system.dart';
 import '../logic/systems/casino_manager.dart';
+import '../logic/systems/tab_unlock_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -185,13 +186,31 @@ class GameLogic with ChangeNotifier {
   // Bottom-nav tabs reveal gradually so a new player isn't shown everything at
   // once. STICKY: once a tab unlocks it stays unlocked forever (a New Blockchain
   // wiping rigs must not re-lock TECH). MINE + GOAL are always available.
-  bool unlockedTech = false; // after the first rig
-  bool unlockedStash = false; // after some earnings / a chip / a crate
-  bool unlockedSkill = false; // after the first Hard Fork (first GovTokens)
-  bool unlockedGoal = false; // after the first achievement is earned
+  // Sticky nav-tab reveal (state machine owned by TabUnlockSystem); GameLogic
+  // keeps thin proxies so home_screen + the disclosure tests are unchanged.
+  late final TabUnlockSystem _tabUnlock = TabUnlockSystem(
+    lifetimeEarnings: () => lifetimeEarnings,
+    chips: () => chips,
+    cratesOpened: () => cratesOpened,
+    hardForkCount: () => hardForkCount,
+    achievementsUnlocked: () => achievementsUnlocked,
+    onUnlockSound: () => _soundService.playUnlock(),
+    save: _saveGame,
+    notify: notifyListeners,
+  );
+
+  bool get unlockedTech => _tabUnlock.tech; // after 10k sats
+  bool get unlockedStash => _tabUnlock.stash; // after 1M sats / chip / crate
+  bool get unlockedSkill => _tabUnlock.skill; // after the first Hard Fork
+  bool get unlockedGoal => _tabUnlock.goal; // after the first achievement
+  // Settable (tests drive them directly to stage a mid-progress UI state).
+  set unlockedTech(bool v) => _tabUnlock.tech = v;
+  set unlockedStash(bool v) => _tabUnlock.stash = v;
+  set unlockedSkill(bool v) => _tabUnlock.skill = v;
+  set unlockedGoal(bool v) => _tabUnlock.goal = v;
   /// Tab names newly unlocked this session, drained by the UI for a toast.
-  final List<String> pendingTabUnlockToasts = [];
-  void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
+  List<String> get pendingTabUnlockToasts => _tabUnlock.pendingToasts;
+  void clearTabUnlockToasts() => _tabUnlock.clearToasts();
 
   // SIMULATED "SWEEP" minigame (in-game UTXO only). Player-favoured (EV>1),
   // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted UTXO
@@ -718,11 +737,7 @@ class GameLogic with ChangeNotifier {
     _breach.reset(); // fresh save → the next breach is a drill again
     pendingWinCelebration = false;
     // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
-    unlockedTech = false;
-    unlockedStash = false;
-    unlockedSkill = false;
-    unlockedGoal = false;
-    pendingTabUnlockToasts.clear();
+    _tabUnlock.reset();
     pendingAchievementToasts.clear();
 
     for (var rig in rigs) {
@@ -1196,7 +1211,7 @@ class GameLogic with ChangeNotifier {
   void debugSelectClass(BtcClass c) => _classManager.select(c);
   @visibleForTesting
   void debugUnlockAllTabs() {
-    unlockedTech = unlockedStash = unlockedSkill = unlockedGoal = true;
+    _tabUnlock.unlockAll();
     notifyListeners();
   }
   @visibleForTesting
@@ -1900,38 +1915,8 @@ class GameLogic with ChangeNotifier {
   ///   TECH  after 10k sats mined (a bit of play, not the very first rig);
   ///   STASH after 1M sats / a chip / a crate;
   ///   SKILL after the first Hard Fork (when GovTokens first exist to spend).
-  void _refreshTabUnlocks({bool silent = false, bool suppressSound = false}) {
-    final newly = <String>[];
-    var changed = false;
-    if (!unlockedTech && lifetimeEarnings >= 10000) {
-      unlockedTech = true;
-      changed = true;
-      newly.add('TECH');
-    }
-    if (!unlockedStash &&
-        (lifetimeEarnings >= 1e6 || chips >= 1 || cratesOpened >= 1)) {
-      unlockedStash = true;
-      changed = true;
-      newly.add('STASH');
-    }
-    if (!unlockedSkill && hardForkCount >= 1) {
-      unlockedSkill = true;
-      changed = true;
-      newly.add('SKILL');
-    }
-    if (!unlockedGoal && achievementsUnlocked >= 1) {
-      unlockedGoal = true;
-      changed = true;
-      newly.add('GOAL');
-    }
-    if (!changed) return;
-    if (!silent) {
-      pendingTabUnlockToasts.addAll(newly);
-      if (!suppressSound) _soundService.playUnlock();
-      _saveGame();
-      notifyListeners();
-    }
-  }
+  void _refreshTabUnlocks({bool silent = false, bool suppressSound = false}) =>
+      _tabUnlock.refresh(silent: silent, suppressSound: suppressSound);
 
   void _triggerHalving() {
     // Routed through the event system's news banner (which auto-expires and
@@ -2479,10 +2464,12 @@ class GameLogic with ChangeNotifier {
       // Progressive-disclosure tab unlocks (sticky). Defaults false for saves
       // predating this; the silent refresh below re-derives them from loaded
       // progress so returning players keep already-earned tabs without a toast.
-      unlockedTech = data['unlockedTech'] == true;
-      unlockedStash = data['unlockedStash'] == true;
-      unlockedSkill = data['unlockedSkill'] == true;
-      unlockedGoal = data['unlockedGoal'] == true;
+      _tabUnlock.restore(
+        tech: data['unlockedTech'] == true,
+        stash: data['unlockedStash'] == true,
+        skill: data['unlockedSkill'] == true,
+        goal: data['unlockedGoal'] == true,
+      );
 
       // Achievements + action counters (persist across all prestige tiers).
       hardForkCount = _toInt(data['hardForkCount']);
