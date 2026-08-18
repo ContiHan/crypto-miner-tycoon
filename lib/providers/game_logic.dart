@@ -34,6 +34,7 @@ import '../logic/systems/aura_system.dart';
 import '../logic/systems/keystone_system.dart';
 import '../logic/systems/firmware_system.dart';
 import '../logic/systems/breach_system.dart';
+import '../logic/systems/speed_run_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -79,16 +80,20 @@ class GameLogic with ChangeNotifier {
   // Notoriety, Stash), race to mine one full 21M-BTC supply (maxSupplySats) as
   // fast as possible. The clock is WALL-CLOCK (persisted start timestamp) so
   // backgrounding/closing the app can't pause or cheat it.
-  bool speedRunActive = false;
-  int speedRunStartMs = 0;
-  double speedRunMinedSats = 0; // sats mined since the current run started
-  int speedRunBestMs = 0; // best completed time in ms (0 = no record yet)
-  int speedRunLastMs = 0; // most recent completed time (for the overlay)
-  // Best Back-in-Time time per class name (for per-class records + THE TIMECHAIN).
-  Map<String, int> speedRunBestByClass = {};
-  // Transient (NOT persisted): drives the one-shot SPEED RUN COMPLETE overlay.
-  bool pendingSpeedRunCelebration = false;
-  bool _speedRunWasRecord = false;
+  // Back-in-Time Speed Run state + record-keeping (extracted subsystem). The
+  // public API below is preserved as thin proxies so the UI + tests are unchanged.
+  final SpeedRunSystem _speedRun = SpeedRunSystem(
+      nowMs: () => DateTime.now().millisecondsSinceEpoch);
+
+  bool get speedRunActive => _speedRun.active;
+  int get speedRunStartMs => _speedRun.startMs;
+  set speedRunStartMs(int v) => _speedRun.startMs = v; // test seam
+  double get speedRunMinedSats => _speedRun.minedSats;
+  int get speedRunBestMs => _speedRun.bestMs;
+  int get speedRunLastMs => _speedRun.lastMs;
+  Map<String, int> get speedRunBestByClass => _speedRun.bestByClass;
+  set speedRunBestByClass(Map<String, int> v) => _speedRun.bestByClass = v; // test seam
+  bool get pendingSpeedRunCelebration => _speedRun.pendingCelebration;
 
   final GameRepository _gameRepo;
   final SettingsRepository _settingsRepo;
@@ -1956,9 +1961,8 @@ class GameLogic with ChangeNotifier {
     if (!lifetimeEverSats.isFinite) lifetimeEverSats = double.maxFinite;
     // Speed Run: accumulate this run's mined total and finish at one full supply.
     // Runs before the win latch's early-return so a run can complete post-win too.
-    if (speedRunActive) {
-      speedRunMinedSats += amount;
-      if (speedRunMinedSats >= GameConstants.maxSupplySats) _finishSpeedRun();
+    if (_speedRun.credit(amount, _classManager.current.name)) {
+      _onSpeedRunFinished();
     }
     // THE LAST SATOSHI: the win is the FIRST time a single era mines the full
     // 21,000,000-BTC supply (lifetimeEarnings reaches the inviolable per-era cap).
@@ -2001,29 +2005,23 @@ class GameLogic with ChangeNotifier {
   bool get speedRunUnlocked => hasWonGame;
 
   /// Fraction (0..1) of one full 21M-BTC supply mined in the current run.
-  double get speedRunProgress =>
-      (speedRunMinedSats / GameConstants.maxSupplySats).clamp(0.0, 1.0);
+  double get speedRunProgress => _speedRun.progress;
 
   /// Live elapsed milliseconds of the active run (0 when none is running).
   /// Wall-clock, so it keeps counting across a background/close.
-  int get speedRunElapsedMs {
-    if (!speedRunActive) return 0;
-    final e = DateTime.now().millisecondsSinceEpoch - speedRunStartMs;
-    return e < 0 ? 0 : e;
-  }
+  int get speedRunElapsedMs => _speedRun.elapsedMs;
 
   /// Whether the most recently completed run set a new best time.
-  bool get speedRunWasRecord => _speedRunWasRecord;
+  bool get speedRunWasRecord => _speedRun.wasRecord;
 
   /// Distinct REAL classes (not Prospector) with a recorded Back-in-Time best —
   /// drives THE TIMECHAIN capstone.
-  int get speedRunClassCount => speedRunBestByClass.keys
-      .where((k) => k != BtcClass.prospector.name)
-      .length;
+  int get speedRunClassCount =>
+      _speedRun.classCount(BtcClass.prospector.name);
 
   /// Best Back-in-Time time (ms) recorded as [className], or 0 if none.
   int speedRunBestForClass(String className) =>
-      speedRunBestByClass[className] ?? 0;
+      _speedRun.bestForClass(className);
 
   /// Begin a Speed Run: a deep New-Blockchain-style reset (keeps Genesis Blocks,
   /// Mastery, achievements/Notoriety and Stash; wipes wallet/rigs/TECH/TALENTS/
@@ -2031,31 +2029,14 @@ class GameLogic with ChangeNotifier {
   /// abandons the current attempt. No-op until [speedRunUnlocked].
   void startSpeedRun({BtcClass? chosenClass}) {
     if (!speedRunUnlocked) return;
-    speedRunActive = true;
-    speedRunStartMs = DateTime.now().millisecondsSinceEpoch;
-    speedRunMinedSats = 0;
-    pendingSpeedRunCelebration = false;
-    _speedRunWasRecord = false;
+    _speedRun.begin();
     _newChainInternal(chosenClass: chosenClass); // deep reset + save + notify
   }
 
-  /// Finish the active run: record the time, update the best, raise the one-shot
-  /// celebration. Called from the income chokepoint when the run's mined total
-  /// first reaches one full supply. Latched via [speedRunActive] so it fires once.
-  void _finishSpeedRun() {
-    if (!speedRunActive) return;
-    final elapsed = DateTime.now().millisecondsSinceEpoch - speedRunStartMs;
-    speedRunActive = false;
-    speedRunLastMs = elapsed < 0 ? 0 : elapsed;
-    _speedRunWasRecord = speedRunBestMs == 0 || speedRunLastMs < speedRunBestMs;
-    if (_speedRunWasRecord) speedRunBestMs = speedRunLastMs;
-    // Per-class best (for per-class records + THE TIMECHAIN capstone).
-    final cls = _classManager.current.name;
-    final classBest = speedRunBestByClass[cls];
-    if (classBest == null || speedRunLastMs < classBest) {
-      speedRunBestByClass[cls] = speedRunLastMs;
-    }
-    pendingSpeedRunCelebration = true;
+  /// Finish side-effects after [_speedRun.credit] records a completed run (from
+  /// the income chokepoint at one full supply). The record-keeping already ran in
+  /// the system; here we fire the UI/achievement effects (deferred in offline sim).
+  void _onSpeedRunFinished() {
     if (_inOfflineSim) return; // defer UI during offline catch-up
     _evaluateAchievements(); // unlock the time medals + THE TIMECHAIN on completion
     _soundService.playEnding();
@@ -2068,17 +2049,14 @@ class GameLogic with ChangeNotifier {
   /// reset-and-partly-rebuilt) state stays; the player just leaves the timer.
   void abortSpeedRun() {
     if (!speedRunActive) return;
-    speedRunActive = false;
-    speedRunMinedSats = 0;
+    _speedRun.abort();
     _saveGame();
     notifyListeners();
   }
 
   /// Drain the one-shot SPEED RUN COMPLETE trigger after the UI has shown it.
   void clearSpeedRunCelebration() {
-    if (!pendingSpeedRunCelebration) return;
-    pendingSpeedRunCelebration = false;
-    notifyListeners();
+    if (_speedRun.clearCelebration()) notifyListeners();
   }
 
   /// Test seam: credit cumulative-ever (and thus advance an active Speed Run)
@@ -2586,12 +2564,12 @@ class GameLogic with ChangeNotifier {
         'events': _snapEvents,
         'hash': _snapHash,
       },
-      speedRunActive: speedRunActive,
-      speedRunStartMs: speedRunStartMs,
-      speedRunMinedSats: speedRunMinedSats,
-      speedRunBestMs: speedRunBestMs,
-      speedRunBestByClass: speedRunBestByClass,
-      speedRunLastMs: speedRunLastMs,
+      speedRunActive: _speedRun.active,
+      speedRunStartMs: _speedRun.startMs,
+      speedRunMinedSats: _speedRun.minedSats,
+      speedRunBestMs: _speedRun.bestMs,
+      speedRunBestByClass: _speedRun.bestByClass,
+      speedRunLastMs: _speedRun.lastMs,
     );
   }
 
@@ -2680,19 +2658,19 @@ class GameLogic with ChangeNotifier {
       // Speed Run (wall-clock timed challenge). The start timestamp keeps the
       // clock running across a close; a missing/garbage start with an active
       // flag would read as an absurd elapsed, so drop the run in that case.
-      speedRunActive = data['speedRunActive'] == true;
-      speedRunStartMs = _toInt(data['speedRunStartMs']);
-      speedRunMinedSats = _toDouble(data['speedRunMinedSats']);
-      speedRunBestMs = _toInt(data['speedRunBestMs']);
+      _speedRun.active = data['speedRunActive'] == true;
+      _speedRun.startMs = _toInt(data['speedRunStartMs']);
+      _speedRun.minedSats = _toDouble(data['speedRunMinedSats']);
+      _speedRun.bestMs = _toInt(data['speedRunBestMs']);
       final byClass = data['speedRunBestByClass'];
-      speedRunBestByClass = {};
+      _speedRun.bestByClass = {};
       if (byClass is Map) {
         byClass.forEach((k, v) {
-          if (k is String && v is num) speedRunBestByClass[k] = v.toInt();
+          if (k is String && v is num) _speedRun.bestByClass[k] = v.toInt();
         });
       }
-      speedRunLastMs = _toInt(data['speedRunLastMs']);
-      if (speedRunActive && speedRunStartMs <= 0) speedRunActive = false;
+      _speedRun.lastMs = _toInt(data['speedRunLastMs']);
+      if (_speedRun.active && _speedRun.startMs <= 0) _speedRun.active = false;
 
       // Progressive-disclosure tab unlocks (sticky). Defaults false for saves
       // predating this; the silent refresh below re-derives them from loaded
