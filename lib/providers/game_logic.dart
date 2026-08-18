@@ -838,73 +838,33 @@ class GameLogic with ChangeNotifier {
   int applyTechPreset(int index) {
     if (index < 0 || index >= _researchManager.presets.length) return 0;
     _researchManager.activePreset = index;
-    final bought = _rebuildFromPreset(_researchManager.presets[index]);
+    final bought = _researchManager.rebuildFromPreset(
+      _researchManager.presets[index],
+      getWallet: () => wallet,
+      setWallet: (v) => wallet = v,
+    );
     notifyListeners();
     _saveGame();
     return bought;
   }
 
-  /// Buys every affordable, unlocked, still-incomplete node in [preset], cheapest
-  /// first, repeating until a full pass buys nothing (so deeper nodes unlock as
-  /// their prereqs complete). Batches one save/notify (unlike per-node buyResearch).
-  int _rebuildFromPreset(TechPreset preset) {
-    int bought = 0;
-    final ids = preset.nodeIds.toList()
-      ..sort((a, b) => getResearchCost(a).compareTo(getResearchCost(b)));
-    bool progress = true;
-    while (progress) {
-      progress = false;
-      for (final id in ids) {
-        final cost = _researchManager.tryBuy(id, wallet);
-        if (cost > 0) {
-          wallet -= cost;
-          bought++;
-          progress = true;
-        }
-      }
-    }
-    return bought;
-  }
+  // Auto-apply re-tech (rebuild loop + spend accounting) lives in ResearchManager;
+  // GameLogic proxies the toast signal and owns only the notify/save policy.
+  /// BTC the last settled auto-apply batch spent (drained by the RE-TECH toast).
+  double get pendingReTechSpend => _researchManager.pendingReTechSpend;
+  void clearReTechToast() => _researchManager.clearReTechToast();
 
-  // Auto-apply spends real (blueprint-discounted) BTC re-teching after a fork —
-  // it's just tiny vs. a built-up wallet, so it looks free. We accumulate the
-  // spend across the (possibly multi-tick) rebuild and flush it once the batch
-  // settles, so the UI can flash a "RE-TECH · −X" toast that makes the cost
-  // visible without changing the economy.
-  double _retechSpendAccum = 0;
-  double _pendingRetechSpend = 0;
-
-  /// BTC the last settled auto-apply batch spent (0 = nothing to show). The UI
-  /// drains it with [clearReTechToast] after toasting it.
-  double get pendingReTechSpend => _pendingRetechSpend;
-  void clearReTechToast() => _pendingRetechSpend = 0;
-
-  void _flushRetechSpend() {
-    if (_retechSpendAccum <= 0) return;
-    _pendingRetechSpend += _retechSpendAccum; // += so an undrained batch isn't lost
-    _retechSpendAccum = 0;
-  }
-
-  /// AUTO-APPLY: on the tick / after a reset, rebuild the active preset as income
-  /// allows (owner: default ON, opt-out). Fast-exits once the build is complete.
+  /// AUTO-APPLY on the tick / after a reset: rebuild the active preset as income
+  /// allows (fast no-op once complete / off / no preset). Notify + save only when
+  /// it actually bought something.
   void _maybeAutoApplyPreset() {
-    if (!_researchManager.autoApplyPresets) return _flushRetechSpend();
-    final i = _researchManager.activePreset;
-    if (i < 0 || i >= _researchManager.presets.length) return _flushRetechSpend();
-    final preset = _researchManager.presets[i];
-    final anyIncomplete = preset.nodeIds.any((id) {
-      final n = _researchManager.researchNodes
-          .firstWhere((r) => r.id == id, orElse: () => ResearchNode(id: ''));
-      return n.id.isNotEmpty && !n.isCompleted;
-    });
-    if (!anyIncomplete) return _flushRetechSpend();
-    final before = wallet;
-    if (_rebuildFromPreset(preset) > 0) {
-      _retechSpendAccum += (before - wallet); // BTC spent this tick
+    final bought = _researchManager.maybeAutoApply(
+      getWallet: () => wallet,
+      setWallet: (v) => wallet = v,
+    );
+    if (bought > 0) {
       notifyListeners();
       _saveGame();
-    } else {
-      _flushRetechSpend(); // couldn't afford more this tick — the batch settled
     }
   }
 

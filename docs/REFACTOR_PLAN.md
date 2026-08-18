@@ -202,6 +202,17 @@ Each is independently shippable and suite-gated.
   `upkeepRate` (rigs/class/chaos-cost) deliberately stay in GameLogic — not pure
   over channels+keystones. Verified by a 2-lens equivalence review + 38 economy
   tests. game_logic ~-70 lines.
-- ⏭️ **Next**: B5 (auto-apply re-tech → ResearchManager) + the residual B4 tail
-  (luck facets / upkeep) if wanted, then Phase C screen splits (stash_screen
-  casino ~700 lines is the big one), then Phase D serialization.
+- ✅ **B5 auto-apply re-tech → ResearchManager** — the buy-loop (`rebuildFromPreset`),
+  the auto-apply policy (`maybeAutoApply`), and the RE-TECH spend accumulators move
+  INTO ResearchManager, reaching the wallet through a PER-CALL seam
+  (getWallet/setWallet) so the manager never owns the wallet and needs no
+  constructor change (tests unaffected). `maybeAutoApply` returns the bought count
+  so notify/save/toast policy stays in GameLogic; pendingReTechSpend/clearReTechToast
+  proxied. Verified by a 2-lens review (wallet-seam + spend-accounting).
+- ✅ **PHASE B COMPLETE.** game_logic.dart ~2921 → ~2600. Subsystems now own their
+  state+logic (Casino, TabUnlock, Endgame, Settings, EconomyModifiers, +the
+  earlier Mining/Research/Perk/Class/Prestige/Ability/Aura/Keystone/Proc/Breach/
+  SpeedRun/RigReveal). GameLogic is the coordinator + thin proxy layer.
+- ⏭️ **Next**: residual B4 tail (luck facets / upkeep, if wanted), then Phase C
+  screen splits (stash_screen casino ~700 lines is the big one), then Phase D
+  serialization single-source-of-truth.

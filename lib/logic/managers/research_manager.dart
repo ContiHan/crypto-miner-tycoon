@@ -793,6 +793,95 @@ class ResearchManager {
     autoApplyPresets = true;
   }
 
+  // ---- Auto-apply re-tech (owner: default ON) ---------------------------
+  // Auto-apply spends real (blueprint-discounted) BTC re-teching after a fork —
+  // tiny vs. a built-up wallet, so it looks free. We accumulate the spend across
+  // the (possibly multi-tick) rebuild and flush it once the batch settles, so the
+  // UI can flash a "RE-TECH · −X" toast that makes the cost visible without
+  // changing the economy. The wallet is reached through a per-call seam (getWallet
+  // / setWallet) so this manager never owns the wallet.
+  double _retechSpendAccum = 0;
+  double _pendingRetechSpend = 0;
+
+  /// BTC the last settled auto-apply batch spent (0 = nothing to show). The UI
+  /// drains it with [clearReTechToast] after toasting it.
+  double get pendingReTechSpend => _pendingRetechSpend;
+  void clearReTechToast() => _pendingRetechSpend = 0;
+
+  void _flushRetechSpend() {
+    if (_retechSpendAccum <= 0) return;
+    _pendingRetechSpend += _retechSpendAccum; // += so an undrained batch isn't lost
+    _retechSpendAccum = 0;
+  }
+
+  double _costById(String id) {
+    final node = researchNodes.firstWhere((r) => r.id == id,
+        orElse: () => ResearchNode(id: ''));
+    return node.id.isEmpty ? 0 : getCostInSats(node);
+  }
+
+  /// Buys every affordable, unlocked, still-incomplete node in [preset], cheapest
+  /// first, repeating until a full pass buys nothing (so deeper nodes unlock as
+  /// their prereqs complete). Reaches the wallet through the [getWallet]/[setWallet]
+  /// seam. Returns how many nodes were bought.
+  int rebuildFromPreset(TechPreset preset,
+      {required double Function() getWallet,
+      required void Function(double) setWallet}) {
+    int bought = 0;
+    final ids = preset.nodeIds.toList()
+      ..sort((a, b) => _costById(a).compareTo(_costById(b)));
+    bool progress = true;
+    while (progress) {
+      progress = false;
+      for (final id in ids) {
+        final cost = tryBuy(id, getWallet());
+        if (cost > 0) {
+          setWallet(getWallet() - cost);
+          bought++;
+          progress = true;
+        }
+      }
+    }
+    return bought;
+  }
+
+  /// AUTO-APPLY: on the tick / after a reset, rebuild the active preset as income
+  /// allows (fast no-op once complete / off / no preset). Accumulates the BTC
+  /// spent (for the RE-TECH toast) and flushes it once the batch settles. Returns
+  /// the nodes bought this call — >0 signals the caller to notify + save.
+  int maybeAutoApply(
+      {required double Function() getWallet,
+      required void Function(double) setWallet}) {
+    if (!autoApplyPresets) {
+      _flushRetechSpend();
+      return 0;
+    }
+    final i = activePreset;
+    if (i < 0 || i >= presets.length) {
+      _flushRetechSpend();
+      return 0;
+    }
+    final preset = presets[i];
+    final anyIncomplete = preset.nodeIds.any((id) {
+      final n = researchNodes.firstWhere((r) => r.id == id,
+          orElse: () => ResearchNode(id: ''));
+      return n.id.isNotEmpty && !n.isCompleted;
+    });
+    if (!anyIncomplete) {
+      _flushRetechSpend();
+      return 0;
+    }
+    final before = getWallet();
+    final bought =
+        rebuildFromPreset(preset, getWallet: getWallet, setWallet: setWallet);
+    if (bought > 0) {
+      _retechSpendAccum += (before - getWallet()); // BTC spent this tick
+    } else {
+      _flushRetechSpend(); // couldn't afford more this tick — the batch settled
+    }
+    return bought;
+  }
+
   void reset() {
     for (var node in researchNodes) {
       node.isCompleted = false;
