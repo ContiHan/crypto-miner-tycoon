@@ -6,6 +6,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'package:crypto_miner_tycoon/logic/channels.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'test_helper.dart';
 
@@ -131,6 +132,50 @@ void main() {
       // Always bounded by the divergence rail.
       expect(game.buildChannels().sum(Channel.income),
           lessThanOrEqualTo(GameConstants.reinvestIncomeCap + 1e-9));
+    });
+  });
+
+  group('Research-Point budget growth (4 -> 18 across prestige breakthroughs)', () {
+    test('a fresh account floors at 4', () async {
+      final g = createTestGameLogic(loadOnStart: false);
+      await g.loadGame();
+      expect(g.rpBudget, 4);
+    });
+
+    test('Hard Forks add up to +5, then cap', () async {
+      final g = createTestGameLogic(loadOnStart: false);
+      await g.loadGame();
+      g.hardForkCount = 2;
+      expect(g.rpBudget, 5); // 3 + 2
+      g.hardForkCount = 5;
+      expect(g.rpBudget, 8); // 3 + 5
+      g.hardForkCount = 99;
+      expect(g.rpBudget, 8); // Hard-Fork contribution caps at +5
+    });
+
+    test('Genesis Blocks add up to +6, then cap', () async {
+      final g = createTestGameLogic(loadOnStart: false);
+      await g.loadGame();
+      g.debugGenesisBlocks = 1;
+      expect(g.rpBudget, 5); // 3 + min(6, 2*1)
+      g.debugGenesisBlocks = 3;
+      expect(g.rpBudget, 9); // 3 + 6
+      g.debugGenesisBlocks = 99;
+      expect(g.rpBudget, 9); // caps at +6
+    });
+
+    test('Mastery adds up to +4 and the grand total clamps at 18', () async {
+      final g = createTestGameLogic(loadOnStart: false);
+      await g.loadGame();
+      g.hardForkCount = 5; // +5
+      g.debugGenesisBlocks = 3; // +6  -> 3+5+6 = 14
+      expect(g.rpBudget, 14);
+      g.debugCreditMastery(BtcClass.soloMiner, 1e9); // level >> 8 -> +4 (capped)
+      expect(g.rpBudget, 18); // 3+5+6+4
+      // Everything piled on stays clamped at the 18 ceiling.
+      g.hardForkCount = 99;
+      g.debugGenesisBlocks = 99;
+      expect(g.rpBudget, 18);
     });
   });
 }
