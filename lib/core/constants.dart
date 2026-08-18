@@ -154,6 +154,18 @@ class GameConstants {
   // Luck scales the crit chance up to this hard cap (keeps it a thrill, not the
   // main income source).
   static const double clickCritChanceCap = 0.25;
+  // GOLDEN NONCE PROTOCOL (B6): a bounded pity timer — every Nth real tap is a
+  // guaranteed golden nonce (crit) on top of the luck roll.
+  static const int goldenNonceEvery = 12;
+  // REINVESTMENT ENGINE (A7): reinvest this fraction of the raw hash-channel sum
+  // into the income channel — the branch-A hash<->income synergy — capped so a
+  // deep hash stack can never diverge the income multiplier.
+  static const double reinvestFraction = 0.20;
+  static const double reinvestIncomeCap = 0.75;
+  // AI CO-PILOT (B5): the auto-clicker fires every Nth tick; owning the node
+  // tightens the interval from the base cadence to the faster one.
+  static const int autoClickEveryBase = 5;
+  static const int autoClickEveryFast = 3;
 
   // BLOCK REWARD attribute — crit PAYOUT scales with the `special` channel:
   //   critMult = clickCritMultiplier + clickCritPayoutSpecialScale ·

@@ -165,12 +165,12 @@ class ResearchManager {
     ResearchNode(
       id: ResearchIds.reinvestmentEngine,
       name: 'Reinvestment Engine',
-      description: '+10% Income (synergy node - full effect soon)',
+      description: 'Reinvest 20% of your hash bonus as income (capped)',
       cost: 100000000,
       icon: Icons.autorenew,
       requirements: [ResearchIds.highFrequencyTrading],
-      effectChannel: Channel.income,
-      effectValue: 0.1,
+      // No static channel: its whole effect is the bespoke hash->income synergy
+      // folded into buildChannels (A7).
       branch: 'A',
       lane: 'R',
       tier: 4,
@@ -233,7 +233,7 @@ class ResearchManager {
     ResearchNode(
       id: ResearchIds.goldenNonceProtocol,
       name: 'Golden Nonce Protocol',
-      description: '+5% Crit Chance (guaranteed golden nonce soon)',
+      description: '+5% Crit, every 12th tap a guaranteed golden nonce',
       cost: 60000000,
       icon: Icons.stars,
       requirements: [ResearchIds.precisionHashing],
@@ -261,7 +261,7 @@ class ResearchManager {
     ResearchNode(
       id: ResearchIds.aiCoPilot,
       name: 'AI Co-Pilot',
-      description: '+15% Click Power (faster auto-tap soon)',
+      description: '+15% Click Power, tightens the auto-tap interval',
       cost: 15000000,
       icon: Icons.smart_toy,
       requirements: [ResearchIds.macroScripts],

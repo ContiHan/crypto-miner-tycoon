@@ -57,6 +57,9 @@ class _StashScreenState extends State<StashScreen>
     if (won == null) return;
     final count = game.stashService.ownedArtifacts[won.id] ?? 1;
     final color = _rarityColor(won.rarity);
+    // DOUBLE-DROP MANIFOLD / WHALE'S EYE: any bonus crates this open rolled are
+    // already banked — drain them so the reveal can celebrate the extra loot.
+    final bonus = game.drainBonusCrates();
 
     showDialog(
       context: context,
@@ -70,14 +73,15 @@ class _StashScreenState extends State<StashScreen>
           curve: Curves.easeOutBack, // pop-in overshoot
           builder: (context, t, child) =>
               Transform.scale(scale: t.clamp(0.0, 1.2), child: child),
-          child: _crateRevealCard(ctx, won, count, color),
+          child: _crateRevealCard(ctx, won, count, color, bonus),
         ),
       ),
     );
   }
 
   Widget _crateRevealCard(
-      BuildContext ctx, Artifact won, int count, Color color) {
+      BuildContext ctx, Artifact won, int count, Color color,
+      List<Artifact> bonus) {
     return Container(
       padding: const EdgeInsets.all(24),
       decoration: BoxDecoration(
@@ -129,6 +133,46 @@ class _StashScreenState extends State<StashScreen>
                   color: color, fontWeight: FontWeight.bold, fontSize: 12),
             ),
           ),
+          if (bonus.isNotEmpty) ...[
+            const SizedBox(height: 14),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+              decoration: BoxDecoration(
+                gradient: LinearGradient(colors: [
+                  const Color(0xFFFFC400).withValues(alpha: 0.20),
+                  const Color(0xFFFF7A00).withValues(alpha: 0.12),
+                ]),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(color: const Color(0xFFFFC400), width: 1.2),
+              ),
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Row(mainAxisSize: MainAxisSize.min, children: const [
+                    Icon(Icons.bolt, color: Color(0xFFFFC400), size: 16),
+                    SizedBox(width: 4),
+                    Text('DOUBLE DROP!',
+                        style: TextStyle(
+                            color: Color(0xFFFFC400),
+                            fontWeight: FontWeight.bold,
+                            letterSpacing: 2,
+                            fontSize: 12)),
+                  ]),
+                  const SizedBox(height: 6),
+                  for (final b in bonus)
+                    Padding(
+                      padding: const EdgeInsets.only(top: 2),
+                      child: Text('+ ${b.name}',
+                          textAlign: TextAlign.center,
+                          style: TextStyle(
+                              color: _rarityColor(b.rarity),
+                              fontWeight: FontWeight.w600,
+                              fontSize: 12)),
+                    ),
+                ],
+              ),
+            ),
+          ],
           const SizedBox(height: 18),
           ElevatedButton(
             onPressed: () => Navigator.pop(ctx),

@@ -704,6 +704,7 @@ class GameLogic with ChangeNotifier {
 
   int _autoClickCounter = 0;
   int _critStreak = 0; // consecutive real crit taps → onCritStreak proc hook
+  int _goldenNonceCounter = 0; // GOLDEN NONCE PROTOCOL (B6) pity timer
 
   void buyResearch(String researchId) {
     double cost = _researchManager.tryBuy(
@@ -1452,6 +1453,18 @@ class GameLogic with ChangeNotifier {
     // and get softcapped with everything else (no outside lane).
     _auras.contributeChannels(
         ch, _auraContext(), _classManager.current, currentClassMasteryLevel);
+    // A7 REINVESTMENT ENGINE: reinvest a slice of the aggregated hash bonus into
+    // income (the branch-A hash<->income synergy). Read AFTER every contributor so
+    // it sees the full hash sum; bounded by reinvestIncomeCap so it can't diverge.
+    if (_researchManager.isResearched(ResearchIds.reinvestmentEngine)) {
+      final hashSum = ch.sum(Channel.hash);
+      if (hashSum > 0) {
+        ch.add(
+            Channel.income,
+            (GameConstants.reinvestFraction * hashSum)
+                .clamp(0.0, GameConstants.reinvestIncomeCap));
+      }
+    }
     return ch;
   }
 
@@ -1593,10 +1606,13 @@ class GameLogic with ChangeNotifier {
   }
 
   void _mine() {
-    // Auto Clicker
+    // Auto Clicker — AI CO-PILOT (B5) tightens the auto-tap interval.
     if (_researchManager.isResearched(ResearchIds.aiManager)) {
       _autoClickCounter++;
-      if (_autoClickCounter >= 5) {
+      final autoEvery = _researchManager.isResearched(ResearchIds.aiCoPilot)
+          ? GameConstants.autoClickEveryFast
+          : GameConstants.autoClickEveryBase;
+      if (_autoClickCounter >= autoEvery) {
         clickMine(playSound: false);
         _autoClickCounter = 0;
       }
@@ -1956,11 +1972,23 @@ class GameLogic with ChangeNotifier {
     // pay the BLOCK REWARD crit multiplier.
     final double gCrit =
         _inOfflineSim ? 0 : _abilities.activeGuaranteedCritMult(_nowMs());
+    // GOLDEN NONCE PROTOCOL (B6): a bounded pity timer — every Nth real tap is a
+    // guaranteed golden nonce. Advances only on real taps (silent auto-taps never
+    // crit, GOLDEN RULE) and is muted by a no-crit keystone like every other crit.
+    bool forcedGolden = false;
+    if (playSound &&
+        !keystoneMods.noCrits &&
+        _researchManager.isResearched(ResearchIds.goldenNonceProtocol)) {
+      if (++_goldenNonceCounter >= GameConstants.goldenNonceEvery) {
+        forcedGolden = true;
+        _goldenNonceCounter = 0;
+      }
+    }
     // ASIC MONOCULTURE / COLD WALLET / FORT KNOX forbid crits entirely — the
     // taps-never-crit half of their bargain.
     final bool isCrit = !keystoneMods.noCrits &&
         playSound &&
-        (gCrit > 0 || _clickRng.nextDouble() < critChance);
+        (gCrit > 0 || forcedGolden || _clickRng.nextDouble() < critChance);
     if (isCrit) {
       clickSats *= (gCrit > 0 ? gCrit : critPayoutMultiplier);
     }

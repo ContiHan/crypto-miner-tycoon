@@ -85,6 +85,20 @@ Capstones: A=centralBank, B=powerCapacitors, C=whalesEye.
 
 ## Progress
 - [x] Slice 1 — Channel.doubleDrop + hook (`b2bc035`)
-- [ ] Slice 2 — this doc (structural swap)
-- [ ] Slice 3 — visual polish (wash/glyph/ignite/synergy row) + bespoke mechanics (A7/B5/B6) + doubleDrop reveal UI
-- [ ] Slice 4 — balance sim
+- [x] Slice 2 — structural swap: 28-node catalog, RP ledger, doctrine removal, accordion UI (`eb40607`)
+- [x] Slice 3 — bespoke mechanics + doubleDrop reveal UI:
+  - **B6 goldenNonceProtocol** → bounded pity timer: every 12th real tap is a guaranteed
+    golden nonce (crit). `GameConstants.goldenNonceEvery`, `_goldenNonceCounter`.
+  - **B5 aiCoPilot** → tightens the silent auto-tap interval 5→3 ticks.
+    `autoClickEveryBase`/`autoClickEveryFast`.
+  - **A7 reinvestmentEngine** → reinvest 20% of the raw hash-channel sum into income,
+    capped at +0.75 (folded into `buildChannels`). No static channel anymore.
+  - **doubleDrop reveal** → `_showCrateOpening` drains `drainBonusCrates()`; the reveal card
+    shows a "DOUBLE DROP!" section listing the bonus artifact(s).
+  - Tests: `tech_v2_synergies_test.dart` (B5/B6/A7), `double_drop_test.dart` (banking+drain).
+  - NOTE: the branch theme-wash + centered nodes already shipped in the Slice-2 accordion.
+    A dedicated "ignite" node-purchase animation was NOT added (deferred — needs device
+    visual QA, which is owner-side).
+- [ ] Slice 4 — balance sim (NOTE: the RP-gated tree kept every economy sim green as-is;
+  the build-matrix sim now seeds a mature rpBudget since mining a full 21M supply is a
+  late-game feat. No separate re-baseline was required.)
