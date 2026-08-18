@@ -179,6 +179,12 @@ class GameConstants {
   // never dominate loot (#22). Additive `fortune`-channel sources feed it.
   static const double fortuneMaxTierShiftChance = 0.25;
 
+  // DOUBLE-DROP attribute (TECH "Double-Drop Manifold"). Distinct from Fortune:
+  // Fortune bumps a rolled crate's QUALITY (+1 rarity); doubleDrop is the chance a
+  // crate open yields a SECOND full crate (COUNT). Additive `doubleDrop`-channel
+  // sources feed it, hard-capped here so loot can't runaway.
+  static const double doubleDropMax = 0.25;
+
   // Luck scales SWEEP winnings up, but the realized average return per stake is
   // clamped to this ceiling so even maxed Luck can't make it absurd. Set above
   // the base EVs (~1.50–1.65) so Luck still meaningfully boosts winnings. The

@@ -96,4 +96,11 @@ class EconomyModifiers {
   double get fortuneBonus => channels()
       .sum(Channel.fortune)
       .clamp(0.0, GameConstants.fortuneMaxTierShiftChance);
+
+  /// DOUBLE-DROP MANIFOLD: the chance a crate open yields a SECOND crate (COUNT,
+  /// not quality — complements [fortuneBonus]). Additive `doubleDrop` sources,
+  /// hard-capped at doubleDropMax so loot can't runaway.
+  double get doubleDropChance => channels()
+      .sum(Channel.doubleDrop)
+      .clamp(0.0, GameConstants.doubleDropMax);
 }

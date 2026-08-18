@@ -692,6 +692,8 @@ class ResearchManager {
         return 'Crit Tapper';
       case Channel.fortune:
         return 'Fortune Hunter';
+      case Channel.doubleDrop:
+        return 'Loot Goblin';
       case Channel.nonce:
         return 'Sharp Shooter';
       case Channel.sweepLuck:

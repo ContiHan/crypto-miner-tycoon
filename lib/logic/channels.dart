@@ -35,6 +35,7 @@ enum Channel {
   haste, // RIG COOLING — ability cooldown reduction (cap 0.40)
   bullBias, // BULL BIAS — tilt chaos toward positives (never zeroes negatives)
   overcharge, // OVERCHARGE — +ability buff MAGNITUDE & grant-seconds (cap 0.50)
+  doubleDrop, // DOUBLE-DROP — chance a crate open yields a SECOND crate (cap 0.25)
 }
 
 /// Accumulates additive percentage bonuses per [Channel].

@@ -228,6 +228,17 @@ class GameLogic with ChangeNotifier {
   // resolve/commit split) lives in CasinoManager; GameLogic keeps thin proxies so
   // the STASH screen + casino_test are unchanged.
   final Random _casinoRng; // injectable so tests can force deterministic spins
+  final Random _crateRng; // injectable — rolls the DOUBLE-DROP chance on a crate open
+
+  /// Bonus crates dropped by DOUBLE-DROP that the UI hasn't revealed yet (drained
+  /// by [drainBonusCrates] for a "BONUS DROP" reveal). They're already banked in
+  /// the Stash + counted; this is only the pending reveal queue.
+  final List<Artifact> _pendingBonusCrates = [];
+  List<Artifact> drainBonusCrates() {
+    final out = List<Artifact>.of(_pendingBonusCrates);
+    _pendingBonusCrates.clear();
+    return out;
+  }
   late final CasinoManager _casinoManager = CasinoManager(
     rng: _casinoRng,
     chips: () => chips,
@@ -564,6 +575,9 @@ class GameLogic with ChangeNotifier {
   /// PROSPECTOR'S EYE: the per-crate-roll chance to bump the rolled rarity up one
   /// step (proxied to EconomyModifiers).
   double get fortuneBonus => _mods.fortuneBonus;
+
+  /// DOUBLE-DROP: chance a crate open yields a second crate (see buyCrate).
+  double get doubleDropChance => _mods.doubleDropChance;
 
   // Typed haptics delegate to SettingsController (which owns the toggle + the
   // fire-and-forget/never-throw logic). Thin wrappers keep the many call sites
@@ -1268,12 +1282,14 @@ class GameLogic with ChangeNotifier {
     bool startTimers = true,
     bool loadOnStart = true,
     Random? casinoRandom,
+    Random? crateRandom,
   }) : _gameRepo = gameRepository,
        _settingsRepo = settingsRepository,
        _economy = economyService,
        _stash = stashService,
        _soundService = soundService,
-       _casinoRng = casinoRandom ?? Random() {
+       _casinoRng = casinoRandom ?? Random(),
+       _crateRng = crateRandom ?? Random() {
     // Initialize Managers
     _miningManager = MiningManager();
     _researchManager = ResearchManager();
@@ -2183,6 +2199,15 @@ class GameLogic with ChangeNotifier {
     cratesOpened++;
     _soundService.playCrate();
     _fireProcs(ProcEvent.onCrateOpen);
+    // DOUBLE-DROP: a chance the open yields a SECOND crate of the same tier. The
+    // bonus is banked + counted + fires its own onCrateOpen procs (throttled by
+    // the proc token-bucket); it NEVER re-rolls double-drop, so there is no chain.
+    if (doubleDropChance > 0 && _crateRng.nextDouble() < doubleDropChance) {
+      final bonus = _stash.openCrate(tier: tier, fortune: fortuneBonus);
+      cratesOpened++;
+      _pendingBonusCrates.add(bonus);
+      _fireProcs(ProcEvent.onCrateOpen);
+    }
     _evaluateAchievements();
     notifyListeners();
     _saveGame();
