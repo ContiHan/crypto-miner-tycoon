@@ -174,7 +174,14 @@ Each is independently shippable and suite-gated.
   GameLogic proxies unlockedTech/Stash/Skill/Goal (get+set for tests),
   pendingTabUnlockToasts, clearTabUnlockToasts, debugUnlockAllTabs; save/load/reset
   wire through restore()/reset(). home_screen + disclosure tests untouched.
-- ⏭️ **B2b endgame win-latch** (lifetimeEverSats / hasWonGame / pendingWinCelebration
-  + `_creditLifetimeEver` + clearWinCelebration + speedRunUnlocked) — NEXT. Split
-  out of B2 because `_creditLifetimeEver` is on the mine/click/offline hot paths and
-  deserves its own gate.
+- ✅ **B2b EndgameSystem (win-latch)** — the THE-LAST-SATOSHI latch state
+  (lifetimeEverSats / hasWonGame / pendingWinCelebration) + win-once logic →
+  `lib/logic/systems/endgame_system.dart`. `_creditLifetimeEver` STAYS the
+  orchestrator (Mastery + Speed Run + UI cues); it now calls `addEver` +
+  `tryWin(capReached:)`. GameLogic proxies get/set lifetimeEverSats + hasWonGame,
+  get pendingWinCelebration, clearWinCelebration→clearWin, speedRunUnlocked;
+  save via proxies, load via restore()+healWonIf(), reset via reset(). Verified by
+  a 2-lens adversarial review (win-once/offline-defer + serialization/self-heal —
+  CLEAN). Screens/widgets/endgame tests untouched.
+- ⏭️ **B3 SettingsController** — NEXT (sound/haptics/fiat/onboarding flags +
+  _seenTips + _haptic* helpers).

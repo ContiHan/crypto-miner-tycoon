@@ -38,6 +38,7 @@ import '../logic/systems/speed_run_system.dart';
 import '../logic/systems/rig_reveal_system.dart';
 import '../logic/systems/casino_manager.dart';
 import '../logic/systems/tab_unlock_system.dart';
+import '../logic/systems/endgame_system.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -65,17 +66,25 @@ class GameLogic with ChangeNotifier {
   double lifetimeEarnings = 0;
 
   // --- Endgame (THE LAST SATOSHI) ---
+  // THE LAST SATOSHI endgame latch (state owned by EndgameSystem); GameLogic keeps
+  // thin proxies so the achievements snapshot, home/mining/settings screens, the
+  // speed-run widget, and the endgame tests are unchanged. `_creditLifetimeEver`
+  // remains the crediting orchestrator (Mastery + Speed Run + UI cues).
+  final EndgameSystem _endgame = EndgameSystem();
+
   // Cosmetic cumulative sats mined across ALL eras/chains; NEVER reset by any
   // prestige (only a full Wipe Save clears it). Purely a lifetime stat now — the
   // win is per-era (lifetimeEarnings reaching the 21M cap), not cumulative.
-  double lifetimeEverSats = 0;
+  double get lifetimeEverSats => _endgame.lifetimeEverSats;
+  set lifetimeEverSats(double v) => _endgame.lifetimeEverSats = v;
   // Persisted once-only win latch: set the first time a single era mines a full
   // 21M supply (lifetimeEarnings >= maxSupplySats). Gates Back in Time + credits.
-  bool hasWonGame = false;
+  bool get hasWonGame => _endgame.hasWonGame;
+  set hasWonGame(bool v) => _endgame.hasWonGame = v;
   // Transient (NOT persisted): drives the one-shot THE LAST SATOSHI overlay,
   // drained by clearWinCelebration() — mirrors offlineEarningsAmount so a
   // relaunch never replays the ending.
-  bool pendingWinCelebration = false;
+  bool get pendingWinCelebration => _endgame.pendingWinCelebration;
 
   // --- Speed Run (Genesis Sprint) ---
   // An optional timed challenge: from a deep (New-Blockchain-style) reset that
@@ -732,10 +741,8 @@ class GameLogic with ChangeNotifier {
     cratesOpened = 0;
     _casinoManager.reset();
     // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
-    lifetimeEverSats = 0;
-    hasWonGame = false;
+    _endgame.reset();
     _breach.reset(); // fresh save → the next breach is a drill again
-    pendingWinCelebration = false;
     // Progressive-disclosure tabs re-lock on a full wipe (fresh-start feel).
     _tabUnlock.reset();
     pendingAchievementToasts.clear();
@@ -1784,8 +1791,7 @@ class GameLogic with ChangeNotifier {
     // One full 21M supply mined = exactly one Mastery unit; un-farmable by
     // rapid resetting since only mining grants it.
     _classManager.creditMasteryFromMining(_classManager.current, amount);
-    lifetimeEverSats += amount; // cosmetic lifetime stat (survives all resets)
-    if (!lifetimeEverSats.isFinite) lifetimeEverSats = double.maxFinite;
+    _endgame.addEver(amount); // cosmetic lifetime stat (survives all resets)
     // Speed Run: accumulate this run's mined total and finish at one full supply.
     // Runs before the win latch's early-return so a run can complete post-win too.
     if (_speedRun.credit(amount, _classManager.current.name)) {
@@ -1793,10 +1799,10 @@ class GameLogic with ChangeNotifier {
     }
     // THE LAST SATOSHI: the win is the FIRST time a single era mines the full
     // 21,000,000-BTC supply (lifetimeEarnings reaches the inviolable per-era cap).
-    if (hasWonGame) return;
-    if (lifetimeEarnings < GameConstants.maxSupplySats) return;
-    hasWonGame = true;
-    pendingWinCelebration = true; // drained once by the UI (not persisted)
+    if (!_endgame.tryWin(
+        capReached: lifetimeEarnings >= GameConstants.maxSupplySats)) {
+      return;
+    }
     // During offline catch-up, defer ALL UI side effects: the loop assigns
     // offlineEarningsAmount only after it finishes, so a notify here would show
     // the ending before the WELCOME BACK dialog and stack it underneath. The
@@ -1817,8 +1823,7 @@ class GameLogic with ChangeNotifier {
 
   /// Drain the one-shot ending trigger after the UI has shown it.
   void clearWinCelebration() {
-    if (!pendingWinCelebration) return;
-    pendingWinCelebration = false;
+    if (!_endgame.clearWin()) return;
     notifyListeners();
   }
 
@@ -2437,12 +2442,14 @@ class GameLogic with ChangeNotifier {
       // already-won returning player has hasWonGame=true first and the offline
       // catch-up can't falsely re-fire the ending. `lifetimeEverSats` is now just
       // a cosmetic lifetime stat.
-      lifetimeEverSats = _toDouble(data['lifetimeEverSats']);
-      hasWonGame = data['hasWonGame'] == true;
+      _endgame.restore(
+        lifetimeEverSats: _toDouble(data['lifetimeEverSats']),
+        hasWonGame: data['hasWonGame'] == true,
+      );
       // Migration: THE LAST SATOSHI win now latches when a single era fills the
       // 21M cap. Silently latch (no replayed credits) for any legacy save already
       // sitting at the cap. Dropped fields (sandboxNoCap, winCount) are ignored.
-      if (lifetimeEarnings >= GameConstants.maxSupplySats) hasWonGame = true;
+      _endgame.healWonIf(lifetimeEarnings >= GameConstants.maxSupplySats);
 
       // Speed Run (wall-clock timed challenge). The start timestamp keeps the
       // clock running across a close; a missing/garbage start with an active
