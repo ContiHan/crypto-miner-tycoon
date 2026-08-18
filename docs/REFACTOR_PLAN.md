@@ -148,3 +148,18 @@ tick causes rebuild jank, use `Selector`/`context.select` at the **read** sites
 A1 → A2 → A3 (quick wins, warm up) → B1 → C1 (casino logic + UI together) →
 B2 → B3 → C2 → C3 → B4 → B5 → C4 → C5 → D1 → D3 → D4 → **D2 (serialization) last**.
 Each is independently shippable and suite-gated.
+
+## PROGRESS (all commits LOCAL on main, suite-gated +378 ~1)
+
+- ✅ **A1** `b396b85` — deleted dead `bitcoinExchangeRate`; collapsed rig-cost →
+  the one `getRigCostInSats`; dropped the `/rate` divide.
+- ✅ **A2** — pure widget relocations: research_tab 627→345 (`b0dc2d5`,
+  `tech_preset_bar.dart`), perks 891→658 (`a16beca`, `loadout_panels.dart`),
+  mining_tab 1077→935 (`7c90262`, `mining_banners.dart`).
+- ✅ **A3** `529964b` — `AppTheme.rarityColor(index)` + `RarityBadge`
+  (`rarity_badge.dart`); both firmware/achievement `_rarityColor` now delegate.
+  DEVIATION from plan: no standalone `Rarity` enum in `lib/core/rarity.dart` —
+  `FirmwareRarity`/`AchRarity` stay as domain enums (73 AchRarity refs); a third
+  enum nothing adopts would be dead indirection. STASH's 6-tier `ArtifactRarity`
+  is a genuinely different palette, left untouched.
+- ⏭️ **B1 CasinoManager** — NEXT.

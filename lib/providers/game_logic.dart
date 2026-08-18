@@ -36,6 +36,7 @@ import '../logic/systems/firmware_system.dart';
 import '../logic/systems/breach_system.dart';
 import '../logic/systems/speed_run_system.dart';
 import '../logic/systems/rig_reveal_system.dart';
+import '../logic/systems/casino_manager.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -179,8 +180,6 @@ class GameLogic with ChangeNotifier {
   int softForkCount = 0;
   int newChainCount = 0;
   int cratesOpened = 0;
-  int casinoSpins = 0;
-  int casinoJackpots = 0;
 
   // --- Progressive disclosure (Phase: locked nav tabs) ---
   // Bottom-nav tabs reveal gradually so a new player isn't shown everything at
@@ -195,142 +194,74 @@ class GameLogic with ChangeNotifier {
   void clearTabUnlockToasts() => pendingTabUnlockToasts.clear();
 
   // SIMULATED "SWEEP" minigame (in-game UTXO only). Player-favoured (EV>1),
-  // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted UTXO.
-  final CasinoService _casino = CasinoService();
+  // bounded by a per-real-time-window net-gain cap. `chips` IS the persisted UTXO
+  // (kept here — the crate shop spends it too). The SWEEP economy (window cap +
+  // resolve/commit split) lives in CasinoManager; GameLogic keeps thin proxies so
+  // the STASH screen + casino_test are unchanged.
   final Random _casinoRng; // injectable so tests can force deterministic spins
+  late final CasinoManager _casinoManager = CasinoManager(
+    rng: _casinoRng,
+    chips: () => chips,
+    setChips: (v) => chips = v,
+    sweepLuck: () => sweepLuckMultiplier,
+    onWinSound: () => _soundService.playCoin(),
+    onWinHaptic: _hapticLight,
+    onJackpotHaptic: _hapticHeavy,
+    evaluateAchievements: _evaluateAchievements,
+    save: _saveGame,
+    notify: notifyListeners,
+  );
 
-  // --- Anti-farm: the NET UTXO gained from SWEEP per real-time window is capped;
-  // past it, sweeps are blocked until the window resets ("mempool congested"). --
-  double casinoWindowNet = 0; // net UTXO gained since the window opened
-  int casinoWindowStartMs = 0; // window-open epoch ms (0 = not yet opened)
-
-  static const int _casinoWindowMs =
-      GameConstants.casinoWindowHours * 60 * 60 * 1000;
-
-  bool _casinoWindowExpired(int nowMs) =>
-      casinoWindowStartMs == 0 || nowMs - casinoWindowStartMs >= _casinoWindowMs;
+  // Persisted SWEEP counters (owned by the manager; proxied for achievements, the
+  // rig-reveal supplier, and serialization).
+  int get casinoSpins => _casinoManager.spins;
+  int get casinoJackpots => _casinoManager.jackpots;
 
   /// Net UTXO gained in the CURRENT window (0 once it has elapsed). Pure read.
-  double get casinoNetThisWindow =>
-      _casinoWindowExpired(DateTime.now().millisecondsSinceEpoch)
-          ? 0
-          : casinoWindowNet;
+  double get casinoNetThisWindow => _casinoManager.netThisWindow;
 
   /// True when the per-window net-gain cap is reached — sweeps are blocked until
   /// the window resets. Pure read (no mutation), safe to call during build.
-  bool get casinoCapped =>
-      casinoNetThisWindow >= GameConstants.casinoDailyNetCap;
+  bool get casinoCapped => _casinoManager.capped;
 
   /// Milliseconds until the current window resets (0 if none open / already up).
-  int get casinoWindowResetInMs {
-    if (casinoWindowStartMs == 0) return 0;
-    final left = _casinoWindowMs -
-        (DateTime.now().millisecondsSinceEpoch - casinoWindowStartMs);
-    return left < 0 ? 0 : left;
-  }
+  int get casinoWindowResetInMs => _casinoManager.windowResetInMs;
 
-  /// Opens a fresh window (resetting the net) if none is open or the current one
-  /// has elapsed, then reports whether a sweep is allowed (block threshold not
-  /// yet reached). The crossing sweep is still paid in full — see [casinoDailyNetCap].
-  bool _beginSweep() {
-    final now = DateTime.now().millisecondsSinceEpoch;
-    if (_casinoWindowExpired(now)) {
-      casinoWindowStartMs = now;
-      casinoWindowNet = 0;
-    }
-    return casinoWindowNet < GameConstants.casinoDailyNetCap;
-  }
-
-  // --- SWEEP: resolve/commit split -----------------------------------------
-  // Each game splits into RESOLVE (gate on the cap + deduct the stake + roll the
-  // RNG outcome) and COMMIT (credit the payout, advance the net cap, count the
-  // spin, play feedback, evaluate achievements, notify + save). The animated UI
-  // resolves at the tap so the reels/ball/nonce show the REAL outcome, then calls
-  // commitSweep only once the animation lands — otherwise a win, an achievement
-  // toast, or the "MEMPOOL CONGESTED" cap would flash at tap time, before the
-  // animation finishes. The one-shot play* wrappers (resolve+commit) stay for
-  // tests and any non-animated path.
+  // The raw window accumulators — proxied get/set (persisted; casino_test drives
+  // them directly to simulate a capped / expired window).
+  double get casinoWindowNet => _casinoManager.windowNet;
+  set casinoWindowNet(double v) => _casinoManager.windowNet = v;
+  int get casinoWindowStartMs => _casinoManager.windowStartMs;
+  set casinoWindowStartMs(int v) => _casinoManager.windowStartMs = v;
 
   /// Bet [bet] UTXO on the slots (one-shot). Null if unaffordable or capped.
-  SlotSpin? playSlots(int bet) {
-    final spin = resolveSlots(bet);
-    if (spin != null) commitSweep(spin);
-    return spin;
-  }
+  SlotSpin? playSlots(int bet) => _casinoManager.playSlots(bet);
 
   /// Deduct the stake and roll a slots spin WITHOUT committing it (see
   /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
-  SlotSpin? resolveSlots(int bet) {
-    if (bet <= 0 || chips < bet) return null;
-    if (!_beginSweep()) return null;
-    chips -= bet;
-    return _casino.spinSlots(bet, _casinoRng, luck: sweepLuckMultiplier);
-  }
+  SlotSpin? resolveSlots(int bet) => _casinoManager.resolveSlots(bet);
 
-  /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30×
+  /// Hash Flip on [bet] UTXO — the high-variance game (mostly busts, rare 30x
   /// jackpot), one-shot. Null if unaffordable or capped.
-  FlipResult? playDoubleOrNothing(int bet) {
-    final result = resolveFlip(bet);
-    if (result != null) commitSweep(result);
-    return result;
-  }
+  FlipResult? playDoubleOrNothing(int bet) =>
+      _casinoManager.playDoubleOrNothing(bet);
 
   /// Deduct the stake and roll a Hash Flip WITHOUT committing it (see
   /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
-  FlipResult? resolveFlip(int bet) {
-    if (bet <= 0 || chips < bet) return null;
-    if (!_beginSweep()) return null;
-    chips -= bet;
-    return _casino.flip(bet, _casinoRng, luck: sweepLuckMultiplier);
-  }
+  FlipResult? resolveFlip(int bet) => _casinoManager.resolveFlip(bet);
 
   /// Relay a packet for [bet] UTXO (one-shot). Null if unaffordable or capped.
-  PlinkoDrop? playPlinko(int bet) {
-    final drop = resolvePlinko(bet);
-    if (drop != null) commitSweep(drop);
-    return drop;
-  }
+  PlinkoDrop? playPlinko(int bet) => _casinoManager.playPlinko(bet);
 
   /// Deduct the stake and roll a relay drop WITHOUT committing it (see
   /// [commitSweep]). Null if unaffordable or the per-window cap blocks play.
-  PlinkoDrop? resolvePlinko(int bet) {
-    if (bet <= 0 || chips < bet) return null;
-    if (!_beginSweep()) return null;
-    chips -= bet;
-    return _casino.dropPlinko(bet, _casinoRng, luck: sweepLuckMultiplier);
-  }
+  PlinkoDrop? resolvePlinko(int bet) => _casinoManager.resolvePlinko(bet);
 
-  /// Commit a RESOLVED sweep outcome (the stake was already deducted by the
-  /// matching resolve*): credit the payout, advance the per-window net (which can
-  /// trip the cap), count the spin/jackpot, evaluate achievements, and always
-  /// SAVE (so a background/kill can't lose the staked UTXO).
-  ///
-  /// When [silent] (the animation never got to land — the screen is being
-  /// disposed or the app is backgrounding), skip the reveal feedback: no sound,
-  /// no haptic, and NO notifyListeners — the latter would call markNeedsBuild
-  /// during the framework's locked teardown and assert in debug. The currency is
-  /// still committed exactly once and persisted; the UI reflects it on its next
-  /// natural rebuild.
-  void commitSweep(SweepOutcome outcome, {bool silent = false}) {
-    chips += outcome.payout;
-    casinoWindowNet += outcome.net;
-    casinoSpins++;
-    if (outcome.isJackpot) casinoJackpots++;
-    if (!silent) {
-      if (outcome.isWin) _soundService.playCoin(); // win chime (a bust is silent)
-      if (outcome.isJackpot) {
-        _hapticHeavy();
-      } else if (outcome.isWin) {
-        _hapticLight();
-      }
-    }
-    // On a SILENT commit (teardown/backgrounding) skip achievement evaluation so
-    // its cue can't fire during teardown — the counters are saved below, so any
-    // crossed achievement unlocks on the next natural evaluation (or on reload).
-    if (!silent) _evaluateAchievements();
-    if (!silent) notifyListeners();
-    _saveGame();
-  }
+  /// Commit a RESOLVED sweep outcome (see [CasinoManager.commit]). [silent] skips
+  /// the reveal feedback + notify (teardown/backgrounding); currency still commits
+  /// exactly once and persists.
+  void commitSweep(SweepOutcome outcome, {bool silent = false}) =>
+      _casinoManager.commit(outcome, silent: silent);
 
   // Achievements + Notoriety (permanent income bonus). Persists across all
   // prestige tiers like the Stash — only a full wipe clears it.
@@ -780,10 +711,7 @@ class GameLogic with ChangeNotifier {
     softForkCount = 0;
     newChainCount = 0;
     cratesOpened = 0;
-    casinoSpins = 0;
-    casinoJackpots = 0;
-    casinoWindowNet = 0;
-    casinoWindowStartMs = 0;
+    _casinoManager.reset();
     // Endgame spine — cleared ONLY by a full Wipe Save (never by any prestige).
     lifetimeEverSats = 0;
     hasWonGame = false;
@@ -2420,10 +2348,10 @@ class GameLogic with ChangeNotifier {
       softForkCount: softForkCount,
       newChainCount: newChainCount,
       cratesOpened: cratesOpened,
-      casinoSpins: casinoSpins,
-      casinoJackpots: casinoJackpots,
-      casinoWindowNet: casinoWindowNet,
-      casinoWindowStartMs: casinoWindowStartMs,
+      casinoSpins: _casinoManager.spins,
+      casinoJackpots: _casinoManager.jackpots,
+      casinoWindowNet: _casinoManager.windowNet,
+      casinoWindowStartMs: _casinoManager.windowStartMs,
       currentClass: _classManager.current.name,
       mastery: _classManager.masteryJson(),
       lifetimeEverSats: lifetimeEverSats,
@@ -2561,10 +2489,12 @@ class GameLogic with ChangeNotifier {
       softForkCount = _toInt(data['softForkCount']);
       newChainCount = _toInt(data['newChainCount']);
       cratesOpened = _toInt(data['cratesOpened']);
-      casinoSpins = _toInt(data['casinoSpins']);
-      casinoJackpots = _toInt(data['casinoJackpots']);
-      casinoWindowNet = _toDouble(data['casinoWindowNet']);
-      casinoWindowStartMs = _toInt(data['casinoWindowStartMs']);
+      _casinoManager.restore(
+        spins: _toInt(data['casinoSpins']),
+        jackpots: _toInt(data['casinoJackpots']),
+        windowNet: _toDouble(data['casinoWindowNet']),
+        windowStartMs: _toInt(data['casinoWindowStartMs']),
+      );
       if (data['achievements'] is List) {
         _achievements.load(
           (data['achievements'] as List).map((e) => e.toString()),
