@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../logic/systems/aura_system.dart';
-import '../logic/systems/keystone_system.dart';
 
 /// AURAS/STANCE loadout panel. One exclusive stance + up to 3 auras; a 60s switch
 /// lockout blocks flicker. Auras are live conditional passives (e.g. "while a bad
@@ -151,84 +150,6 @@ class AurasPanel extends StatelessWidget {
             'Conditional passives — active only while their condition holds. '
             '● lit = acting now · ○ = equipped, waiting for its condition. '
             'Shown raw %; on-channel bonuses soft-cap when stacked.',
-            style: TextStyle(color: Colors.white38, fontSize: 10),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// KEYSTONES — up to 2 build-defining levers, each a big upside with a symmetric
-/// cost, offered by the doctrines this run has committed (they live at each
-/// doctrine's capstone in TECH). Hidden until a doctrine is committed.
-class KeystonesPanel extends StatelessWidget {
-  final GameLogic game;
-  const KeystonesPanel({super.key, required this.game});
-
-  @override
-  Widget build(BuildContext context) {
-    final available = game.availableKeystones();
-    if (available.isEmpty) return const SizedBox.shrink();
-    final count = game.equippedKeystoneCount;
-
-    Widget chip(KeystoneDef k, bool on) {
-      final bool capReached = !on && count >= 2;
-      return Padding(
-        padding: const EdgeInsets.only(right: 6, bottom: 6),
-        child: Tooltip(
-          message: k.description,
-          child: GestureDetector(
-            onTap: capReached ? null : () => game.toggleKeystone(k.id),
-            child: Opacity(
-              opacity: capReached ? 0.4 : 1.0,
-              child: Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-                decoration: BoxDecoration(
-                  color: on
-                      ? AppTheme.accent.withValues(alpha: 0.18)
-                      : AppTheme.background,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(
-                      color: on ? AppTheme.accent : Colors.white24),
-                ),
-                child: Text(k.name,
-                    style: TextStyle(
-                        fontSize: 11,
-                        fontWeight: on ? FontWeight.bold : FontWeight.normal,
-                        color: on ? AppTheme.accent : Colors.white70)),
-              ),
-            ),
-          ),
-        ),
-      );
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(10),
-      decoration: BoxDecoration(
-        color: Colors.black26,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white12),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Text('KEYSTONES ($count/2)',
-              style: const TextStyle(
-                  color: AppTheme.accent,
-                  fontWeight: FontWeight.bold,
-                  fontSize: 12,
-                  letterSpacing: 1)),
-          const SizedBox(height: 6),
-          Wrap(children: [
-            for (final k in available) chip(k, game.isKeystoneEquipped(k.id))
-          ]),
-          const SizedBox(height: 2),
-          const Text(
-            'Build-defining: each is a big upside paid for with a real downside.',
             style: TextStyle(color: Colors.white38, fontSize: 10),
           ),
         ],

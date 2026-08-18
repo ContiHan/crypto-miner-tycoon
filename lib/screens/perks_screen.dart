@@ -111,8 +111,9 @@ class PerksScreen extends StatelessWidget {
                 // Live overview: passive racials + bonuses from SKILL nodes
                 // bought this run + Mastery (so you can always see the class state).
                 if (game.hasChosenClass) _classOverview(context, game),
-                // Auras + keystones moved into a modal (like CLASS BONUSES) to
-                // free up the cramped header — a summary row opens the loadout.
+                // Stance + auras live in a modal (like CLASS BONUSES) to free up
+                // the cramped header — a summary row opens the loadout. (Keystones
+                // moved to the TECH tab.)
                 if (game.hasChosenClass) _loadoutOverview(context, game),
               ],
             ),
@@ -384,20 +385,15 @@ class PerksScreen extends StatelessWidget {
     );
   }
 
-  /// Tappable summary row that opens the LOADOUT modal (auras/stance + keystones).
-  /// Moved off the cramped SKILL header — mirrors the CLASS BONUSES row. Hidden
-  /// until at least one of the two systems has something to show.
+  /// Tappable summary row that opens the LOADOUT modal (stance + auras). Moved off
+  /// the cramped SKILL header — mirrors the CLASS BONUSES row. Hidden until an
+  /// aura/stance is available. (Keystones live in the TECH tab now.)
   Widget _loadoutOverview(BuildContext context, GameLogic game) {
     final hasAuras = game.availableAuras().isNotEmpty;
-    final hasKeystones = game.availableKeystones().isNotEmpty;
-    if (!hasAuras && !hasKeystones) return const SizedBox.shrink();
+    if (!hasAuras) return const SizedBox.shrink();
 
-    final parts = <String>[];
-    if (hasAuras) {
-      final stance = game.equippedStance != null ? '1 stance' : 'no stance';
-      parts.add('$stance · ${game.equippedAuras.length}/3 auras');
-    }
-    if (hasKeystones) parts.add('${game.equippedKeystoneCount}/2 keystones');
+    final stance = game.equippedStance != null ? '1 stance' : 'no stance';
+    final parts = <String>['$stance · ${game.equippedAuras.length}/3 auras'];
 
     return Padding(
       padding: const EdgeInsets.only(top: 10),
@@ -419,7 +415,7 @@ class PerksScreen extends StatelessWidget {
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
-                    const Text('AURAS & KEYSTONES',
+                    const Text('LOADOUT',
                         style: TextStyle(
                             color: Colors.white70,
                             fontSize: 11,
@@ -458,7 +454,7 @@ class PerksScreen extends StatelessWidget {
         ),
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 460),
-          // Consumer so toggling an aura/keystone inside the modal re-lights the
+          // Consumer so toggling a stance/aura inside the modal re-lights the
           // chips live (the modal is its own subtree, outside the header Consumer).
           child: Consumer<GameLogic>(
             builder: (context, game, _) => SingleChildScrollView(
@@ -474,34 +470,23 @@ class PerksScreen extends StatelessWidget {
                         fontWeight: FontWeight.bold,
                         letterSpacing: 0.5,
                       )),
-                  const Text('STANCE · AURAS · KEYSTONES',
+                  const Text('STANCE · AURAS',
                       style: TextStyle(
                           color: Colors.white38,
                           fontSize: 10,
                           letterSpacing: 2)),
                   const SizedBox(height: 8),
                   // Plain-language rules so the mechanic is self-explanatory.
+                  // KEYSTONES live in the TECH tab now (universal, unlocked by
+                  // finishing a branch to its capstone) — not here.
                   const Text(
                     'Pick 1 STANCE and up to 3 AURAS (conditional passives). '
-                    'KEYSTONES (up to 2) are build-defining levers you unlock by '
-                    'finishing a TECH branch to its capstone. Filling an empty slot '
-                    'is instant; swapping or removing one has a 60s lockout.',
+                    'Filling an empty slot is instant; swapping or removing one has '
+                    'a 60s lockout.',
                     style: TextStyle(
                         color: Colors.white54, fontSize: 11, height: 1.4),
                   ),
                   AurasPanel(game: game),
-                  KeystonesPanel(game: game),
-                  // When no branch capstone is owned yet, the keystones panel is
-                  // empty — say why instead of showing nothing.
-                  if (game.availableKeystones().isEmpty)
-                    const Padding(
-                      padding: EdgeInsets.only(top: 10),
-                      child: Text(
-                        'KEYSTONES — none yet. Finish a TECH branch to its capstone '
-                        'node to unlock that branch\'s keystones here.',
-                        style: TextStyle(color: Colors.white38, fontSize: 11),
-                      ),
-                    ),
                   Align(
                     alignment: Alignment.centerRight,
                     child: TextButton(
