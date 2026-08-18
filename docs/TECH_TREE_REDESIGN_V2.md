@@ -114,12 +114,22 @@ C8 keystone (equip 1): `ks_degenerate_gambler` (luck ×2 / income ×0.5, hash ×
 
 ## 5. THE PICK-BUDGET RULE (the tension engine)
 
-**One number: Research Points (RP).** Resets every fork (same lifecycle TECH already resets on).
-```
-RP_budget = 8 + min(6, prestigeTier)              →  8 (first fork) … 14 (deep)
-Endgame prestige upgrade "Overmind Lattice":  cap → 18 RP  (the fabled two-keystone build)
-```
-Whole tree = **27 RP** (3 × 9). Budget buys **30–52%** of it.
+**One number: Research Points (RP)** — a *permanent, growing pool* you re-spend
+**in full every fork** (free respec). No BTC cost anymore (owner-confirmed). The pool
+grows by **prestige-ladder breakthroughs**, so you start with little and unlock more
+gradually — each milestone pops a visible "**+N RP**" toast:
+
+| Source (breakthrough) | RP | When | Feel |
+|---|---|---|---|
+| **First Hard Fork** (TECH unlocks) | **4** | very start | 4 nodes → a mini-build of one lane, not a full branch |
+| **Each further Hard Fork** | +1 → cap **8** | early ramp | "fork more = research more" |
+| **Each Genesis Block** (New Blockchain) | +2 → cap **14** | mid/deep | reward for deep prestige |
+| **Deep Mastery** (+1 per 2 levels) | +1 → cap **18** | endgame | reward for deep single-class play |
+
+Curve: **4 → 8 → 14 → 18** (owner-confirmed, supersedes the old 8→14). Whole tree =
+**27 RP** (3 × 9). The pool buys **~15% early → ~67% deep** of it. Numbers are tunable
+and get a balance sim before ship. (Alternatives considered + parked: RP from
+achievements; RP as a mined prestige-currency.)
 
 | Budget | What it buys | Feel |
 |---|---|---|
@@ -143,9 +153,26 @@ GovToken. This deletes the "you touched degenYield so prestige is gone forever" 
 
 ## 7. VISUAL LAYOUT (top-down, zero crossings, phone-compact)
 
-**Idiom = the SKILL tab's split, reused:** TECH is an **accordion of three Engine cards**;
-tapping one expands its tree, the other two collapse to a one-line summary. Only one
-branch's graph is ever on screen. Reuse the existing `BlockGraph` + `showGraphNodeSheet`.
+**Idiom = the SKILL tab's split, reused:** the whole tab is a single accordion list in
+**TWO grouped sections** (owner-confirmed):
+- **RESEARCH BRANCHES** — the three Engine cards; tapping one expands its tree, the
+  others collapse to a one-line pip summary. Only one branch's graph is ever on screen.
+- **KEYSTONES & SYNERGIES** — two more accordion cards, *same expand idiom*, under their
+  own section header so the meta layer reads as visually separate from the branches.
+  **Keystones** expands to the ≤2 equip choices grouped by branch (locked until that
+  branch's capstone is owned); **Synergies** expands to the live combo checklist that
+  teaches why nodes sit together.
+
+Reuse the existing `BlockGraph` + `showGraphNodeSheet`.
+
+**Owner visual notes (for the build):** the root node AND the capstone are both
+horizontally **centered** (single/spanning nodes always centered); the background
+connector wires must **never show through an un-researched node** (nodes paint a fully
+opaque fill — dim locked nodes by color, never by card-opacity); and each expanded
+branch carries a **faint theme-graphic wash** in its own tint (a soft radial + a large
+low-opacity branch glyph) so the section has "grády". The game currently reads as
+colour-poor in TECH/SKILL — this colour-coded, tinted treatment is the fix, and the
+same discipline carries to the SKILL redesign.
 
 ```
 ┌──────────────────────────────────────────┐
