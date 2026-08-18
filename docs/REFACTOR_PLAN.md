@@ -191,5 +191,17 @@ Each is independently shippable and suite-gated.
   thin `_hapticLight/Medium/Heavy` wrappers so the ~15 haptic call sites +
   settings/onboarding/tip UI are unchanged; load routes through `_settings.load()`.
   Dropped the now-unused `flutter/services` import from game_logic.
-- ⏭️ **Next**: per plan order, C1 (casino UI split, pairs with B1) or continue
-  B4 (EconomyModifiers, ~300 lines — biggest bulk) / B5 (auto-apply → ResearchManager).
+- ✅ **B4 EconomyModifiers** — the 13 getters that are PURE over channels +
+  committed keystones → `lib/logic/economy/economy_modifiers.dart`: luckMultiplier,
+  idleCapacitySeconds, the resistance suite (`_resist` + crash/cost/halving/
+  duration/theft), volatilityMultiplier, bullBiasStrength, overchargeFactor,
+  offlineFraction, critPayoutMultiplier, fortuneBonus. 2-supplier seam (channels:
+  buildChannels, keystones: () => keystoneMods); GameLogic forwards each via a
+  thin proxy. SCOPED (not full B4): the ability-coupled luck FACETS
+  (`_combinedLuck`/crit/sweep/anomaly + abilityLuckBuff/abilityCrashImmune) and
+  `upkeepRate` (rigs/class/chaos-cost) deliberately stay in GameLogic — not pure
+  over channels+keystones. Verified by a 2-lens equivalence review + 38 economy
+  tests. game_logic ~-70 lines.
+- ⏭️ **Next**: B5 (auto-apply re-tech → ResearchManager) + the residual B4 tail
+  (luck facets / upkeep) if wanted, then Phase C screen splits (stash_screen
+  casino ~700 lines is the big one), then Phase D serialization.

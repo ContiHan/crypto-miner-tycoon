@@ -39,6 +39,7 @@ import '../logic/systems/casino_manager.dart';
 import '../logic/systems/tab_unlock_system.dart';
 import '../logic/systems/endgame_system.dart';
 import '../logic/systems/settings_controller.dart';
+import '../logic/economy/economy_modifiers.dart';
 import '../logic/systems/anomaly_system.dart';
 import '../logic/systems/chaos_event_system.dart';
 import '../logic/systems/prestige_system.dart';
@@ -304,10 +305,19 @@ class GameLogic with ChangeNotifier {
   double get notorietyBonus => _achievements.notorietyBonus;
   double get notorietyMultiplier => _achievements.notorietyMultiplier;
 
+  // Pure derived economy modifiers (resistances, luck aggregate, upkeep-free
+  // scalars) live in EconomyModifiers — pure over channels + committed keystones.
+  // GameLogic forwards each via a thin proxy so the public API + callers are
+  // unchanged. (Ability-coupled luck FACETS + rigs/class-coupled upkeepRate stay
+  // here — they are not pure over channels+keystones.)
+  late final EconomyModifiers _mods = EconomyModifiers(
+    channels: buildChannels,
+    keystones: () => keystoneMods,
+  );
+
   /// Aggregate (shared) Luck factor (>=1, softcapped). Kept for the STASH readout;
   /// the three effect sites use the decoupled facet getters below.
-  double get luckMultiplier =>
-      buildChannels().multiplier(Channel.luck, softStart: 1.5, power: 0.5);
+  double get luckMultiplier => _mods.luckMultiplier;
 
   /// Combined luck for one facet: shared `luck` + the facet's own sources, run
   /// through the luck softcap. Shared luck (classes/perks) lifts all three facets;
@@ -354,32 +364,14 @@ class GameLogic with ChangeNotifier {
   /// IDLE CAPACITY — the offline-accrual WINDOW in seconds. Base 8h + `idle`
   /// sources (in hours), hard-capped at 24h (#16). A longer absence still only
   /// banks this many hours of offline mining.
-  double get idleCapacitySeconds {
-    // COLD-WALLET DISCIPLINE ×2 (or Sweat Equity ×0.5) scales the window, but the
-    // 24h FINAL cap still binds (#16).
-    final hours = ((GameConstants.offlineWindowBaseHours +
-                buildChannels().sum(Channel.idle)) *
-            keystoneMods.idleMult)
-        .clamp(0.0, GameConstants.offlineWindowMaxHours);
-    return hours * 3600.0;
-  }
+  double get idleCapacitySeconds => _mods.idleCapacitySeconds;
 
-  // --- Resistances (Phase 2) ---------------------------------------------
-  // Each resistance is a `[0, per-lever cap]` value summed from its channel, then
-  // scaled by any keystone resist lever (FORT KNOX ×1.3 toward the cap / MARKET
-  // MAKER ×0.5), still clamped to its per-lever cap so the ≤0.70 rail holds.
-  double _resist(Channel ch, double cap) =>
-      (buildChannels().sum(ch) * keystoneMods.resistMult).clamp(0.0, cap);
-  double get crashResistance =>
-      _resist(Channel.crashResist, GameConstants.resistCapMagnitude);
-  double get costResistance =>
-      _resist(Channel.costResist, GameConstants.resistCapMagnitude);
-  double get halvingResistance =>
-      _resist(Channel.halvingResist, GameConstants.resistCapHalving);
-  double get durationResistance =>
-      _resist(Channel.durationResist, GameConstants.resistCapDuration);
-  double get theftResistance =>
-      _resist(Channel.theftResist, GameConstants.resistCapMagnitude);
+  // --- Resistances (Phase 2) — proxied to EconomyModifiers ---------------
+  double get crashResistance => _mods.crashResistance;
+  double get costResistance => _mods.costResistance;
+  double get halvingResistance => _mods.halvingResistance;
+  double get durationResistance => _mods.durationResistance;
+  double get theftResistance => _mods.theftResistance;
 
   /// THE POWER BILL: the fraction of GROSS income skimmed before it reaches the
   /// spendable wallet (0..upkeepCap). Scales with the OWNED fleet's load, reduced
@@ -549,21 +541,9 @@ class GameLogic with ChangeNotifier {
     return (income, cost, duration); // hack/airdrop/bull/cheap-energy untouched
   }
 
-  /// Aggregate Volatility factor (1.0 with no sources) — scales chaos-event
-  /// frequency. Sources arrive with classes (Pool lowers it, others raise it).
-  double get volatilityMultiplier =>
-      buildChannels().multiplier(Channel.volatility, softStart: 1.5, power: 0.5);
-
-  /// BULL BIAS attribute — tilts chaos-event selection toward positives (never
-  /// zeroes negatives). Summed from Channel.bullBias, capped.
-  double get bullBiasStrength =>
-      buildChannels().sum(Channel.bullBias).clamp(0.0, GameConstants.bullBiasCap);
-
-  /// OVERCHARGE attribute — scales active ability BUFF magnitude and grant-seconds
-  /// (NOT durations/cooldowns). 1.0 with no sources; +overchargeCap (0.50) at most.
-  double get overchargeFactor =>
-      1.0 +
-      buildChannels().sum(Channel.overcharge).clamp(0.0, GameConstants.overchargeCap);
+  double get volatilityMultiplier => _mods.volatilityMultiplier;
+  double get bullBiasStrength => _mods.bullBiasStrength;
+  double get overchargeFactor => _mods.overchargeFactor;
 
   /// Amplifies an ability temp multiplier's BONUS by [overchargeFactor]
   /// (a neutral 1.0 buff stays 1.0).
@@ -573,30 +553,17 @@ class GameLogic with ChangeNotifier {
   /// OFFLINE YIELD fraction: the share of the live per-second rate earned while
   /// the app is closed. Base 0.70 + additive `offline` sources (TECH/class/etc.),
   /// hard-capped at 1.0 so offline can never out-earn active play.
-  double get offlineFraction {
-    // LOW TIME PREFERENCE / COLD-WALLET DISCIPLINE force full offline parity.
-    if (keystoneMods.offlineForceParity) return GameConstants.offlineFractionCap;
-    return (GameConstants.offlineBaseFraction +
-            buildChannels().sum(Channel.offline))
-        .clamp(0.0, GameConstants.offlineFractionCap);
-  }
+  double get offlineFraction => _mods.offlineFraction;
 
   /// BLOCK REWARD: the crit PAYOUT multiplier. Base 5x, raised (concavely) by the
   /// `special` channel and hard-capped at critPayoutMax so stacked crit-power can
   /// never produce an absurd per-tap payout (#11). With no sources it is exactly
   /// the base 5x.
-  double get critPayoutMultiplier => ((GameConstants.clickCritMultiplier +
-              GameConstants.clickCritPayoutSpecialScale *
-                  softcap(buildChannels().sum(Channel.special), 1.0, 0.5)) *
-          keystoneMods.critPayoutMult) // LASER EYES ×2
-      .clamp(0.0, GameConstants.critPayoutMax);
+  double get critPayoutMultiplier => _mods.critPayoutMultiplier;
 
   /// PROSPECTOR'S EYE: the per-crate-roll chance to bump the rolled rarity up one
-  /// step. Additive `fortune` sources, hard-capped at fortuneMaxTierShiftChance
-  /// (#22) so loot can never be dominated (and never a guaranteed top rarity).
-  double get fortuneBonus => buildChannels()
-      .sum(Channel.fortune)
-      .clamp(0.0, GameConstants.fortuneMaxTierShiftChance);
+  /// step (proxied to EconomyModifiers).
+  double get fortuneBonus => _mods.fortuneBonus;
 
   // Typed haptics delegate to SettingsController (which owns the toggle + the
   // fire-and-forget/never-throw logic). Thin wrappers keep the many call sites
