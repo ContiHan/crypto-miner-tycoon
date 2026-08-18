@@ -28,6 +28,16 @@ class ResearchTab extends StatelessWidget {
     Doctrine.degenYield, Doctrine.hodler, // money: trade ⟂ hodl
     Doctrine.degenLuck, Doctrine.coldStorage, // variance: gamble ⟂ fortress
   ];
+  // Header chip per lane: name + the attribute it leans into, so "the lean" is
+  // explicit. (label, colour) — colours match the redesign mockup.
+  static const Map<Doctrine, (String, Color)> _laneInfo = {
+    Doctrine.megaHash: ('MEGA-HASH\n+HASH', Color(0xFFFF8A3D)),
+    Doctrine.leanRig: ('LEAN-RIG\nCLICK + COST', Color(0xFFFFD23D)),
+    Doctrine.degenYield: ('DEGEN-YIELD\n+INCOME', Color(0xFF3FD07F)),
+    Doctrine.hodler: ('HODLER\nPATIENCE', Color(0xFF3FB6D0)),
+    Doctrine.degenLuck: ('DEGEN-LUCK\n+LUCK', Color(0xFFC46BFF)),
+    Doctrine.coldStorage: ('COLD-STORAGE\n+RESIST', Color(0xFF5D7BFF)),
+  };
 
   @override
   Widget build(BuildContext context) {
@@ -190,6 +200,19 @@ class ResearchTab extends StatelessWidget {
     });
     final canvasH = laneTop + maxTier * _levelH + 120;
 
+    // One header chip per lane, naming the attribute it leans into.
+    final headers = <GraphHeader>[];
+    for (var i = 0; i < _laneOrder.length; i++) {
+      final info = _laneInfo[_laneOrder[i]];
+      if (info == null) continue;
+      headers.add(GraphHeader(
+        x: laneX(i),
+        y: laneTop - 74,
+        label: info.$1,
+        color: info.$2,
+      ));
+    }
+
     // Render only the visible subset, at their stable positions.
     final nodes = <GraphNode>[];
     final edges = <GraphEdge>[];
@@ -242,6 +265,7 @@ class ResearchTab extends StatelessWidget {
     return BlockGraph(
       nodes: nodes,
       edges: edges,
+      headers: headers,
       graphSize: Size(canvasW, canvasH),
       initialFocus: Offset(centerX, 90), // centre on the root (top of the stem)
       edgeStyle: GraphEdgeStyle.elbow, // clean circuit routing for the tree

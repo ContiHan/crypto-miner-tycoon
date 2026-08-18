@@ -54,9 +54,25 @@ const double kNodeH = 62;
 
 /// A pannable/zoomable blockchain-styled graph: chain-link edges painted behind
 /// block nodes. Reused by TECH (depth-column tree) and TALENTS (radial spider).
+/// A lane header chip painted in graph-space (pans/zooms with the tree), used by
+/// the TECH tree to label each doctrine column with the attribute it leans into.
+class GraphHeader {
+  final double x; // lane centre
+  final double y; // top of the chip
+  final String label;
+  final Color color;
+  const GraphHeader({
+    required this.x,
+    required this.y,
+    required this.label,
+    required this.color,
+  });
+}
+
 class BlockGraph extends StatefulWidget {
   final List<GraphNode> nodes;
   final List<GraphEdge> edges;
+  final List<GraphHeader> headers;
   final Size graphSize;
 
   /// Graph-space point to centre in the viewport on first open (e.g. the root /
@@ -71,6 +87,7 @@ class BlockGraph extends StatefulWidget {
     required this.nodes,
     required this.edges,
     required this.graphSize,
+    this.headers = const [],
     this.initialFocus,
     this.edgeStyle = GraphEdgeStyle.straight,
   });
@@ -144,6 +161,13 @@ class _BlockGraphState extends State<BlockGraph> {
                         height: kNodeH,
                         child: RepaintBoundary(child: _BlockNode(node: n)),
                       ),
+                    for (final h in widget.headers)
+                      Positioned(
+                        left: h.x - kNodeW / 2,
+                        top: h.y,
+                        width: kNodeW,
+                        child: _LaneHeader(header: h),
+                      ),
                   ],
                 ),
               ),
@@ -158,6 +182,39 @@ class _BlockGraphState extends State<BlockGraph> {
 /// Gold used for maxed nodes (distinct from the amber accent used for owned).
 /// Public so screens' legends can match the node colour.
 const Color kMaxedGold = Color(0xFFFFCC46);
+
+/// A doctrine lane header: a colored chip naming the lane + the attribute it
+/// leans into (e.g. "MEGA-HASH\n+HASH"). Sits above the lane's first node.
+class _LaneHeader extends StatelessWidget {
+  final GraphHeader header;
+  const _LaneHeader({required this.header});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 5),
+      decoration: BoxDecoration(
+        color: header.color.withValues(alpha: 0.14),
+        borderRadius: BorderRadius.circular(6),
+        border:
+            Border.all(color: header.color.withValues(alpha: 0.85), width: 1.2),
+      ),
+      child: Text(
+        header.label,
+        textAlign: TextAlign.center,
+        maxLines: 2,
+        overflow: TextOverflow.ellipsis,
+        style: TextStyle(
+          color: header.color,
+          fontSize: 9.5,
+          fontWeight: FontWeight.bold,
+          letterSpacing: 0.3,
+          height: 1.15,
+        ),
+      ),
+    );
+  }
+}
 
 class _BlockNode extends StatelessWidget {
   final GraphNode node;

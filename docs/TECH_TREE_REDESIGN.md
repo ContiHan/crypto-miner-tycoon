@@ -3,9 +3,10 @@
 > **STATUS: SLICES 1–3 SHIPPED (local on main), owner-approved.** Slice 1
 > re-chain (`d9fdef3`), Slice 2 lane layout (`a4d8b65`), Slice 3 idle→HODLER move
 > (this commit). Owner kept feeHedge in TRUNK (cost-resist stays unlockable).
-> DEFERRED: Slice 4 (DEGEN-YIELD keystone re-point to income) — owner chose to
-> ship the layout/flow first; and per-lane header chips (needs a BlockGraph
-> change). Layout needs device verification (render pane down this session).
+> Per-lane HEADER CHIPS also shipped (BlockGraph gained an optional `headers`
+> list; each lane names its attribute, e.g. "MEGA-HASH · +HASH"). DEFERRED: Slice
+> 4 (DEGEN-YIELD keystone re-point to income) — owner chose to ship the
+> layout/flow first. Layout needs device verification (render pane down here).
 
 ## The owner's finding (2026-08-17, phone)
 
@@ -100,6 +101,20 @@ whole tree, so buying never reflows (invariant preserved).
    Hands / Market Maker currently drift to govToken/chaos; income-axis fits the
    lane. Highest balance risk (multiplicative income rail) — its own slice or defer.
 5. **Docs + mark #5 done.**
+
+## Known accepted consequence (adversarial review, slice 3)
+
+Moving idle (batteryBank/gridStorage) coldStorage→HODLER collapses the maxed
+**offline+idle** archetype from TWO commitment pairs (old: hodler + coldStorage)
+into ONE (all of offline/idle/prestige now live in hodler). That frees the second
+budget pair to also commit an offensive doctrine, so a "patient hash/luck farmer"
+(hodler + megaHash, or hodler + degenLuck) is now reachable in 2 pairs where it
+was structurally impossible before. **Accepted:** no channel cap is breached
+(idle 24h / offline 1.0 unchanged), every build still wins with net ≥ 0.90, and
+idle/offline are passive-away conveniences that the continuous sim barely weights
+— so the real-play power gain is marginal and reads as healthy build diversity.
+It's a direct consequence of the owner-approved idle→HODLER move. If it ever needs
+reverting, drop the two `_doctrineOf` idle entries back to `Doctrine.coldStorage`.
 
 ## Balance note (the rails)
 
