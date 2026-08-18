@@ -4,9 +4,12 @@ Companion to docs/TECH_TREE_REDESIGN_V2.md (the design). This is the executable
 blueprint for the interlocked swap. **Slice 1 (Channel.doubleDrop) shipped: `b2bc035`.**
 
 ## Scoping decisions (locked)
-- **BTC stays as the era "when-gate"** (rich enough for the era); RP is layered on as the
-  commitment "how-many-gate". Presets/blueprints/auto-apply keep working untouched.
-  Fully removing BTC (→ retire blueprints/retech) is a clean FOLLOW-UP, not Slice 2.
+- ~~**BTC stays as the era "when-gate"**; RP layered on as the commitment gate.~~
+  **DONE (RP-only follow-up):** TECH is now Research-Point + prerequisite gated ONLY —
+  nodes have NO BTC cost. `tryBuy` is prereq+RP → bool; the blueprint re-tech DISCOUNT,
+  the `getResearchCost`/`getCostInSats` sats price, and the RE-TECH BTC toast were all
+  retired. Presets/auto-apply still work (they re-spend the RP budget for free). Re-teching
+  after a fork costs nothing. UI (research_tab / tech_preset_bar / home_screen) shows RP only.
 - **3 bespoke-mechanic nodes ship as placeholder channel effects in Slice 2**, wired fully
   in a later slice: `reinvestmentEngine` (flat income now → +1%/+20%hash cap50), `goldenNonceProtocol`
   (nonce now → +guaranteed ×2 every 4th crit), `aiCoPilot` (click now → auto-tap 1/5→1/2s).

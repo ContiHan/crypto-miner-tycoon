@@ -254,10 +254,9 @@ class RespecBar extends StatelessWidget {
         title: const Text('FREE RESPEC',
             style: TextStyle(color: Colors.orangeAccent)),
         content: const Text(
-          'Clear the entire TECH tree? This uncommits every researched node and '
-          'doctrine so you can pick a new build. You keep your blueprints, so '
-          're-teching is cheaper.\n\nYou get ONE respec per era — it refreshes at '
-          'your next fork.',
+          'Clear the entire TECH tree? This frees every researched node so you can '
+          're-spend your Research Points on a new build.\n\nYou get ONE respec per '
+          'era — it refreshes at your next fork.',
           style: TextStyle(color: AppTheme.textSecondary),
         ),
         actions: [

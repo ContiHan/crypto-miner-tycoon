@@ -50,7 +50,7 @@ void _buyResearch(GameLogic g) {
       .toList()
     ..sort((a, b) => a.cost.compareTo(b.cost));
   for (final n in buyable) {
-    if (g.wallet >= g.getResearchCost(n.id)) g.buyResearch(n.id);
+    g.buyResearch(n.id); // TECH is RP-only; buyResearch enforces the RP budget
   }
 }
 

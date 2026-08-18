@@ -127,7 +127,6 @@ class GameLogic with ChangeNotifier {
   List<ResearchNode> get researchNodes => _researchManager.researchNodes;
 
   /// BLUEPRINTS: permanent re-tech count for a TECH node (0 if never researched).
-  int blueprintCount(String id) => _researchManager.researchCount[id] ?? 0;
   Map<String, int> get perks => _perkManager.perks;
   Map<String, int> get perkCosts => _perkManager.perkCosts;
 
@@ -670,7 +669,6 @@ class GameLogic with ChangeNotifier {
     _perkManager.reset();
     _researchManager.reset();
     _respecUsed = false; // fresh save → the free respec refreshes
-    _researchManager.wipeBlueprints(); // full wipe ONLY: clears permanent blueprints
     _researchManager.wipePresets(); // full wipe ONLY: clears saved TECH presets
     _abilities.wipeCooldowns(); // full wipe ONLY: clears ability cooldowns + buffs
     _procs.clear(); // clears proc ICDs + active buffs
@@ -707,14 +705,8 @@ class GameLogic with ChangeNotifier {
   int _goldenNonceCounter = 0; // GOLDEN NONCE PROTOCOL (B6) pity timer
 
   void buyResearch(String researchId) {
-    double cost = _researchManager.tryBuy(
-      researchId,
-      wallet,
-      rpBudget: rpBudget,
-    );
-
-    if (cost > 0) {
-      wallet -= cost;
+    // TECH is RP + prerequisite gated — no BTC cost.
+    if (_researchManager.tryBuy(researchId, rpBudget: rpBudget)) {
       _soundService.playResearch();
       _evaluateAchievements();
       notifyListeners();
@@ -863,55 +855,30 @@ class GameLogic with ChangeNotifier {
     _saveGame();
   }
 
-  /// One-tap re-tech: makes [index] the active preset and buys toward it as far
-  /// as the wallet allows (dependency-ordered). Returns how many nodes bought.
+  /// One-tap re-tech: makes [index] the active preset and buys toward it within
+  /// the RP budget (dependency-ordered, free — TECH is RP-only). Returns how many
+  /// nodes were bought.
   int applyTechPreset(int index) {
     if (index < 0 || index >= _researchManager.presets.length) return 0;
     _researchManager.activePreset = index;
     final bought = _researchManager.rebuildFromPreset(
       _researchManager.presets[index],
-      getWallet: () => wallet,
-      setWallet: (v) => wallet = v,
+      rpBudget: rpBudget,
     );
     notifyListeners();
     _saveGame();
     return bought;
   }
 
-  // Auto-apply re-tech (rebuild loop + spend accounting) lives in ResearchManager;
-  // GameLogic proxies the toast signal and owns only the notify/save policy.
-  /// BTC the last settled auto-apply batch spent (drained by the RE-TECH toast).
-  double get pendingReTechSpend => _researchManager.pendingReTechSpend;
-  void clearReTechToast() => _researchManager.clearReTechToast();
-
-  /// AUTO-APPLY on the tick / after a reset: rebuild the active preset as income
-  /// allows (fast no-op once complete / off / no preset). Notify + save only when
-  /// it actually bought something.
+  /// AUTO-APPLY on the tick / after a reset: rebuild the active preset within the
+  /// RP budget (fast no-op once complete / off / no preset). Notify + save only
+  /// when it actually bought something.
   void _maybeAutoApplyPreset() {
-    final bought = _researchManager.maybeAutoApply(
-      getWallet: () => wallet,
-      setWallet: (v) => wallet = v,
-      rpBudget: rpBudget,
-    );
+    final bought = _researchManager.maybeAutoApply(rpBudget: rpBudget);
     if (bought > 0) {
       notifyListeners();
       _saveGame();
     }
-  }
-
-  double getResearchCost(String researchId) {
-    var node = _researchManager.researchNodes.firstWhere(
-      (r) => r.id == researchId,
-      orElse: () => ResearchNode(
-        id: '',
-        name: '',
-        description: '',
-        cost: 0,
-        icon: Icons.error,
-      ),
-    );
-    if (node.id.isEmpty) return 0;
-    return _researchManager.getCostInSats(node);
   }
 
   // RPG class + Mastery (Phase 3). Prospector until the first New Blockchain.
@@ -2274,7 +2241,6 @@ class GameLogic with ChangeNotifier {
       perkCosts: _perkManager.perkCosts,
       rigs: rigs,
       researchNodes: _researchManager.researchNodes,
-      researchCount: _researchManager.researchCountJson(), // BLUEPRINTS
       techPresets: _researchManager.presetsJson(), // PRESETS
       activeTechPreset: _researchManager.activePreset,
       autoApplyPresets: _researchManager.autoApplyPresets,
@@ -2531,8 +2497,6 @@ class GameLogic with ChangeNotifier {
           }
         }
       }
-      // BLUEPRINTS: permanent per-node re-tech counts (survive every reset).
-      _researchManager.loadResearchCounts(data['researchCount']);
       // PRESETS: saved TECH builds + active index + auto-apply flag.
       _researchManager.loadPresets(data['techPresets'],
           data['activeTechPreset'], data['autoApplyPresets']);

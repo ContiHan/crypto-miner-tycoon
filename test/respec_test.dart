@@ -55,19 +55,6 @@ void main() {
       expect(game.rpSpent, 0, reason: 'respec frees the whole RP budget');
     });
 
-    test('keeps blueprints (re-tech is still discounted)', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.wallet = 1e12;
-      game.buyResearch(ResearchIds.basicOverclock); // records a blueprint
-      expect(game.blueprintCount(ResearchIds.basicOverclock), 1);
-
-      game.respecTech();
-
-      expect(game.blueprintCount(ResearchIds.basicOverclock), 1,
-          reason: 'blueprints are permanent — respec keeps them');
-    });
-
     test('a second respec in the same era is a no-op', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();

@@ -2,26 +2,24 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'test_helper.dart';
 
-/// Owner asked whether a Soft Fork's blueprint auto-apply re-teches WITHOUT
-/// charging BTC. It does charge — this locks that in so a future change can't
-/// silently make re-tech free. (It *looks* free because a Soft Fork keeps your
-/// whole wallet + blueprints discount the cost, so the dip is tiny.)
+/// TECH is RP-only, so re-teching a saved build after a Soft Fork is FREE — it
+/// re-spends the Research-Point budget, never BTC. Locking that in so a future
+/// change can't silently re-introduce a BTC charge for research: the re-tech must
+/// apply even at a ZERO wallet (a BTC-costed re-tech could not).
 void main() {
-  test('Soft Fork keeps the wallet; auto-apply re-teches and CHARGES BTC',
+  test('Soft Fork resets TECH; re-applying the preset re-teches for free',
       () async {
     final game = createTestGameLogic(loadOnStart: false);
     await game.loadGame();
     game.wallet = 1e12;
-    game.buyRig(RigIds.cpuRig); // hashrate > 0, so the tick's auto-apply runs
-    game.buyResearch(ResearchIds.basicOverclock); // completes + records a blueprint
-    game.saveTechPreset(); // snapshot the build; auto-apply defaults ON
-    expect(game.autoApplyPresets, true);
+    game.buyResearch(ResearchIds.basicOverclock); // complete a node
+    game.saveTechPreset(); // snapshot the build
 
-    game.wallet = 1e12; // top back up
+    game.wallet = 1e12;
     game.lifetimeEarnings = 1e13; // reach a soft-fork threshold
-
     game.softFork();
-    expect(game.wallet, 1e12, reason: 'a Soft Fork resets TECH only — money is kept');
+    expect(game.wallet, 1e12,
+        reason: 'a Soft Fork resets TECH only — money is kept');
     expect(
         game.researchNodes
             .firstWhere((n) => n.id == ResearchIds.basicOverclock)
@@ -29,25 +27,17 @@ void main() {
         false,
         reason: 'research was reset by the fork');
 
-    final walletAfterFork = game.wallet;
-    game.debugTick(); // auto-apply rebuilds the preset (spends this tick)
-
+    // Broke on purpose: a BTC-costed re-tech could not run. RP-only can.
+    game.wallet = 0;
+    final bought = game.applyTechPreset(0);
+    expect(bought, greaterThan(0),
+        reason: 'RP-only re-tech applies even at a 0 wallet');
     expect(
         game.researchNodes
             .firstWhere((n) => n.id == ResearchIds.basicOverclock)
             .isCompleted,
         true,
-        reason: 'auto-apply re-teched the node');
-    final spent = walletAfterFork - game.wallet;
-    expect(spent, greaterThan(0),
-        reason: 'auto-apply is NOT free — it charged the discounted re-tech cost');
-
-    // The spend surfaces as a "RE-TECH · −X" toast signal once the batch settles
-    // (the tick after the rebuild finishes).
-    game.debugTick();
-    expect(game.pendingReTechSpend, greaterThan(0),
-        reason: 'the re-tech spend is exposed for a toast');
-    game.clearReTechToast();
-    expect(game.pendingReTechSpend, 0, reason: 'draining clears the signal');
+        reason: 'the preset re-teched the node');
+    expect(game.wallet, 0, reason: 'RP-only: re-teching charged no BTC');
   });
 }

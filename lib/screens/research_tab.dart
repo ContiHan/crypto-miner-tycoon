@@ -312,8 +312,6 @@ class _ResearchTabState extends State<ResearchTab> {
     final owned = n.isCompleted;
     final unlocked = n.isUnlocked;
     final rpBlocked = _rpBlocked(game, n);
-    final costSats = game.getResearchCost(n.id);
-    final canAffordSats = game.wallet >= costSats;
     final available = unlocked && !owned && !rpBlocked;
 
     Color border;
@@ -322,7 +320,7 @@ class _ResearchTabState extends State<ResearchTab> {
       border = tint;
       bg = tint.withValues(alpha: 0.14);
     } else if (available) {
-      border = tint.withValues(alpha: canAffordSats ? 0.7 : 0.4);
+      border = tint.withValues(alpha: 0.7);
       bg = const Color(0xFF1C222B);
     } else if (rpBlocked) {
       border = Colors.orangeAccent.withValues(alpha: 0.5);
@@ -439,27 +437,16 @@ class _ResearchTabState extends State<ResearchTab> {
               'Mastery — your budget grows as you progress.');
       return;
     }
-    // available — the real BUY (BTC era-gate).
-    final costSats = game.getResearchCost(n.id);
-    final price = game.showFiatPrices
-        ? '\$ ${Formatter.formatNumber(game.toFiat(costSats))}'
-        : Formatter.formatBitcoin(costSats);
+    // available — the real BUY. TECH is RP-only: the node just costs its RP; the
+    // sheet only opens for an RP-affordable (not rpBlocked) node, so it's buyable.
     showGraphNodeSheet(
       context,
       title: n.name.toUpperCase(),
       description: n.description,
-      costLabel: price,
-      canAfford: game.wallet >= costSats,
-      buyLabel: 'RESEARCH · ${n.rpCost} RP',
+      costLabel: '${n.rpCost} RP',
+      canAfford: true,
+      buyLabel: 'RESEARCH',
       onBuy: () => game.buyResearch(n.id),
-      refreshOn: game,
-      canAffordLive: () => game.wallet >= game.getResearchCost(n.id),
-      costLabelLive: () {
-        final c = game.getResearchCost(n.id);
-        return game.showFiatPrices
-            ? '\$ ${Formatter.formatNumber(game.toFiat(c))}'
-            : Formatter.formatBitcoin(c);
-      },
     );
   }
 

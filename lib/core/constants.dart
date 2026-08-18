@@ -34,13 +34,8 @@ class GameConstants {
   static const double resistCapDuration = 0.60; // Steel Nerves
   static const double resistCapHalving = 0.60; // Stock-to-Flow (never cancels a halving)
 
-  // BLUEPRINTS (Phase 3) — a permanent, bounded re-tech DISCOUNT. Each TECH node
-  // keeps a `researchCount` that survives every reset (like Mastery/Stash); the
-  // discount asymptotes to blueprintMaxDiscount:
-  //   discount(n) = blueprintMaxDiscount · (1 − 1/(1 + n/blueprintDivisor))
-  // ~2-3% early, ~24% by n=12, → 40% cap. A specialisation dividend, not power.
-  static const double blueprintMaxDiscount = 0.40;
-  static const double blueprintDivisor = 6.0;
+  // (BLUEPRINTS retired: TECH is RP-only now, so there is no BTC re-tech cost to
+  // discount. Re-teching after a fork is free — you just re-spend your RP budget.)
 
   // ABILITIES (Phase 4). Wall-clock cooldowns; buffs are foreground-only (never
   // re-applied in the offline sim). Base cooldowns: basics 30min / 2h, ults ~22h
@@ -70,10 +65,6 @@ class GameConstants {
   // Progressive unlock: basic-1 on class pick, basic-2 at Mastery 1, ult at Mastery 2.
   static const int abilityMasteryForBasic2 = 1;
   static const int abilityMasteryForUltimate = 2;
-  // Combined TECH-cost FLOOR (#3): a node's cost never drops below this fraction
-  // of base no matter how discounts stack (blueprint + a future R&D −80% doctrine
-  // would otherwise reach a negative price).
-  static const double techCostFloor = 0.05;
   static const double miningDivisor = 50000000.0; // legacy; no longer in income
 
   // Income model (Phase 1 redesign): income/sec =

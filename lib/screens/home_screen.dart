@@ -108,9 +108,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (game.pendingTabUnlockToasts.isNotEmpty) {
       _showTabUnlockToasts(game);
     }
-    if (game.pendingReTechSpend > 0) {
-      _showReTechToast(game);
-    }
     // If a Wipe Save re-locked the tab we're parked on, fall back to MINE so we
     // never render a locked tab's body under a padlocked nav item.
     final onLocked = (_currentIndex == 0 && !game.unlockedSkill) ||
@@ -148,22 +145,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     showCyberToast(context,
         message: label,
         icon: Icons.lock_open_outlined,
-        topOffset: _toastTopOffset);
-  }
-
-  /// After a fork, auto-apply re-teches the build for real (blueprint-discounted)
-  /// BTC — this surfaces that spend so it isn't invisible against a big wallet.
-  void _showReTechToast(GameLogic game) {
-    final amt = game.pendingReTechSpend;
-    if (amt <= 0) return;
-    if (_fullScreenOverlayUp(game)) return; // keep queued until the overlay clears
-    game.clearReTechToast();
-    final cost = game.showFiatPrices
-        ? '\$ ${Formatter.formatNumber(game.toFiat(amt))}'
-        : Formatter.formatBitcoin(amt);
-    showCyberToast(context,
-        message: 'RE-TECH · −$cost',
-        icon: Icons.memory,
         topOffset: _toastTopOffset);
   }
 

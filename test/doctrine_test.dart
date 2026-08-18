@@ -65,19 +65,17 @@ void main() {
       complete(m, ResearchIds.genesisCore); // free root → engines' roots unlock
       m.refreshUnlocks();
       // Budget 1: one 1-RP node fits.
-      expect(m.tryBuy(ResearchIds.basicOverclock, 1e18, rpBudget: 1),
-          greaterThan(0));
+      expect(m.tryBuy(ResearchIds.basicOverclock, rpBudget: 1), true);
       // A second 1-RP node would exceed the budget of 1.
-      expect(m.tryBuy(ResearchIds.ergonomicRig, 1e18, rpBudget: 1), 0);
+      expect(m.tryBuy(ResearchIds.ergonomicRig, rpBudget: 1), false);
       // A bigger budget lets it through.
-      expect(m.tryBuy(ResearchIds.ergonomicRig, 1e18, rpBudget: 5),
-          greaterThan(0));
+      expect(m.tryBuy(ResearchIds.ergonomicRig, rpBudget: 5), true);
     });
 
     test('tryBuy enforces prerequisites (branch-depth gate)', () {
       final m = rm();
-      // neuralNet needs basicOverclock (unowned) → refused even with RP + money.
-      expect(m.tryBuy(ResearchIds.neuralNet, 1e18, rpBudget: 99), 0);
+      // neuralNet needs basicOverclock (unowned) → refused even with a big budget.
+      expect(m.tryBuy(ResearchIds.neuralNet, rpBudget: 99), false);
       expect(m.isResearched(ResearchIds.neuralNet), false);
     });
   });

@@ -71,12 +71,6 @@ void main() {
       expect(hashAfter, closeTo(1.15, 0.001)); // Overclocked Cores now +15%
     });
 
-    test('Research cost is the flat base sats cost (no exchange rate)', () {
-      // The old compounding exchange-rate mechanic was removed — a node's cost is
-      // just its base sats cost (500 for Basic Overclock), before blueprint discount.
-      expect(game.getResearchCost('basic_overclock'), 500.0);
-    });
-
     test('Offline Earnings should calculate correctly', () async {
       final fakeGameRepo = FakeGameRepository();
       fakeGameRepo.data['last_save_time'] = DateTime.now()

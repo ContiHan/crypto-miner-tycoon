@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import '../../models/research_node.dart';
-import '../../core/constants.dart';
 import '../../core/ids.dart';
 import '../channels.dart';
 
@@ -406,34 +405,9 @@ class ResearchManager {
     ),
   ];
 
-  /// BLUEPRINTS: permanent per-node completion count. Survives every prestige
-  /// reset (only a full Wipe Save clears it) and drives the re-tech discount.
-  final Map<String, int> researchCount = {};
-
-  /// Blueprint re-tech discount for a node id (0..blueprintMaxDiscount), concave
-  /// in how many times it has been researched across all past runs.
-  double blueprintDiscount(String id) {
-    final n = researchCount[id] ?? 0;
-    if (n <= 0) return 0.0;
-    return GameConstants.blueprintMaxDiscount *
-        (1 - 1 / (1 + n / GameConstants.blueprintDivisor));
-  }
-
-  /// Serialise blueprint counts for the save blob.
-  Map<String, int> researchCountJson() => Map<String, int>.from(researchCount);
-
-  /// Restore blueprint counts (tolerant of nulls / non-int values).
-  void loadResearchCounts(dynamic data) {
-    researchCount.clear();
-    if (data is Map) {
-      data.forEach((k, v) {
-        if (k is String && v is num) researchCount[k] = v.toInt();
-      });
-    }
-  }
-
-  /// Full Wipe Save only: clears the permanent blueprint dividend.
-  void wipeBlueprints() => researchCount.clear();
+  // TECH is Research-Point + prerequisite gated only — nodes have NO BTC cost, so
+  // the old BLUEPRINTS re-tech discount (which only softened the sats price) was
+  // retired. Re-teching after a fork is free: you just re-spend your RP budget.
 
   // ---- Presets (Phase 3 QoL) ---------------------------------------------
   // A saved TECH build the player can one-tap re-apply after a reset. Presets
@@ -578,50 +552,19 @@ class ResearchManager {
   }
 
   // ---- Auto-apply re-tech (owner: default ON) ---------------------------
-  // Auto-apply spends real (blueprint-discounted) BTC re-teching after a fork —
-  // tiny vs. a built-up wallet, so it looks free. We accumulate the spend across
-  // the (possibly multi-tick) rebuild and flush it once the batch settles, so the
-  // UI can flash a "RE-TECH · −X" toast that makes the cost visible without
-  // changing the economy. The wallet is reached through a per-call seam (getWallet
-  // / setWallet) so this manager never owns the wallet.
-  double _retechSpendAccum = 0;
-  double _pendingRetechSpend = 0;
+  // TECH is RP-only, so re-teching a preset after a fork is FREE (no BTC spend).
+  // It's still bounded by the Research-Point budget and prerequisite order.
 
-  /// BTC the last settled auto-apply batch spent (0 = nothing to show). The UI
-  /// drains it with [clearReTechToast] after toasting it.
-  double get pendingReTechSpend => _pendingRetechSpend;
-  void clearReTechToast() => _pendingRetechSpend = 0;
-
-  void _flushRetechSpend() {
-    if (_retechSpendAccum <= 0) return;
-    _pendingRetechSpend += _retechSpendAccum; // += so an undrained batch isn't lost
-    _retechSpendAccum = 0;
-  }
-
-  double _costById(String id) {
-    final node = researchNodes.firstWhere((r) => r.id == id,
-        orElse: () => ResearchNode(id: ''));
-    return node.id.isEmpty ? 0 : getCostInSats(node);
-  }
-
-  /// Buys every affordable, unlocked, still-incomplete node in [preset], cheapest
-  /// first, repeating until a full pass buys nothing (so deeper nodes unlock as
-  /// their prereqs complete). Reaches the wallet through the [getWallet]/[setWallet]
-  /// seam. Returns how many nodes were bought.
-  int rebuildFromPreset(TechPreset preset,
-      {required double Function() getWallet,
-      required void Function(double) setWallet,
-      int rpBudget = 1 << 30}) {
+  /// Buys every unlocked, still-incomplete node in [preset], repeating until a
+  /// full pass buys nothing (so deeper nodes unlock as their prereqs complete),
+  /// bounded by the RP budget. Returns how many nodes were bought.
+  int rebuildFromPreset(TechPreset preset, {int rpBudget = 1 << 30}) {
     int bought = 0;
-    final ids = preset.nodeIds.toList()
-      ..sort((a, b) => _costById(a).compareTo(_costById(b)));
     bool progress = true;
     while (progress) {
       progress = false;
-      for (final id in ids) {
-        final cost = tryBuy(id, getWallet(), rpBudget: rpBudget);
-        if (cost > 0) {
-          setWallet(getWallet() - cost);
+      for (final id in preset.nodeIds) {
+        if (tryBuy(id, rpBudget: rpBudget)) {
           bought++;
           progress = true;
         }
@@ -630,42 +573,21 @@ class ResearchManager {
     return bought;
   }
 
-  /// AUTO-APPLY: on the tick / after a reset, rebuild the active preset as income
-  /// allows (fast no-op once complete / off / no preset). Accumulates the BTC
-  /// spent (for the RE-TECH toast) and flushes it once the batch settles. Returns
-  /// the nodes bought this call — >0 signals the caller to notify + save.
-  int maybeAutoApply(
-      {required double Function() getWallet,
-      required void Function(double) setWallet,
-      int rpBudget = 1 << 30}) {
-    if (!autoApplyPresets) {
-      _flushRetechSpend();
-      return 0;
-    }
+  /// AUTO-APPLY: on the tick / after a reset, rebuild the active preset (fast
+  /// no-op once complete / off / no preset). Returns the nodes bought this call —
+  /// >0 signals the caller to notify + save.
+  int maybeAutoApply({int rpBudget = 1 << 30}) {
+    if (!autoApplyPresets) return 0;
     final i = activePreset;
-    if (i < 0 || i >= presets.length) {
-      _flushRetechSpend();
-      return 0;
-    }
+    if (i < 0 || i >= presets.length) return 0;
     final preset = presets[i];
     final anyIncomplete = preset.nodeIds.any((id) {
       final n = researchNodes.firstWhere((r) => r.id == id,
           orElse: () => ResearchNode(id: ''));
       return n.id.isNotEmpty && !n.isCompleted;
     });
-    if (!anyIncomplete) {
-      _flushRetechSpend();
-      return 0;
-    }
-    final before = getWallet();
-    final bought = rebuildFromPreset(preset,
-        getWallet: getWallet, setWallet: setWallet, rpBudget: rpBudget);
-    if (bought > 0) {
-      _retechSpendAccum += (before - getWallet()); // BTC spent this tick
-    } else {
-      _flushRetechSpend(); // couldn't afford more this tick — the batch settled
-    }
-    return bought;
+    if (!anyIncomplete) return 0;
+    return rebuildFromPreset(preset, rpBudget: rpBudget);
   }
 
   void reset() {
@@ -680,8 +602,6 @@ class ResearchManager {
       node.isUnlocked = node.requirements.isEmpty;
     }
     _checkUnlocks(); // re-unlock the branch roots (their prereq, the core, is owned)
-    // NOTE: researchCount (blueprints) is intentionally NOT cleared here — it is
-    // permanent across prestige resets.
   }
 
   // ---- TECH V2: branches + Research-Point budget -------------------------
@@ -737,45 +657,23 @@ class ResearchManager {
     }
   }
 
-  // Returns cost if success (so caller can deduct wallet), 0 if failed.
-  // [rpBudget] caps how much total rpCost the completed nodes may sum to (the
-  // per-fork Research-Point budget); default unbounded for callers that don't gate.
-  double tryBuy(
-    String researchId,
-    double currentWallet, {
-    int rpBudget = 1 << 30,
-  }) {
+  /// Researches [researchId] with Research Points only — TECH is RP + prerequisite
+  /// gated, with NO BTC cost. [rpBudget] caps the total rpCost of owned nodes (the
+  /// per-fork budget). Returns true if it was researched.
+  bool tryBuy(String researchId, {int rpBudget = 1 << 30}) {
     int index = researchNodes.indexWhere((r) => r.id == researchId);
-    if (index == -1) return 0;
+    if (index == -1) return false;
 
     ResearchNode node = researchNodes[index];
-    if (node.isCompleted) return 0;
+    if (node.isCompleted) return false;
     // Branch-depth gate: every prerequisite must already be owned.
-    if (!node.requirements.every(isResearched)) return 0;
+    if (!node.requirements.every(isResearched)) return false;
     // Research-Point budget: owning this node must not exceed the fork's budget.
-    if (rpSpent + node.rpCost > rpBudget) return 0;
+    if (rpSpent + node.rpCost > rpBudget) return false;
 
-    double costSats = getCostInSats(node);
-
-    if (currentWallet >= costSats) {
-      node.isCompleted = true;
-      // BLUEPRINTS: record the completion permanently (drives the re-tech discount
-      // on every future run).
-      researchCount[researchId] = (researchCount[researchId] ?? 0) + 1;
-      _checkUnlocks();
-      return costSats;
-    }
-    return 0;
-  }
-
-  double getCostInSats(ResearchNode node) {
-    final double base = node.cost;
-    // Combined discount (blueprint now; a future R&D doctrine adds here), with the
-    // #3 FLOOR so stacked discounts can never drive the price below techCostFloor.
-    final double totalDiscount = blueprintDiscount(node.id);
-    double factor = 1.0 - totalDiscount;
-    if (factor < GameConstants.techCostFloor) factor = GameConstants.techCostFloor;
-    return base * factor;
+    node.isCompleted = true;
+    _checkUnlocks();
+    return true;
   }
 
   void _checkUnlocks() {
