@@ -433,8 +433,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     // overstates the reward of this irreversible reset.
     final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
     final classHint = game.hasChosenClass
-        ? ''
-        : '\n\nTip: you can also pick/change your class anytime on the SKILL tab.';
+        ? '\n\nThis is where you RE-PICK your class — it stays locked for the whole '
+            'chain, then changes only at a New Genesis like this one.'
+        : '\n\nTip: you can also pick your class early on the SKILL tab. It locks '
+            'in for the whole chain once chosen — you then re-pick at each New Genesis.';
     showClassPicker(
       context,
       game: game,
