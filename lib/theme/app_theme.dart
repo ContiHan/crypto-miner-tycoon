@@ -10,6 +10,20 @@ class AppTheme {
   static const Color textSecondary = Color(0xFFB0BEC5);
   static const Color border = Colors.black;
 
+  /// The single 4-tier rarity palette (common → rare → epic → legendary), shared
+  /// by every UI that grades a 4-value rarity — TECH/rig firmware affixes and
+  /// achievements. Index in enum order (common = 0). Out-of-range clamps to the
+  /// ends. (STASH artifacts use their own 6-tier `ArtifactRarity` palette.)
+  static const List<Color> _rarityPalette = [
+    Colors.blueGrey, // common
+    Color(0xFF3987e5), // rare
+    Color(0xFF9085e9), // epic
+    Color(0xFFeda100), // legendary
+  ];
+
+  static Color rarityColor(int index) =>
+      _rarityPalette[index.clamp(0, _rarityPalette.length - 1)];
+
   static ThemeData get darkTheme {
     return ThemeData(
       useMaterial3: true,

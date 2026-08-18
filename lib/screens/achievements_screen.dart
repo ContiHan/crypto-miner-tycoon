@@ -5,6 +5,7 @@ import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../widgets/stylized_card.dart';
 import '../widgets/pulse_button.dart';
+import '../widgets/rarity_badge.dart';
 
 class AchievementsScreen extends StatefulWidget {
   const AchievementsScreen({super.key});
@@ -148,18 +149,7 @@ class _AchievementCard extends StatelessWidget {
     required this.onClaim,
   });
 
-  static Color _rarityColor(AchRarity r) {
-    switch (r) {
-      case AchRarity.common:
-        return Colors.blueGrey;
-      case AchRarity.rare:
-        return const Color(0xFF3987e5);
-      case AchRarity.epic:
-        return const Color(0xFF9085e9);
-      case AchRarity.legendary:
-        return const Color(0xFFeda100);
-    }
-  }
+  static Color _rarityColor(AchRarity r) => AppTheme.rarityColor(r.index);
 
   @override
   Widget build(BuildContext context) {
@@ -230,21 +220,7 @@ class _AchievementCard extends StatelessWidget {
                   ),
                   if (!hideDetails) ...[
                     const SizedBox(height: 4),
-                    Row(
-                      children: [
-                        Icon(Icons.circle, size: 7, color: rarityColor),
-                        const SizedBox(width: 4),
-                        Text(
-                          rarity.name.toUpperCase(),
-                          style: TextStyle(
-                            color: rarityColor,
-                            fontSize: 10,
-                            fontWeight: FontWeight.bold,
-                            letterSpacing: 1,
-                          ),
-                        ),
-                      ],
-                    ),
+                    RarityBadge(color: rarityColor, label: rarity.name),
                   ],
                 ],
               ),

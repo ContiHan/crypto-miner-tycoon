@@ -4,6 +4,7 @@ import '../providers/game_logic.dart';
 import '../logic/systems/firmware_system.dart';
 import '../theme/app_theme.dart';
 import 'stylized_card.dart';
+import 'rarity_badge.dart';
 
 /// RIG FIRMWARE loadout — socket bounded [FirmwareAffix]es (proc triggers) into
 /// the rig. Sockets = base 3, grown by the Firmware Bay node / class Mastery 2 /
@@ -13,18 +14,7 @@ class FirmwarePanel extends StatelessWidget {
   final GameLogic game;
   const FirmwarePanel({super.key, required this.game});
 
-  static Color _rarityColor(FirmwareRarity r) {
-    switch (r) {
-      case FirmwareRarity.common:
-        return Colors.blueGrey;
-      case FirmwareRarity.rare:
-        return const Color(0xFF3987e5);
-      case FirmwareRarity.epic:
-        return const Color(0xFF9085e9);
-      case FirmwareRarity.legendary:
-        return const Color(0xFFeda100);
-    }
-  }
+  static Color _rarityColor(FirmwareRarity r) => AppTheme.rarityColor(r.index);
 
   /// Affix pool sorted LOWEST rarity first (common → legendary), catalogue order
   /// as a stable tiebreak — matches the GOAL list's rarity ordering.
@@ -140,12 +130,13 @@ class FirmwarePanel extends StatelessWidget {
                                   fontSize: 13)),
                         ),
                         const SizedBox(width: 6),
-                        Text(a.rarity.name.toUpperCase(),
-                            style: TextStyle(
-                                color: color,
-                                fontWeight: FontWeight.bold,
-                                fontSize: 9,
-                                letterSpacing: 0.5)),
+                        RarityBadge(
+                          color: color,
+                          label: a.rarity.name,
+                          showDot: false,
+                          fontSize: 9,
+                          letterSpacing: 0.5,
+                        ),
                       ],
                     ),
                     const SizedBox(height: 2),
