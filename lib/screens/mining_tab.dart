@@ -6,6 +6,7 @@ import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import '../utils/formatter.dart';
 import '../widgets/stylized_card.dart';
+import '../widgets/mining_banners.dart';
 import '../widgets/rig_list_item.dart';
 import '../widgets/abilities_bar.dart';
 import '../widgets/pulse_button.dart';
@@ -479,7 +480,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               // Per-era cap reached: turn the ∞-difficulty / 0
                               // income dead-end into a clear message + CTA.
                               if (game.networkDifficulty.isInfinite)
-                                _CapReachedBanner(
+                                CapReachedBanner(
                                   game: game,
                                   onNewBlockchain: widget.onNewBlockchain,
                                   onHardFork: widget.onHardFork,
@@ -665,7 +666,7 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                       // isn't rebuilt with the cards.
                       Consumer<GameLogic>(
                         builder: (context, game, _) => game.nextLockedRig != null
-                            ? _LockedRigTeaser(
+                            ? LockedRigTeaser(
                                 hint: game.rigUnlockHint(game.nextLockedRig!.id),
                               )
                             : const SizedBox.shrink(),
@@ -931,147 +932,5 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
             ));
           },
         );
-  }
-}
-
-/// Greyed "???" teaser for the next still-locked rig (progressive discovery).
-
-class _LockedRigTeaser extends StatelessWidget {
-  final String hint;
-  const _LockedRigTeaser({required this.hint});
-
-  @override
-  Widget build(BuildContext context) {
-    return StylizedCard(
-      color: Colors.black26,
-
-      child: Padding(
-        padding: const EdgeInsets.all(8.0),
-
-        child: Row(
-          children: [
-            Container(
-              width: 50,
-
-              height: 50,
-
-              decoration: BoxDecoration(
-                color: Colors.white10,
-
-                border: Border.all(color: Colors.white24),
-
-                borderRadius: BorderRadius.circular(4),
-              ),
-
-              child: const Icon(
-                Icons.lock_outline,
-                color: Colors.white38,
-                size: 28,
-              ),
-            ),
-
-            const SizedBox(width: 12),
-
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-
-                children: [
-                  const Text(
-                    '???',
-
-                    style: TextStyle(
-                      color: Colors.white54,
-                      fontWeight: FontWeight.bold,
-                      fontSize: 16,
-                      letterSpacing: 2,
-                    ),
-                  ),
-
-                  const SizedBox(height: 4),
-
-                  Text(
-                    hint,
-                    style: const TextStyle(color: Colors.white38, fontSize: 12),
-                  ),
-                ],
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Shown when a single era's entire 21M supply is mined (networkDifficulty is ∞,
-/// income clamped to 0). Replaces the "looks broken" dead-end with a clear
-/// message + the right next step to move on to a fresh era: start a New
-/// Blockchain if one is banked, else Hard Fork (always available at the cap).
-class _CapReachedBanner extends StatelessWidget {
-  final GameLogic game;
-  final VoidCallback? onNewBlockchain;
-  final VoidCallback? onHardFork;
-
-  const _CapReachedBanner({
-    required this.game,
-    required this.onNewBlockchain,
-    required this.onHardFork,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    String cta;
-    VoidCallback? action;
-    if (game.pendingGenesis > 0 && onNewBlockchain != null) {
-      cta = 'START NEW GENESIS';
-      action = onNewBlockchain;
-    } else {
-      cta = 'HARD FORK NOW';
-      action = onHardFork;
-    }
-
-    return Container(
-      margin: const EdgeInsets.only(top: 10),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: Colors.redAccent.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.redAccent.withValues(alpha: 0.6)),
-      ),
-      child: Column(
-        children: [
-          const Text(
-            'ERA MINED OUT',
-            style: TextStyle(
-              color: Colors.redAccent,
-              fontWeight: FontWeight.bold,
-              fontSize: 14,
-              letterSpacing: 1,
-            ),
-          ),
-          const SizedBox(height: 4),
-          const Text(
-            "This blockchain's entire 21M supply is mined — income is capped. "
-            'Move on to keep growing.',
-            textAlign: TextAlign.center,
-            style: TextStyle(color: Colors.white70, fontSize: 12),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            width: double.infinity,
-            child: ElevatedButton(
-              style: ElevatedButton.styleFrom(
-                backgroundColor: Colors.redAccent,
-                foregroundColor: Colors.white,
-              ),
-              onPressed: action,
-              child: Text(cta,
-                  style: const TextStyle(fontWeight: FontWeight.bold)),
-            ),
-          ),
-        ],
-      ),
-    );
   }
 }
