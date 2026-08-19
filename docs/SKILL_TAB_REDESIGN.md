@@ -25,20 +25,20 @@ Owner chose **Ladder A** (two tiers). Consensus currency is **removed** —
 repeatable income scaling now comes from the **GovToken income multiplier**
 (grows every Hard Fork) + **Notoriety** (achievements, +1%/achievement, existing).
 
-**The distinction (why New Era isn't just "Hard Fork again"):** Hard Fork is the
-repeatable **token** loop (reset economy → GovTokens). New Era does NOT give more
-tokens — it's the only place to **change class** + **respec TECH**, and it banks
-**Genesis** = a *higher-order permanent multiplier* on future token/income gain.
-Genesis is New Era's reward currency, **not a 3rd reset tier** — there are still
-two buttons. A loyal single-class player Hard Forks constantly and New-Eras rarely
-(for Genesis); a variety player New-Eras to switch class (Genesis softens the
-cost of re-leveling the new class).
+**The distinction (why New Era isn't just "Hard Fork again"):** Hard Fork gives
+**only tokens — no multiplier** (the frequent drip). New Era gives a **bigger token
+claim AND banks Genesis** = a permanent multiplier on future token/income gain, and
+it's the only place to **change class** + **respec TECH**. The **multiplier is what
+makes New Era more than a bigger Hard Fork**; Genesis is New Era's reward currency,
+**not a 3rd reset tier** — there are still two buttons. A loyal single-class player
+Hard Forks constantly and New-Eras rarely (for Genesis); a variety player New-Eras
+to switch class (Genesis softens the cost of re-leveling the new class).
 
 | | **HARD FORK** (frequent) | **NEW ERA** (deep, rare) | Full Wipe (dev) |
 |---|---|---|---|
 | Theme | Incompatible fork — mine from scratch on new machines, get the tokens | New era — cash out to Genesis; optionally swap class | Nuke |
 | Wallet + rigs + mining | **RESET** | **RESET** | RESET |
-| **GovTokens** | **+claim** (the faucet) | **KEEP the bank**; the era's *earnings* convert to Genesis | reset |
+| **GovTokens** | **+claim** (the faucet), no multiplier | **+claim & keep bank**; era earnings also determine Genesis | reset |
 | **Genesis Blocks** | KEEP | **+bank** (permanent GovToken-gain multiplier) | reset |
 | **Class** | KEEP (locked) | **CHANGE allowed** (loads that class's level) | → Prospector |
 | **TECH** | **KEEP** | swaps to the chosen class's builds (only actually changes if you switch class) | reset |
@@ -198,14 +198,32 @@ Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
 - **[TUNE] GovToken income multiplier** (`1 + 0.5·sqrt(GT+spent)`) currently makes
   spending "income-free". Keep for now; revisit in the rebalance slice.
 
-### Back-in-Time hook (deferred, but reserved)
-Back-in-Time is a separate **active speed-run mode** (mine a full supply from
-scratch, fast), reworked in a final pass. It must be **woven into the main grind**,
-not a side silo. The reserved hook: since **class level = mining volume**, a BiT
-run's payoff feeds the **same class-level spine** (mining volume → class XP → RP)
-and/or GovTokens — i.e. BiT is the *active* way to level classes / earn, versus
-idle accumulation. Defining the hook now means the two-fork ladder above doesn't
-need to change when BiT is rebuilt.
+### Back-in-Time (deferred to a final rewrite — direction reserved)
+BiT is a separate **active speed-run mode**, reworked last. Owner's design direction
+(promising — reserve, don't build yet):
+
+- **Crate/Stash gadgets become BiT-only power.** In normal play the collected
+  gadgets are (near-)useless "future tech"; the normal-play goal is to **hoard**
+  enough of them. When you jump back in time you "pull them from the capsule" — the
+  tech nobody else has — and *there* they grant their bonuses. This finally gives
+  crates/collection a purpose and gives BiT its own identity (a different power
+  source, not "normal game but faster").
+  - **[DECIDE, BiT slice]** how dead they are in normal play: pure (0 in normal) is
+    cleanest thematically but risks "collecting stuff that does nothing"; softer =
+    small in normal, big in BiT. Start pure, soften if it feels bad.
+  - Ties into TECH cleanly: the **C / Degen branch** (luck + loot + doubleDrop)
+    speeds gadget collection → stronger BiT runs.
+- **The jump carries your CURRENT class level + RP** into the run, so normal
+  progression (leveling, TECH) matters inside BiT — you spend the whole normal game
+  prepping for speed-runs.
+- **[OPEN, BiT slice] what a BiT run pays back** (so it's woven in, not a silo):
+  (a) GovTokens scaled by run performance (simplest interweave — BiT = an active
+  faucet for the main currency) ← lean; (b) a dedicated speed-run currency for
+  BiT-only upgrades (more gadget slots, longer capsule); (c) a permanent multiplier
+  / class XP. Likely (a) + optional (b).
+
+Reserving this now means the two-fork ladder above does not change when BiT is
+rebuilt.
 
 ---
 
