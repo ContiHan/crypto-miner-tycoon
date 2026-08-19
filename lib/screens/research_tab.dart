@@ -20,8 +20,10 @@ class ResearchTab extends StatefulWidget {
 }
 
 class _ResearchTabState extends State<ResearchTab> {
-  // Which accordion card is open ('A'/'B'/'C' branches, 'KS', 'SYN', or null).
-  String _open = 'A';
+  // Which accordion card is open ('A'/'B'/'C' branches, 'KS', 'SYN'). Start with
+  // everything collapsed so the tab opens on the overview — the player picks a
+  // branch to expand rather than being dropped into THE FOUNDRY.
+  String _open = '';
 
   // (branch, name, fantasy, tint)
   static const List<(String, String, String, Color)> _branches = [

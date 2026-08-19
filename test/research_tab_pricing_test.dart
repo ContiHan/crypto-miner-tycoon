@@ -7,10 +7,10 @@ import 'test_helper.dart';
 
 void main() {
   group('TECH is Research-Point only (no BTC cost)', () {
-    // TECH V2 is an accordion of branches; THE FOUNDRY (branch A) opens by
-    // default and its root node is "Overclocked Cores". The node costs only RP —
-    // the tap sheet shows the RP price and a RESEARCH button, gated on the RP
-    // budget, never on the wallet.
+    // TECH V2 is an accordion of branches that starts fully collapsed (overview).
+    // Expand THE FOUNDRY (branch A) to reach its root node "Overclocked Cores".
+    // The node costs only RP — the tap sheet shows the RP price and a RESEARCH
+    // button, gated on the RP budget, never on the wallet.
     Future<void> pumpTree(WidgetTester tester, GameLogic game) async {
       tester.view.physicalSize = const Size(1400, 1600);
       tester.view.devicePixelRatio = 1.0;
@@ -23,6 +23,9 @@ void main() {
         ),
       );
       await tester.pump();
+      // Everything starts collapsed — open THE FOUNDRY to reveal its nodes.
+      await tester.tap(find.text('THE FOUNDRY'));
+      await tester.pumpAndSettle();
     }
 
     testWidgets('the node sheet shows an RP price and an enabled RESEARCH button',
