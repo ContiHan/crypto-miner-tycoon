@@ -216,14 +216,37 @@ BiT is a separate **active speed-run mode**, reworked last. Owner's design direc
 - **The jump carries your CURRENT class level + RP** into the run, so normal
   progression (leveling, TECH) matters inside BiT — you spend the whole normal game
   prepping for speed-runs.
-- **[OPEN, BiT slice] what a BiT run pays back** (so it's woven in, not a silo):
-  (a) GovTokens scaled by run performance (simplest interweave — BiT = an active
-  faucet for the main currency) ← lean; (b) a dedicated speed-run currency for
-  BiT-only upgrades (more gadget slots, longer capsule); (c) a permanent multiplier
-  / class XP. Likely (a) + optional (b).
+**Gadget acquisition must flow from the CORE (prerequisite, not part of S1–S6).**
+Today UTXO/chips (→ crates → gadgets) come from procs + anomalies (core, but behind
+a flat per-window cap `procUtxoWindowCap`) + casino/SWEEP. Because the cap is flat,
+the efficient path is "hit the cap the easy way (casino), wait, repeat" — so core
+power (mine/tech/skill) does NOT raise gadget throughput, and the casino sits off to
+the side. **Fix before BiT ships:** scale the UTXO ceiling / crate drops with core
+progression (mining rate, TECH, class level, fork payouts) so a stronger core = more
+gadgets; keep casino as a variance/gamble layer, not the main faucet. (TECH's
+C/Degen branch already boosts crate value — good, but it's capped low today.) Track
+this as a **crate/UTXO-economy slice** that lands before the BiT rebuild.
 
-Reserving this now means the two-fork ladder above does not change when BiT is
-rebuilt.
+**Run model** (clean, feasible): entering BiT **snapshots/freezes** achievements,
+gadgets, TECH, SKILL, and the multiplier. Inside BiT you **cannot earn tokens or
+class XP** (at most a respec on the frozen dual-spec). You replay from the past
+exactly as your classic game is set up + your hoarded gadgets, racing to **mine the
+full 21M supply**; completing it records a **time**. Bailing to classic = no time
+(run not completed). Achievements that trigger inside BiT are **deferred** and count
+only after it ends. (Keep BiT's 21M completion **separate** from New Era's Genesis
+gate unless we deliberately link them later.)
+
+**Reward loop** (recommendation — a light SELF-CONTAINED loop, or only the hardcore
+will play it): completion → a **BiT-only currency scaled by time** → **BiT-only
+upgrades** (more gadget slots, longer/stronger capsule, better starting state) +
+milestone achievements. Gadgets = the INPUT (earned in core), BiT-currency = the
+OUTPUT (spent on BiT depth) → closed loop: core → gadgets → run → BiT-currency →
+faster runs. **Do NOT pay core power out of BiT** (no permanent multiplier / tokens
+/ class XP into classic) — that would make BiT mandatory and force mode-switching;
+keeping rewards inside BiT leaves it optional but sticky.
+
+Reserving all of this now means the two-fork ladder above does not change when BiT
+is rebuilt.
 
 ---
 
