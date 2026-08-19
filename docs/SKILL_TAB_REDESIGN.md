@@ -1,0 +1,240 @@
+# SKILL Tab Redesign + RP / Reset Rework (plan)
+
+Owner-locked design (2026-08-19). Companion to `docs/TECH_TREE_REDESIGN_V2.md`
+(TECH "The Three Engines", already shipped). This doc covers the RP source, the
+reset ladder, and the full SKILL-tab rebuild. Numbers marked **[TUNE]** are
+placeholders to balance later; a `speed`/debug constant lets us test fast.
+
+---
+
+## 0. Goals
+
+- RP stops coming from prestige forks; it becomes **class level** (earned by
+  playing that class). Fixes: era reset gave no RP; hard reset capped RP at 8
+  (< 9 needed for a full branch).
+- Collapse the confusing 3-fork prestige into a clean **2-tier reset ladder**.
+- Give the frequent fork a real cost (it was a free click once TECH went RP-only).
+- Rebuild the SKILL tab into three class-tailored pillars: **Racial + Aura + Talents**,
+  replacing the 32-node GovToken perk tree.
+
+---
+
+## 1. Reset ladder — 2 tiers (+ Full Wipe)
+
+Owner chose **Ladder A** (two tiers). Consensus currency is **removed** —
+repeatable income scaling now comes from the **GovToken income multiplier**
+(grows every Hard Fork) + **Notoriety** (achievements, +1%/achievement, existing).
+
+| | **HARD FORK** (frequent) | **NEW ERA** (deep) | Full Wipe (dev) |
+|---|---|---|---|
+| Theme | Incompatible fork — mine from scratch on new machines, get the tokens | New era — swap identity & rebuild | Nuke |
+| Wallet + rigs + mining | **RESET** | **RESET** | RESET |
+| **GovTokens** | **+claim** (the faucet) | reset? **[DECIDE]** (see §8) | reset |
+| **TECH** | **KEEP** | **RESET** (per-class respec) | reset |
+| **Class** | KEEP (locked) | **CHANGE allowed** | → Prospector |
+| Class level / talents / auras | KEEP | KEEP | reset |
+| Genesis Blocks | KEEP | **+bank** (deep prestige mult) | reset |
+| Chips / Stash | KEEP | KEEP | reset |
+
+- **Rename in code:** today's *Soft Fork* becomes **Hard Fork** (now resets
+  wallet+rigs, pays tokens, and — crucially — **no longer resets TECH**). Today's
+  *Hard Fork* is merged away (its job = the new Hard Fork minus the research reset).
+  Today's *New Blockchain* becomes **New Era**.
+- **Class change** is offered **only at New Era** (today it's silently unavailable
+  even there from some paths — that's the reported bug; New Era must present the
+  class picker).
+- **Consensus (CX)** removed everywhere: currency, the `0.1·sqrt(CX)` income
+  bonus, the soft-fork banking, and CX from Genesis's gain multiplier.
+
+---
+
+## 2. RP = class level (per-class, cap 18)
+
+```
+rpBudget = min(18, classLevel(activeClass))
+```
+
+- Drops the hardFork / genesisBlock / total-mastery terms entirely.
+- **Per active class**: switching to a class loads *that* class's level (0→0,
+  10→10 — never summed, never auto-scaled).
+- Cap 18 is deliberate: a full branch = 9 RP (7×1 + capstone 2), so 18 = at most
+  **2 full branches / 2 keystones**, or fewer keystones + more synergies — the
+  player's call.
+- `classLevel` reuses the existing **Mastery** machinery (already per-class,
+  already persists every reset, already kept on switch) — retuned + capped at 18
+  and surfaced as "level".
+
+---
+
+## 3. Class-level curve + progress bar
+
+- **Source:** mining as that class (existing `creditMasteryFromMining` — 1 unit
+  per full 21M supply mined). NOT resets/tokens.
+- **Curve:** mild power curve (RPG-standard, between linear and exponential):
+
+  ```
+  xpForLevel(L) = baseXp · L^1.5 / speed         // total XP to reach level L
+  ```
+
+  - `^1.5` is gentler than today's quadratic (`level = sqrt(xp/k)` ⇒ `xp ∝ L²`),
+    so the top levels aren't a brutal wall.
+  - `speed` = **debug constant** (1.0 live; e.g. 100 for fast testing → L18 in
+    minutes). **[TUNE]**
+  - `baseXp` tuned so L18 is an endgame "days–weeks" grind that stays engaging.
+    **[TUNE]**
+- **Aura milestones** L6 / L12 / L18 land at ~13% / 37% / 100% of the curve.
+- **Add a level progress bar** (current level, % to next) in the SKILL tab header.
+
+---
+
+## 4. TECH: per-class dual-spec, respec economy, no auto-buy
+
+- **TECH resets only on a class change** (New Era). Hard Fork keeps TECH.
+- **Per-class builds:** each class stores up to **2 build slots** (dual-spec),
+  sized to that class's RP budget. Toggle between them **free** (like WoW dual
+  spec). Switching class loads that class's builds.
+- **Respec economy:**
+  - 1 **free respec per era** (existing) to re-allocate RP.
+  - Beyond that, re-clicking / full reset costs **~10k GovTokens** **[TUNE]**
+    (≈5 era cycles at ~2k tokens/cycle — a deliberate, valued choice).
+  - Deleting/overwriting a saved build costs tokens **[TUNE]**.
+- **Remove auto-buy:** delete the preset auto-apply (`maybeAutoApply` /
+  `rebuildFromPreset` auto path). Blueprints already retired. Presets stay only as
+  the manual dual-spec build storage.
+
+---
+
+## 5. SKILL tab layout — three pillars
+
+Per active class, tailored to that class's racial theme
+(Solo = click/rigCost/luck · Corp = hash/income · OG = market/prestige ·
+Pool = stability/SWEEP):
+
+1. **Racial** — display-only readout of the class's flat channel edges (exists).
+2. **Aura** — one class-specific passive stance (see §6).
+3. **Talents** — the 2×6 ability+passive matrix (see §7).
+
+Header: class + **level progress bar**, GovToken balance. Replaces the old
+GovToken perk graph entirely.
+
+---
+
+## 6. Auras (class-specific)
+
+- **Class-specific**: 4 classes × **3 variants each = 12 auras** (the plumbing
+  already supports `btcClass` on auras; today's 6 are universal and get replaced).
+- **Equal power, not tiers** — the 3 variants are *variety* (different playstyle),
+  balanced to a similar score.
+- **Unlock at class level 6 / 12 / 18.**
+- **Exactly one aura active** at a time (once ≥1 is unlocked). At L18 you choose 1
+  of 3.
+- **Switch cooldown ~4h** **[TUNE]** (deliberate choice; 8h if we want more weight —
+  12h felt too punishing for a check-in-a-few-times-a-day idle game).
+- Effects are on-channel (additive → softcapped), class-flavored.
+
+---
+
+## 7. Talents — the 2×6 matrix
+
+A grid of **6 rows × 2 choices**; pick **one** option per row and **level it with
+GovTokens**. Absorbs the retired perk tree's channel bonuses into the passive rows.
+
+```
+Row 1  [ passive A | passive B ]     ← channel bonus (e.g. +hash / +rigCost)
+Row 2  [ ability   | ability   ]     ← MINE-tab slot: basic 1
+Row 3  [ passive A | passive B ]
+Row 4  [ ability   | ability   ]     ← MINE-tab slot: basic 2
+Row 5  [ passive A | passive B ]
+Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
+```
+
+- **Choice is exclusive per row** — one of the two; the picked ability slots into
+  the MINE tab, the picked passive applies its channel bonus.
+- **Gating = class level (unlocks the row) + tokens (buy/level).** Rows unlock
+  **faster than auras** (a row roughly per level early). Proposed schedule
+  **[TUNE]**: R1@L1, R2@L3, R3@L5, R4@L8, R5@L11, R6@L14 — all before 18.
+- **Cost scales by row depth:** a deeper row's *first level* costs more (an
+  ultimate can't cost what the first ability costs).
+- **Leveling** is slow, per-token, and **capped** per option (endgame control):
+  - abilities: +magnitude / +duration per level, hard cap (like today's fixed
+    magnitudes become the cap ceiling);
+  - passives: +% per level, capped (mirror today's `rigCost` cap of 15).
+- **Content:** 4 classes × (3 ability rows × 2 + 3 passive rows × 2) = up to
+  **24 abilities + 24 passives**. 12 abilities exist today (1/slot/class); we add a
+  2nd option per slot and migrate perk channels into the passives.
+
+---
+
+## 8. Currency flow
+
+- **Faucet:** **Hard Fork** pays GovTokens (`floor(sqrt(lifetime/5e8) × gain)`).
+  Target ~**2k tokens / good cycle** **[TUNE]**.
+- **Sinks:** talent buy + leveling · extra TECH respec (~10k) · build delete.
+- **Genesis Blocks** (banked at New Era) multiply GovToken gain — deep prestige.
+- **[DECIDE] GovTokens at New Era:** today New Blockchain zeroes them. Options:
+  (a) keep them (New Era is only class/TECH/genesis), or (b) zero them as the deep
+  reset's cost. Recommend **(a) keep** — the token grind feeds long-term talent
+  leveling; New Era's cost is the TECH/level reset of the new class, not losing
+  tokens. Confirm.
+- **[TUNE] GovToken income multiplier** (`1 + 0.5·sqrt(GT+spent)`) currently makes
+  spending "income-free". Keep for now; revisit in the rebalance slice.
+
+---
+
+## 9. Removed / changed
+
+- **Consensus** currency + income bonus + soft-fork banking — gone (§1).
+- **Perk tree** (1 universal + 4×8 GovToken nodes) — replaced by talents; its
+  channel bonuses migrate into talent passive rows (§7).
+- **Soft Fork as a TECH reset** — gone; the frequent fork is now the economy reset
+  (Hard Fork).
+- **Preset auto-apply / auto-buy** — removed (§4). Blueprints already retired.
+- **Back-in-Time** — **deferred to a final, separate rewrite**; the owner dislikes
+  the current design. Do not build new systems around it.
+
+---
+
+## 10. Balance risks / open tuning
+
+1. **CX removal** — verify the economy sims stay healthy on GovToken-mult +
+   Notoriety + rigs + TECH alone. Notoriety is finite (achievement count); the
+   repeatable loop is the GovToken multiplier. **Sim-gate this.**
+2. **Token scale** — 2k/cycle and 10k reset assume a token faucet bigger than
+   today's rough "tens–hundreds". Re-baseline token income to match the sinks.
+3. **Content volume** — 12 auras + up to 48 talent options, class-flavored + numbers
+   → generate via a design workflow (like "The Three Engines").
+4. **Class-switch build fit** — RP follows the active class's level; per-class
+   builds keep each build inside its own budget, so no over-budget state.
+5. **Passive caps** — every leveled passive needs a cap so endgame token dumps
+   can't diverge a channel.
+6. **Mastery nudge** — today's `+0.5%/level` all-class hash+income: keep, or fold
+   into Racial. Minor **[TUNE]**.
+
+---
+
+## 11. Slicing (implementation order)
+
+1. **S1 — RP = class level.** rpBudget = min(18, activeClassLevel); drop fork
+   terms; surface level + progress bar; switch loads the class's level.
+2. **S2 — Reset ladder.** Rename/repurpose to Hard Fork (wallet+rigs → tokens, keep
+   TECH) + New Era (deep + class change + Genesis); remove Consensus; fix the
+   class-change-at-New-Era bug.
+3. **S3 — TECH per-class dual-spec** (2 slots, free toggle, free respec 1×/era,
+   paid reset) + remove auto-buy.
+4. **S4 — Auras class-specific** (12, L6/12/18, 1 active, ~4h switch).
+5. **S5 — Talents 2×6** (choice + token buy/level, per-row cost, migrate perk
+   passives with caps; wire ability rows to MINE slots).
+6. **S6 — Rebalance** (token scale, caps, curve `speed`→live, sim-gate CX removal).
+
+Each slice: `flutter analyze` clean + full suite green + local commit on `main`
+(never push). New UI needs owner device-verification (render pane is unavailable).
+
+---
+
+## 12. Migration / save notes
+
+- Pre-release: old saves may reset affected subsystems on load; must not crash.
+- Removing Consensus / perks / presets-auto: drop their save keys defensively
+  (ignore unknown keys, like the researchCount retirement did).
+- Class level = existing per-class mastery XP → already persisted; just cap/curve
+  changes.
