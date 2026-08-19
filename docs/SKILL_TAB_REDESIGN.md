@@ -59,9 +59,22 @@ Notes:
   wallet+rigs, pays tokens, and — crucially — **no longer resets TECH**). Today's
   *Hard Fork* is merged away (its job = the new Hard Fork minus the research reset).
   Today's *New Blockchain* becomes **New Era**.
-- **Class change** is offered **only at New Era** (today it's silently unavailable
-  even there from some paths — that's the reported bug; New Era must present the
-  class picker).
+- **Class change** is offered **only at New Era**. Root cause of the "can't change
+  class" bug: today New Blockchain is **hard-gated** `if (pendingGenesis <= 0)
+  return;`, and 1 Genesis needs **520,000 cumulative GovTokens** (`genesisDivisor`),
+  i.e. ~254 full-supply Hard Forks at gain ×1 — so the reset is effectively
+  unreachable and never offers the class picker. **Fix: decouple class change from
+  the Genesis gate** — New Era is available whenever the player wants the deep reset
+  (+ class picker), and **Genesis simply pays out on a scale** (`floor(sqrt(chain
+  GovTokens / 520000))` = 0 when too early, 1+ once enough is earned). So you can
+  switch class any time you accept the reset; Genesis is a bonus on top.
+
+**Concrete numbers (for reference):** GovTokens per Hard Fork =
+`floor(sqrt(eraSats / 5e8) × gain)` → 5e12 mined ≈ 100 tokens, 5e14 ≈ 1,000,
+a full 21M supply (2.1e15) ≈ **~2,050 tokens** at gain ×1. So "~2k tokens" = one
+full-supply run, NOT New Era. 21M is a per-era milestone (first time = the one-time
+LAST SATOSHI win; repeatable each Hard Fork for ~2k tokens); New Era's Genesis needs
+520k cumulative tokens (rare/deep).
 - **Consensus (CX)** removed everywhere: currency, the `0.1·sqrt(CX)` income
   bonus, the soft-fork banking, and CX from Genesis's gain multiplier.
 
@@ -258,11 +271,22 @@ gate unless we deliberately link them later.)
 BiT, never the reverse); BiT is voluntary but must be addictive. The addictive hook
 is largely **already there** — personal bests, per-class records, speedrun
 achievements — so **start with just that + the gadget depth** (that alone pulls
-speedrunners). *Optional later depth:* a **BiT-only currency** (medals scaled by
-time) spent **only on BiT-only upgrades** (more gadget slots, longer/stronger
-capsule) — stays entirely inside BiT, never touches core. Add it only if playtesting
-wants a stronger hook. **Never pay core power out of BiT** (no multiplier / tokens /
-class XP into classic) — that would make BiT mandatory and force mode-switching.
+speedrunners). *Optional later depth:* a **BiT-only currency** ("medals", scaled by time — e.g.
+sub-2h = 1, sub-1h = 3, sub-30min = 10) spent **only on BiT-only upgrades**, staying
+entirely inside BiT. **Feasibility checked against the code:**
+- Medal counter + time-scaled award = trivial (an int credited on completion).
+- **"More gadget slots" / "longer capsule" do NOT exist and need NEW systems** —
+  today ALL owned stash artifacts apply at once (no equip/slot limit;
+  `_ownedArtifacts` is summed wholesale), and a speed run has NO time cap (ends at
+  21M or on bail). A gadget-loadout limit and a run time-budget would be new
+  mechanics.
+- **What fits existing mechanics NOW:** medals buy **gadget potency inside BiT** —
+  e.g. "Overclock Capsule" +5% to all gadget bonuses in BiT per level, 10×level
+  medals, cap +50%; implemented by multiplying the artifact contribution by
+  `(1 + bitPotency)` only in BiT mode (artifacts already carry numeric bonuses).
+Add only if playtesting wants a stronger hook. **Never pay core power out of BiT**
+(no multiplier / tokens / class XP into classic) — that would make BiT mandatory and
+force mode-switching.
 
 Reserving all of this now means the two-fork ladder above does not change when BiT
 is rebuilt.
