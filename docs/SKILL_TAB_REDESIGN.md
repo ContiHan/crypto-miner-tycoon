@@ -202,6 +202,24 @@ Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
 BiT is a separate **active speed-run mode**, reworked last. Owner's design direction
 (promising — reserve, don't build yet):
 
+**Untangle 21M / BiT / New Era (they're conflated today).** Current code:
+`maxSupplySats` (21M) is the inviolable per-era cap; mining a full 21M in one era
+latches `hasWonGame` once = **THE LAST SATOSHI win** (`endgame_system.dart`).
+Back-in-Time unlocks only after that win and today literally calls
+`_newChainInternal()` (**the same deep reset as New Blockchain**) plus a stopwatch —
+so BiT ≡ New Blockchain + timer, and 21M is both "the win" and "the BiT goal". That
+overlap is the confusion. **New design separates all three:** 21M = the one-time win
+*and* a BiT run's finish line; **New Era** = the prestige reset (Genesis + class +
+TECH respec), untimed, independent of BiT; **BiT** = a separate optional frozen
+challenge that records a time and returns you exactly where you were. **Do NOT gate
+New Era on completing a BiT run** (keep them decoupled).
+
+**Speed-run infra already exists** (reuse, don't rebuild): `SpeedRunSystem`
+(`bestMs`, per-class `bestByClass`, completion at one full supply) + speedrun
+achievements (silver <2h, gold <1h, satoshi <30min, all-4-classes). So the
+time-attack / personal-best / leaderboard "ego hook" is largely built; the NEW work
+is the freeze/snapshot + gadget-powered model below.
+
 - **Crate/Stash gadgets become BiT-only power.** In normal play the collected
   gadgets are (near-)useless "future tech"; the normal-play goal is to **hoard**
   enough of them. When you jump back in time you "pull them from the capsule" — the
@@ -236,14 +254,15 @@ full 21M supply**; completing it records a **time**. Bailing to classic = no tim
 only after it ends. (Keep BiT's 21M completion **separate** from New Era's Genesis
 gate unless we deliberately link them later.)
 
-**Reward loop** (recommendation — a light SELF-CONTAINED loop, or only the hardcore
-will play it): completion → a **BiT-only currency scaled by time** → **BiT-only
-upgrades** (more gadget slots, longer/stronger capsule, better starting state) +
-milestone achievements. Gadgets = the INPUT (earned in core), BiT-currency = the
-OUTPUT (spent on BiT depth) → closed loop: core → gadgets → run → BiT-currency →
-faster runs. **Do NOT pay core power out of BiT** (no permanent multiplier / tokens
-/ class XP into classic) — that would make BiT mandatory and force mode-switching;
-keeping rewards inside BiT leaves it optional but sticky.
+**Reward loop.** Owner-confirmed rule: **nothing flows BiT → core** (core boosts
+BiT, never the reverse); BiT is voluntary but must be addictive. The addictive hook
+is largely **already there** — personal bests, per-class records, speedrun
+achievements — so **start with just that + the gadget depth** (that alone pulls
+speedrunners). *Optional later depth:* a **BiT-only currency** (medals scaled by
+time) spent **only on BiT-only upgrades** (more gadget slots, longer/stronger
+capsule) — stays entirely inside BiT, never touches core. Add it only if playtesting
+wants a stronger hook. **Never pay core power out of BiT** (no multiplier / tokens /
+class XP into classic) — that would make BiT mandatory and force mode-switching.
 
 Reserving all of this now means the two-fork ladder above does not change when BiT
 is rebuilt.
