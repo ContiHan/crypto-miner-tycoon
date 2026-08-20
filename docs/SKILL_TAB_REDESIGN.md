@@ -130,8 +130,21 @@ rpBudget = min(18, classLevel(activeClass))
     minutes). **[TUNE]**
   - `baseXp` tuned so L18 is an endgame "days–weeks" grind that stays engaging.
     **[TUNE]**
-- **Aura milestones** L6 / L12 / L18 land at ~13% / 37% / 100% of the curve.
 - **Add a level progress bar** (current level, % to next) in the SKILL tab header.
+
+### Class-level milestone map
+Every level does something (RP each level; bigger unlocks on milestone levels):
+
+| Level | Unlocks |
+|---|---|
+| every 1–18 | **+1 RP** (cap 18) |
+| 3 / 6 / 9 / 12 / 15 / 18 | **talent row** (6 rows, every 3rd level — see §5) |
+| 4 / 8 / 12 / 16 | **firmware module** (4 — see §7b) |
+| 6 / 12 / 18 | **aura variant** (3 — see §8) |
+
+Overlaps are intentional (a milestone level is juicier); L12 is the big one
+(RP + talent + aura + firmware). "RP-only" levels (1,2,5,7,10,11,13,14,17) still
+matter — RP is build power.
 
 ---
 
@@ -199,9 +212,9 @@ Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
 
 - **Choice is exclusive per row** — one of the two; the picked ability slots into
   the MINE tab, the picked passive applies its channel bonus.
-- **Gating = class level (unlocks the row) + tokens (buy/level).** Rows unlock
-  **faster than auras** (a row roughly per level early). Proposed schedule
-  **[TUNE]**: R1@L1, R2@L3, R3@L5, R4@L8, R5@L11, R6@L14 — all before 18.
+- **Gating = class level (unlocks the row) + tokens (buy/level).** The 6 rows
+  unlock on **every 3rd level: 3 / 6 / 9 / 12 / 15 / 18** (see the milestone map in
+  §4). Tokens then buy + level the chosen option within an unlocked row.
 - **Cost scales by row depth:** a deeper row's *first level* costs more (an
   ultimate can't cost what the first ability costs).
 - **Leveling** is slow, per-token, and **capped** per option (endgame control):
@@ -211,6 +224,29 @@ Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
 - **Content:** 4 classes × (3 ability rows × 2 + 3 passive rows × 2) = up to
   **24 abilities + 24 passives**. 12 abilities exist today (1/slot/class); we add a
   2nd option per slot and migrate perk channels into the passives.
+
+---
+
+## 7b. Firmware — the "overclock" layer (reframe)
+
+Today firmware is a proc loadout where **all modules are free** and only the socket
+count grows — pure upside, weak decision, weakly justified. Reframe it into a
+distinct **overclock tradeoff** layer (owner-chosen), separate from keystones by
+scale (many small universal HW tweaks vs 2 big branch commitments).
+
+- **Each module = a proc benefit + a small thematic drawback** (heat / upkeep /
+  breach chance / shorter buffs) — NOT raw income/hash penalties. You push your
+  rigs past spec for an edge, and eat the cost.
+- **Optional (var. 1):** equip for the tradeoff; the debuffs self-limit how many you
+  run. No forced curse.
+- **4 modules, unlocked by class level at 4 / 8 / 12 / 16** (interleaved between the
+  every-3rd-level talent rows; see the milestone map in §3).
+- **No socket cap** (recommended) — the tradeoffs are the limit; **drop the 3→6
+  socket growth** and the Firmware Bay research dependency. (Alt: keep a small fixed
+  cap of 3 if we want a hard "which 3" on top.)
+- Stays **universal** (about your hardware, not your class), **Time-Capsule**
+  permanent, scope = proc juice + UTXO faucet + situational buffs.
+- Debuff magnitudes need care re: caps (e.g. don't fight the `rigCost` hard cap).
 
 ---
 
@@ -363,7 +399,9 @@ is rebuilt.
 4. **S4 — Auras class-specific** (12, L6/12/18, 1 active, ~4h switch).
 5. **S5 — Talents 2×6** (choice + token buy/level, per-row cost, migrate perk
    passives with caps; wire ability rows to MINE slots).
-6. **S6 — Rebalance** (token scale, caps, curve `speed`→live, sim-gate CX removal).
+6. **S5b — Firmware reframe** (4 optional tradeoff modules, unlocked at L4/8/12/16;
+   drop socket growth; add small thematic debuffs) — see §7b.
+7. **S6 — Rebalance** (token scale, caps, curve `speed`→live, sim-gate CX removal).
 
 Each slice: `flutter analyze` clean + full suite green + local commit on `main`
 (never push). New UI needs owner device-verification (render pane is unavailable).
