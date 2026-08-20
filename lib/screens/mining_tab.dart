@@ -20,15 +20,11 @@ class MiningTab extends StatefulWidget {
   final VoidCallback
   onHardFork; // Callback to trigger hard fork dialog from parent or here
   final Function(String) onBuyRig; // Callback for buying rig visual feedback
-  // Tier-3 prestige (New Blockchain). Optional so widget tests can omit it; the
-  // button only renders when a New Blockchain is actually available.
-  final VoidCallback? onNewBlockchain;
 
   const MiningTab({
     super.key,
     required this.onHardFork,
     required this.onBuyRig,
-    this.onNewBlockchain,
   });
 
   @override
@@ -482,7 +478,6 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               if (game.networkDifficulty.isInfinite)
                                 CapReachedBanner(
                                   game: game,
-                                  onNewBlockchain: widget.onNewBlockchain,
                                   onHardFork: widget.onHardFork,
                                 ),
                               const SizedBox(height: 10),
@@ -495,7 +490,11 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                     fontSize: 14,
                                   ),
                                 ),
-                              if (game.pendingGovTokens > 0)
+                              // The normal Hard Fork button. Hidden at mined-out,
+                              // where the CapReachedBanner is the single fork CTA
+                              // (avoids the old double-button, B2).
+                              if (game.pendingGovTokens > 0 &&
+                                  !game.networkDifficulty.isInfinite)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 8.0),
                                   child: PulseButton(
@@ -566,33 +565,36 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   ],
                                 ),
                               ),
-                              // Tier-3: New Blockchain / Genesis Blocks.
-                              if (game.genesisBlocks > 0)
+                              // Tier-3: Genesis Blocks — PASSIVE. They accrue on
+                              // their own from every GovToken ever minted and
+                              // multiply GovToken gain; the bar shows progress to
+                              // the next block. No button — there is no reset.
+                              if (game.totalGovTokensEver > 0)
                                 Padding(
                                   padding: const EdgeInsets.only(top: 6.0),
-                                  child: Text(
-                                    'GENESIS BLOCKS: ${Formatter.formatNumber(game.genesisBlocks.toDouble())} '
-                                    '(x${game.genesisGainMultiplier.toStringAsFixed(1)} CX/GT gain)',
-                                    style: const TextStyle(
-                                      color: Colors.deepPurpleAccent,
-                                      fontWeight: FontWeight.bold,
-                                      fontSize: 13,
-                                    ),
-                                  ),
-                                ),
-                              if (game.pendingGenesis > 0 &&
-                                  widget.onNewBlockchain != null)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.deepPurple,
-                                      foregroundColor: Colors.white,
-                                    ),
-                                    onPressed: widget.onNewBlockchain,
-                                    child: Text(
-                                      'NEW GENESIS (+${game.pendingGenesis} Block${game.pendingGenesis == 1 ? '' : 's'})',
-                                    ),
+                                  child: Column(
+                                    children: [
+                                      Text(
+                                        'GENESIS BLOCKS: ${Formatter.formatNumber(game.genesisBlocks.toDouble())} '
+                                        '(x${game.genesisGainMultiplier.toStringAsFixed(2)} GovToken gain)',
+                                        style: const TextStyle(
+                                          color: Colors.deepPurpleAccent,
+                                          fontWeight: FontWeight.bold,
+                                          fontSize: 13,
+                                        ),
+                                      ),
+                                      const SizedBox(height: 4),
+                                      ClipRRect(
+                                        borderRadius: BorderRadius.circular(4),
+                                        child: LinearProgressIndicator(
+                                          value: game.genesisProgressToNext,
+                                          backgroundColor: Colors.black54,
+                                          color: Colors.deepPurpleAccent
+                                              .withValues(alpha: 0.7),
+                                          minHeight: 6,
+                                        ),
+                                      ),
+                                    ],
                                   ),
                                 ),
                               // Speed Run: optional timed sprint. START button

@@ -260,10 +260,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           context,
           Provider.of<GameLogic>(context, listen: false),
         ),
-        onNewBlockchain: () => _showNewBlockchainDialog(
-          context,
-          Provider.of<GameLogic>(context, listen: false),
-        ),
         onBuyRig: (cost) {},
       ),
       const StashScreen(), // Index 3: STASH
@@ -376,6 +372,29 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   void _showHardForkDialog(BuildContext context, GameLogic game) {
+    // At mined-out the Hard Fork is mandatory AND is the one place to change
+    // class — offer the class picker (preselected to the current class, so
+    // "keep my class" is a one-tap confirm that keeps all TECH & perks). A
+    // normal (non-mined-out) fork is a plain confirm that always keeps them.
+    if (game.isMinedOut) {
+      showClassPicker(
+        context,
+        game: game,
+        title: 'HARD FORK — NEW ERA',
+        titleColor: Colors.redAccent,
+        confirmLabel: 'FORK & PLAY',
+        confirmColor: Colors.redAccent,
+        headerLabel: 'KEEP YOUR CLASS, OR SWITCH FOR THE NEXT ERA:',
+        info: 'The era is mined out. Hard-fork to a fresh era for '
+            '${Formatter.formatNumber(game.pendingGovTokens.toDouble())} GovTokens '
+            '(x${game.prestigeMultiplier.toStringAsFixed(1)} → '
+            'x${game.prestigeMultiplierAfterHardFork.toStringAsFixed(1)}).\n\n'
+            'Keep your class to KEEP your TECH & perks. Switch class to play the '
+            'next era as someone new — that re-teches the tree and swaps perks.',
+        onConfirm: (c) => game.hardFork(chosenClass: c),
+      );
+      return;
+    }
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -385,7 +404,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           style: TextStyle(color: Colors.redAccent),
         ),
         content: Text(
-          'This will reset your Money and Rigs.\n\n'
+          'This resets your Money and Rigs — your TECH, class and perks are KEPT.\n\n'
           'You will gain ${Formatter.formatNumber(game.pendingGovTokens.toDouble())} GovTokens.\n'
           'Current Multiplier: x${game.prestigeMultiplier.toStringAsFixed(1)}\n'
           'New Multiplier: x${game.prestigeMultiplierAfterHardFork.toStringAsFixed(1)}',
@@ -406,32 +425,6 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           ),
         ],
       ),
-    );
-  }
-
-  void _showNewBlockchainDialog(BuildContext context, GameLogic game) {
-    // Concave projection (matches PrestigeSystem), so the dialog never
-    // overstates the reward of this irreversible reset.
-    final nextMultiplier = game.genesisGainMultiplierAfterNewChain;
-    final classHint = game.hasChosenClass
-        ? '\n\nThis is where you RE-PICK your class — it stays locked for the whole '
-            'chain, then changes only at a New Genesis like this one.'
-        : '\n\nTip: you can also pick your class early on the SKILL tab. It locks '
-            'in for the whole chain once chosen — you then re-pick at each New Genesis.';
-    showClassPicker(
-      context,
-      game: game,
-      title: 'START A NEW GENESIS?',
-      titleColor: Colors.deepPurpleAccent,
-      confirmLabel: 'REBORN',
-      confirmColor: Colors.deepPurple,
-      headerLabel: 'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
-      info: 'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents and '
-          'GovTokens. Your Stash, UTXO chips & Mastery are KEPT.\n\n'
-          'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
-          'GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
-          '→ x${nextMultiplier.toStringAsFixed(1)}$classHint',
-      onConfirm: (c) => game.newBlockchain(chosenClass: c),
     );
   }
 

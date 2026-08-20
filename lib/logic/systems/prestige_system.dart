@@ -1,70 +1,53 @@
 import 'dart:math';
 import '../../core/constants.dart';
 
-/// Prestige currencies beyond the base GovTokens.
+/// Prestige progression beyond the base GovTokens.
 ///
-/// (SKILL S2: the Consensus currency + Soft Fork were removed — repeatable income
-/// scaling now comes from the GovToken multiplier + Notoriety. Only Genesis Blocks
-/// remain here.)
-///
-/// New Blockchain: grants Genesis Blocks (GB) earned from GovTokens minted since
-/// the last New Blockchain. GB do NOT add raw income; they multiply the GAIN of
-/// GovTokens, so every future run farms prestige faster.
+/// SKILL S2: the Consensus currency + Soft Fork were removed, and Genesis Blocks
+/// became PASSIVE — derived live from the cumulative GovTokens ever minted, with
+/// no "New Blockchain" reset to bank them. Genesis Blocks multiply the GAIN of
+/// GovTokens (never raw income), so every future run farms prestige faster.
 class PrestigeSystem {
-  // Genesis Blocks (New Blockchain).
-  int genesisBlocks = 0;
-
-  /// Cumulative GovTokens ever minted by Hard Forks, and the snapshot taken at
-  /// the last New Blockchain. Their difference ([chainGovTokens]) is what the
-  /// next Genesis Block count is derived from.
+  /// Cumulative GovTokens ever minted by Hard Forks — the single source of truth
+  /// for the passive Genesis tier (and the perk-unlock progression metric). Only
+  /// ever grows in play; a full Wipe Save zeroes it via [reset].
   double totalGovTokensEver = 0;
-  double govTokensEverAtLastNewChain = 0;
 
-  // ---- Tier 3: New Blockchain / Genesis Blocks ---------------------------
+  /// Genesis Blocks, DERIVED live from [totalGovTokensEver] (no banking, no
+  /// reset): floor(sqrt(totalGovTokensEver / genesisDivisor)). Monotonic in play.
+  int get genesisBlocks {
+    if (totalGovTokensEver < GameConstants.genesisDivisor) return 0;
+    // +epsilon so perfect squares don't lose 1 to float error.
+    return (sqrt(totalGovTokensEver / GameConstants.genesisDivisor) + 1e-9)
+        .floor();
+  }
 
-  /// Always-on multiplier applied to the GAIN of GovTokens.
-  /// CONCAVE in genesisBlocks (sqrt) so the Genesis<->GovToken feedback loop
-  /// converges instead of running away; 1.0 with no Genesis Blocks, so it has no
-  /// effect on the base single-run economy until the deepest prestige tier.
+  /// Always-on multiplier applied to the GAIN of GovTokens. CONCAVE in
+  /// genesisBlocks (sqrt) — and since genesisBlocks is itself a sqrt of
+  /// [totalGovTokensEver], the multiplier grows only like the FOURTH root of
+  /// cumulative tokens, so the Genesis<->GovToken feedback loop converges instead
+  /// of running away. 1.0 with no Genesis Blocks, so early play is unaffected.
   double get genesisGainMultiplier =>
       1.0 + GameConstants.perGenesisGainBonus * sqrt(genesisBlocks);
 
-  /// The gain multiplier the player would have after banking [extraGenesis] more
-  /// Genesis Blocks — same concave curve as [genesisGainMultiplier], so UI
-  /// projections never diverge from the value actually applied.
-  double genesisGainMultiplierWith(int extraGenesis) =>
-      1.0 +
-      GameConstants.perGenesisGainBonus * sqrt(genesisBlocks + extraGenesis);
-
-  /// GovTokens minted this "chain" (since the last New Blockchain).
-  double chainGovTokens() => totalGovTokensEver - govTokensEverAtLastNewChain;
-
-  /// Genesis Blocks the player would gain by starting a New Blockchain now
-  /// (square-root curve over this chain's minted GovTokens).
-  int pendingGenesis() {
-    final chain = chainGovTokens();
-    if (chain < GameConstants.genesisDivisor) return 0;
-    // +epsilon so perfect squares don't lose 1 to float error.
-    return (sqrt(chain / GameConstants.genesisDivisor) + 1e-9).floor();
+  /// Progress (0..1) from the current Genesis Block toward the next, for the
+  /// mining-tab progress bar.
+  double genesisProgressToNext() {
+    final int gb = genesisBlocks;
+    final double lo = gb * gb * GameConstants.genesisDivisor;
+    final double hi = (gb + 1) * (gb + 1) * GameConstants.genesisDivisor;
+    if (hi <= lo) return 0.0;
+    final double t = (totalGovTokensEver - lo) / (hi - lo);
+    return t.isFinite ? t.clamp(0.0, 1.0) : 0.0;
   }
 
-  /// Record GovTokens minted by a Hard Fork so tier-3 progress accumulates.
+  /// Record GovTokens minted by a Hard Fork so Genesis progress accumulates.
   void recordGovTokensMinted(int amount) {
     totalGovTokensEver += amount;
   }
 
-  /// Apply a New Blockchain: bank the Genesis Blocks, snapshot the chain
-  /// baseline. Everything else in the run is reset by GameLogic; the Stash
-  /// collection is deliberately preserved.
-  void applyNewBlockchain() {
-    genesisBlocks += pendingGenesis();
-    govTokensEverAtLastNewChain = totalGovTokensEver;
-  }
-
-  /// Full wipe (Wipe Save): clears every prestige tier including Genesis Blocks.
+  /// Full wipe (Wipe Save): zero the accumulator, which zeroes derived Genesis.
   void reset() {
-    genesisBlocks = 0;
     totalGovTokensEver = 0;
-    govTokensEverAtLastNewChain = 0;
   }
 }

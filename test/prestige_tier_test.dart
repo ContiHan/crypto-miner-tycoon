@@ -1,175 +1,89 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'test_helper.dart';
 
-// Values below track the concave endgame model:
-//   govTokenDivisor  = 5e8,  prestigeMultiplier  = 1 + 0.50*sqrt(GT+spent)
-//   genesisDivisor   = 520000, genesisGainMult   = 1 + 0.50*sqrt(GB)
-//   pendingGovTokens = floor(sqrt(lifetime/5e8)     * genesisGainMult)
-//   pendingGenesis   = floor(sqrt(chainGovTokens/520000)+eps)
-// (Consensus currency + Soft Fork were removed in SKILL S2.)
+// Passive endgame model (SKILL S2):
+//   govTokenDivisor = 5e8,   prestigeMultiplier = 1 + 0.50*sqrt(GT+spent)
+//   genesisDivisor  = 25000, genesisGainMult    = 1 + 0.50*sqrt(GB)
+//   pendingGovTokens = floor(sqrt(lifetime/5e8) * genesisGainMult)
+//   genesisBlocks    = floor(sqrt(totalGovTokensEver / genesisDivisor))  [DERIVED]
+// (Consensus + Soft Fork + the New Blockchain banking flow were all removed in
+//  SKILL S2; Genesis Blocks now accrue PASSIVELY from cumulative GovTokens.)
 void main() {
-  group('New Blockchain (Tier-3 prestige / Genesis Blocks)', () {
-    // Mint [tokens] GovTokens through a real Hard Fork so the tier-3
-    // "totalGovTokensEver" accumulator is fed exactly as it is in play.
-    // Valid only while genesisGainMultiplier == 1 (before any New Blockchain).
-    Future<void> mintTokens(dynamic game, int tokens) async {
-      // pending = floor(sqrt(lifetime / govTokenDivisor)); govTokenDivisor=5e8.
+  group('Genesis Blocks (passive, derived from totalGovTokensEver)', () {
+    // Mint exactly [tokens] GovTokens through a single Hard Fork from a FRESH
+    // game — while genesisBlocks == 0 the gain multiplier is 1.0, so this seeds
+    // totalGovTokensEver == tokens deterministically.
+    Future<void> mintFresh(dynamic game, int tokens) async {
       game.lifetimeEarnings = tokens * tokens * 5.0e8;
       expect(game.pendingGovTokens, tokens);
       game.hardFork();
+      expect(game.totalGovTokensEver, closeTo(tokens.toDouble(), 1e-6));
     }
 
-    test('pendingGenesis follows sqrt(chainGovTokens / genesisDivisor)',
-        () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-
-      await mintTokens(game, 300000); // 300000 < 520000 -> 0 Genesis
-      expect(game.pendingGenesis, 0);
-
-      // Bump chain total to exactly 520000 -> sqrt(520000/520000) = 1.
-      await mintTokens(game, 220000); // 300000 + 220000 = 520000
-      expect(game.pendingGenesis, 1);
+    test('threshold is the S2 value (guards the migration math)', () {
+      expect(GameConstants.genesisDivisor, 25000.0);
     });
 
-    test('New Blockchain banks Genesis, keeps Stash, wipes everything else',
-        () async {
+    test('below the threshold yields 0 Genesis (multiplier neutral)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
+      await mintFresh(game, 100); // 100 << 25000 -> 0 Genesis
+      expect(game.genesisBlocks, 0);
+      expect(game.genesisGainMultiplier, closeTo(1.0, 1e-9));
+    });
 
-      // 2080000 chain tokens -> sqrt(2080000/520000) = sqrt(4) = 2 Genesis Blocks.
-      await mintTokens(game, 2080000);
-      expect(game.pendingGenesis, 2);
+    test('genesisBlocks = floor(sqrt(totalGovTokensEver / genesisDivisor))',
+        () async {
+      // 1 Genesis at exactly the threshold.
+      final g1 = createTestGameLogic(loadOnStart: false);
+      await g1.loadGame();
+      await mintFresh(g1, 25000); // 25000 / 25000 = 1
+      expect(g1.genesisBlocks, 1);
 
-      // Seed the run resources the deepest reset must wipe, plus permanent
-      // things that must survive (Stash artifact + chips/UTXO).
-      game.wallet = 1e9;
-      game.chips = 40;
-      game.buyResearch(ResearchIds.basicOverclock);
-      game.buyPerk(PerkIds.clickPower);
-      game.rigs.firstWhere((r) => r.id == 'cpu_rig').amount = 5;
-      game.stashService.ownedArtifacts['old_hdd'] = 1;
-      expect(game.govTokens, greaterThan(0));
-      expect(game.isResearched(ResearchIds.basicOverclock), true);
-      expect((game.perks[PerkIds.clickPower] ?? 0), greaterThan(0));
-
-      game.newBlockchain();
-
-      expect(game.genesisBlocks, 2, reason: 'Genesis banked');
-      expect(game.pendingGenesis, 0, reason: 'chain baseline reset');
-      expect(game.wallet, 0);
-      expect(game.lifetimeEarnings, 0);
-      expect(game.govTokens, 0);
-      expect(game.spentGovTokens, 0);
-      expect(game.chips, 40, reason: 'chips/UTXO are PERMANENT (survive New Blockchain)');
-      expect(game.rigs.every((r) => r.amount == 0), true, reason: 'rigs wiped');
-      expect(
-        game.isResearched(ResearchIds.basicOverclock),
-        false,
-        reason: 'research wiped',
-      );
-      expect(
-        (game.perks[PerkIds.clickPower] ?? 0),
-        0,
-        reason: 'perks wiped',
-      );
-      expect(
-        game.stashService.ownedArtifacts.containsKey('old_hdd'),
-        true,
-        reason: 'Stash collection is permanent',
-      );
+      // 4 Genesis at 16x the threshold.
+      final g4 = createTestGameLogic(loadOnStart: false);
+      await g4.loadGame();
+      await mintFresh(g4, 400000); // 400000 / 25000 = 16 -> sqrt = 4
+      expect(g4.genesisBlocks, 4);
+      // 1 + 0.5*sqrt(4) = x2.0 gain multiplier.
+      expect(g4.genesisGainMultiplier, closeTo(2.0, 1e-9));
     });
 
     test('Genesis Blocks multiply GovToken GAIN', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
-      // 8320000 chain tokens -> sqrt(8320000/520000) = sqrt(16) = 4 Genesis.
-      await mintTokens(game, 8320000);
-      game.newBlockchain();
+      await mintFresh(game, 400000); // -> 4 Genesis, x2.0 gain
       expect(game.genesisBlocks, 4);
-      // 1 + 0.5*sqrt(4) = x2.0 gain multiplier.
-      expect(game.genesisGainMultiplier, closeTo(2.0, 1e-9));
 
-      // GovToken gain doubled: base floor(sqrt(4.5e9/5e8))=3 -> 6.
+      // GovToken gain doubled: base floor(sqrt(4.5e9/5e8)) = 3 -> 6.
       game.lifetimeEarnings = 4.5e9;
       expect(game.pendingGovTokens, 6);
     });
 
-    test('genesisGainMultiplierAfterNewChain matches the concave applied value',
+    test('a Hard Fork never LOWERS Genesis (monotonic, no banking/reset)',
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      await mintTokens(game, 8320000); // chain 8.32M -> pendingGenesis 4
-      expect(game.pendingGenesis, 4);
-      // Projection must be concave (1 + 0.5*sqrt(0+4) = 2.0), NOT the old linear
-      // 1 + 4*0.5 = 3.0 the dialog used to show.
-      expect(game.genesisGainMultiplierAfterNewChain, closeTo(2.0, 1e-9));
-      game.newBlockchain();
-      // ...and it equals what actually got applied.
-      expect(game.genesisGainMultiplier, closeTo(2.0, 1e-9));
-    });
-
-    test('New Blockchain below the threshold does nothing', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      await mintTokens(game, 5); // 5 chain tokens < 520000
-      expect(game.pendingGenesis, 0);
-      game.wallet = 500;
-      game.newBlockchain();
-      expect(game.genesisBlocks, 0);
-      expect(game.wallet, 500, reason: 'no-op must not wipe the run');
-    });
-
-    test('Genesis Blocks and the chain baseline survive save + reload',
-        () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-
-      await mintTokens(game, 8320000); // chain 8.32M -> 4 Genesis
-      game.newBlockchain(); // banks 4 GB + saves (baseline now 8.32M)
+      await mintFresh(game, 400000); // 4 Genesis
       expect(game.genesisBlocks, 4);
 
-      // Reload from the same repo the newBlockchain save wrote to.
-      await game.loadGame();
-      expect(game.genesisBlocks, 4, reason: 'Genesis Blocks persisted');
-      expect(
-        game.pendingGenesis,
-        0,
-        reason: 'chain baseline persisted -> no free re-trigger after reload',
-      );
-
-      // Behavioural check that BOTH totalGovTokensEver (=8.32M) and the baseline
-      // (=8.32M) round-tripped. With x2.0 gain (4 GB), base sqrt(6.76e10)=260000
-      // mints 520000, so the fresh chain holds exactly 520000 -> 1 Genesis. A
-      // dropped total (chain goes negative) or dropped baseline (chain much
-      // larger) both change this count, so it pins both fields.
-      game.lifetimeEarnings = 260000.0 * 260000.0 * 5.0e8;
-      expect(game.pendingGovTokens, 520000);
+      // Another Hard Fork only ADDS to totalGovTokensEver → Genesis can only grow.
+      game.lifetimeEarnings = 4.5e9; // some more tokens
       game.hardFork();
-      expect(game.pendingGenesis, 1);
+      expect(game.genesisBlocks, greaterThanOrEqualTo(4));
     });
 
-    test('a second New Blockchain ADDS to the Genesis total (not replaces)',
+    test('derived Genesis survives save + reload (only totalEver persists)',
         () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-
-      await mintTokens(game, 8320000); // chain 8.32M -> 4 Genesis
-      game.newBlockchain();
+      await mintFresh(game, 400000); // 4 Genesis; hardFork() already saved
       expect(game.genesisBlocks, 4);
-      expect(game.genesisGainMultiplier, closeTo(2.0, 1e-9));
 
-      // Boosted mint (x2.0): base sqrt(6.76e10)=260000 -> 520000 minted, so the
-      // fresh chain reaches 520000 tokens -> floor(sqrt(520000/520000)) = 1 GB.
-      game.lifetimeEarnings = 260000.0 * 260000.0 * 5.0e8;
-      expect(game.pendingGovTokens, 520000, reason: 'GT gain boosted by Genesis');
-      game.hardFork();
-      expect(game.pendingGenesis, 1);
-
-      game.newBlockchain();
-      expect(game.genesisBlocks, 5, reason: '4 + 1, Genesis accumulates');
+      await game.loadGame(); // same fake repo
+      expect(game.genesisBlocks, 4, reason: 'derived from persisted totalEver');
+      expect(game.totalGovTokensEver, closeTo(400000.0, 1e-6));
     });
   });
 }

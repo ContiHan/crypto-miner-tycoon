@@ -99,20 +99,19 @@ class GameConstants {
   // (Soft Fork / Consensus currency removed in SKILL S2 — repeatable income
   // scaling now comes from the GovToken multiplier + Notoriety.)
 
-  // New Blockchain (Tier-3 prestige): resets almost everything (keeps only the
-  // permanent Stash collection + banked Genesis Blocks), grants Genesis Blocks
-  // (GB) = floor(sqrt(chainGovTokens / genesisDivisor)) where chainGovTokens is
-  // the GovTokens minted since the last New Blockchain. GB do NOT add raw income;
-  // they multiply the GAIN of GovTokens, so each New Blockchain makes every
-  // future run farm prestige faster instead of stacking yet another raw income
-  // multiplier. The multiplier is CONCAVE in GB (1 + perGenesisGainBonus*sqrt(GB))
-  // so the Genesis<->GovToken feedback loop converges instead of running away.
-  // Raised with the 10-rig rescale: the new top-tier hashrate (~10,000x the old
-  // ladder) lets a whale saturate the per-era supply cap every fork, so each
-  // fork mints the MAX GovTokens and tier-3 (New Blockchain) was reachable in
-  // ~16-20h of optimal play (vs the intended multi-day milestone). Raising this
-  // gate keeps the deepest prestige a genuine investment under the new economy.
-  static const double genesisDivisor = 520000.0; // chain-GovTokens -> 1 GB
+  // Genesis Blocks (SKILL S2: PASSIVE tier). Derived LIVE from cumulative
+  // GovTokens ever minted: GB = floor(sqrt(totalGovTokensEver / genesisDivisor)).
+  // No "New Blockchain" reset banks them — they simply accrue as you Hard Fork.
+  // GB do NOT add raw income; they multiply the GAIN of GovTokens
+  // (genesisGainMultiplier = 1 + perGenesisGainBonus*sqrt(GB)). Because GB is
+  // itself a sqrt of totalGovTokensEver, the multiplier grows only like the
+  // FOURTH root of cumulative tokens, so the Genesis<->GovToken feedback loop
+  // CONVERGES on its own — the prestigeGainMax clamp does NOT bound this loop
+  // (genesisGainMultiplier is applied outside that clamp); the concavity does.
+  // Threshold lowered from the old banked-model 520000 so Genesis accrues during
+  // normal play (a passive tier should be visibly moving), while the fourth-root
+  // curve keeps the ceiling tame (GB=100 needs ~2.5e8 cumulative tokens).
+  static const double genesisDivisor = 25000.0; // cumulative GovTokens -> 1 GB
   static const double perGenesisGainBonus = 0.5; // gain x = 1 + 0.5*sqrt(GB)
 
   // Achievements: each NORMAL (non-secret) achievement grants this much permanent
@@ -164,11 +163,13 @@ class GameConstants {
 
   // PRESTIGE WEIGHT attribute — a buildable multiplier on GovToken GAIN via the
   // `prestige` channel: gainMult ×= multiplier(prestige, 1.0, 0.5) (softcap params
-  // pinned per BALANCE_AND_BOUNDS X7). The TOTAL prestige-gain multiplier (class
-  // scalar × Prestige Weight × future keystones/abilities) is clamped at
-  // [prestigeGainMax] (#17) so the Genesis↔GovToken feedback loop can never
-  // diverge; the concave GT accrual + softcap keep it well under this in practice
-  // (the paper worst-case full stack is ~x58).
+  // pinned per BALANCE_AND_BOUNDS X7). This clamp bounds the BUILDABLE prestige-
+  // gain multiplier (class scalar × Prestige Weight × keystones/abilities) at
+  // [prestigeGainMax] (#17) so that stackable lane can't diverge. NOTE: the
+  // separate genesisGainMultiplier is applied OUTSIDE this clamp, so this does
+  // NOT bound the Genesis↔GovToken loop — that loop converges on its own via its
+  // fourth-root concavity (see genesisDivisor). The paper worst-case buildable
+  // stack lands ~x58, under the clamp.
   static const double prestigeGainMax = 60.0;
 
   // PROSPECTOR'S EYE attribute (Fortune / drop quality). Each crate roll has a

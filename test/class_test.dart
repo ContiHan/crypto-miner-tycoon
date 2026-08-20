@@ -160,22 +160,27 @@ void main() {
       game.chooseClass(BtcClass.soloMiner);
       expect(game.currentClass, BtcClass.soloMiner);
 
-      // A mid-chain switch is blocked — locked until the next New Blockchain.
+      // A mid-chain switch is blocked — chooseClass locks once committed.
       game.chooseClass(BtcClass.corporation);
       expect(game.currentClass, BtcClass.soloMiner,
           reason: 'chooseClass is a no-op once a class is committed');
 
-      // A New Blockchain re-opens the choice via its own picker.
-      game.lifetimeEarnings = 1000000 * 1000000 * 5.0e8; // clears raised Genesis gate
-      game.hardFork();
-      expect(game.pendingGenesis, greaterThan(0));
-      game.newBlockchain(chosenClass: BtcClass.btcOg);
-      expect(game.currentClass, BtcClass.btcOg, reason: 'New Blockchain re-picks');
+      // A NON-mined-out Hard Fork ignores a class change (only offered at cap).
+      game.lifetimeEarnings = 2e9;
+      game.hardFork(chosenClass: BtcClass.corporation);
+      expect(game.currentClass, BtcClass.soloMiner,
+          reason: 'class change is only honored at a mined-out Hard Fork');
 
-      // ...and the new class is locked again on the fresh chain.
+      // A MINED-OUT Hard Fork re-opens the choice via its picker.
+      game.lifetimeEarnings = GameConstants.maxSupplySats;
+      game.hardFork(chosenClass: BtcClass.btcOg);
+      expect(game.currentClass, BtcClass.btcOg,
+          reason: 'a mined-out Hard Fork changes class');
+
+      // ...and the new class is locked again for the next era.
       game.chooseClass(BtcClass.poolMember);
       expect(game.currentClass, BtcClass.btcOg,
-          reason: 're-locked after the New Blockchain pick');
+          reason: 're-locked after the mined-out class change');
     });
 
     test('a full Wipe Save clears class + Mastery', () async {

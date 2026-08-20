@@ -60,31 +60,25 @@ class LockedRigTeaser extends StatelessWidget {
 
 /// Shown when a single era's entire 21M supply is mined (networkDifficulty is ∞,
 /// income clamped to 0). Replaces the "looks broken" dead-end with a clear
-/// message + the right next step to move on to a fresh era: start a New
-/// Blockchain if one is banked, else Hard Fork (always available at the cap).
+/// message + the single next step: Hard Fork (the only fork, always available at
+/// the cap, and where the player may CHANGE CLASS).
 class CapReachedBanner extends StatelessWidget {
   final GameLogic game;
-  final VoidCallback? onNewBlockchain;
   final VoidCallback? onHardFork;
 
   const CapReachedBanner({
     super.key,
     required this.game,
-    required this.onNewBlockchain,
     required this.onHardFork,
   });
 
   @override
   Widget build(BuildContext context) {
-    String cta;
-    VoidCallback? action;
-    if (game.pendingGenesis > 0 && onNewBlockchain != null) {
-      cta = 'START NEW GENESIS';
-      action = onNewBlockchain;
-    } else {
-      cta = 'HARD FORK NOW';
-      action = onHardFork;
-    }
+    // At the cap the Hard Fork is the one CTA; it also opens the class-change
+    // picker (a mined-out fork is the only place class can be swapped).
+    final String cta =
+        game.hasChosenClass ? 'HARD FORK · CHANGE CLASS' : 'HARD FORK NOW';
+    final VoidCallback? action = onHardFork;
 
     return Container(
       margin: const EdgeInsets.only(top: 10),

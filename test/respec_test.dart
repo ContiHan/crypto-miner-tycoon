@@ -1,11 +1,15 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'test_helper.dart';
 
 /// F-C: one free respec per era. Clears the TECH tree (uncommitting doctrines)
-/// once per era so a mis-committed build can be re-picked without waiting for a
-/// fork. Blueprints (the permanent re-tech discount) survive. Every fork refreshes
-/// the respec (forks reset research anyway).
+/// once per era so a mis-committed build can be re-picked. Blueprints (the
+/// permanent re-tech discount) survive. SKILL S2: a plain Hard Fork now KEEPS
+/// TECH, so it no longer refreshes the respec — the respec refreshes on the
+/// resets that actually clear the build: a class change (mined-out fork) or a
+/// full wipe.
 void main() {
   group('Free respec (one per era)', () {
     test('unavailable on a fresh era (nothing researched to clear)', () async {
@@ -71,18 +75,27 @@ void main() {
           reason: 'the second respec did nothing — the re-teched node survives');
     });
 
-    test('a fork refreshes the respec', () async {
+    test('a plain fork does NOT refresh; a class change (mined-out fork) does',
+        () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
+      game.debugSelectClass(BtcClass.soloMiner);
       game.wallet = 1e12;
       game.buyResearch(ResearchIds.basicOverclock);
       game.respecTech();
       expect(game.respecSpent, true);
 
-      // A Hard Fork resets research (and the respec).
+      // A plain Hard Fork now KEEPS TECH — it must NOT refresh the respec.
       game.lifetimeEarnings = 2e9;
       game.hardFork();
-      expect(game.respecSpent, false, reason: 'fork refreshes the free respec');
+      expect(game.respecSpent, true,
+          reason: 'a plain Hard Fork keeps TECH; the respec is not refreshed');
+
+      // A class change at a mined-out Hard Fork resets TECH → refreshes respec.
+      game.lifetimeEarnings = GameConstants.maxSupplySats;
+      game.hardFork(chosenClass: BtcClass.btcOg);
+      expect(game.respecSpent, false,
+          reason: 'a class change refreshes the free respec');
     });
 
     test('spent-state round-trips across save + reload', () async {

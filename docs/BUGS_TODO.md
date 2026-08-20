@@ -10,25 +10,25 @@ Related existing backlogs (separate, not duplicated here): device findings
 
 ---
 
-## B1 — Can't change class after any reset 🟡 (S2)
-**Symptom:** no way to switch class after a reset; the option never appears.
-**Root cause:** `chooseClass` hard-locks (`if (hasChosenClass) return;`,
-`game_logic.dart:1097`); re-pick is only via `newBlockchain`, itself hard-gated
-`if (pendingGenesis <= 0) return;` (`game_logic.dart:2091`), and 1 Genesis needs
-520,000 cumulative tokens (~254 full runs) — effectively unreachable, so the class
-picker is never offered.
-**Fix:** S2 — offer class change at a mined-out Hard Fork, decoupled from the Genesis
-gate. (This was the originally-reported "nejde po žádném resetu měnit classa".)
+## B1 — Can't change class after any reset 🟢 FIXED (S2b)
+**Was:** no way to switch class after a reset; the option never appeared.
+**Root cause:** `chooseClass` hard-locked after the first pick; the only re-pick
+path was `newBlockchain`, itself gated on a Genesis needing 520,000 cumulative
+tokens (~254 full runs) — effectively unreachable.
+**Fixed in S2b:** class change is now offered at a **mined-out Hard Fork** via
+`hardFork({BtcClass? chosenClass})` (honored only when `isMinedOut`), decoupled
+from any Genesis gate. Picking a different class re-teches TECH + swaps perks;
+keeping the same class (the preselected default) keeps everything. The New
+Blockchain flow that used to carry the picker was removed.
 
-## B2 — Two "HARD FORK" buttons at mined-out 🟡 (S2)
-**Symptom:** when the era is mined out (difficulty ∞), the tab shows the red
-`CapReachedBanner` ("ERA MINED OUT → HARD FORK NOW") **and** the normal
-"HARD FORK (+X Tokens)" button — both call `hardFork`. Reads as "which do I click?".
-**Root cause:** `CapReachedBanner` (`mining_banners.dart:65`, wired at
-`mining_tab.dart:482`) + the plain Hard Fork button (`mining_tab.dart:535`) are both
-shown at once.
-**Fix:** S2 — at mined-out show only the banner (hide the plain button while
-`networkDifficulty.isInfinite`); the banner carries the class-change option.
+## B2 — Two "HARD FORK" buttons at mined-out 🟢 FIXED (S2b)
+**Was:** at mined-out the tab showed the red `CapReachedBanner` CTA **and** the
+plain "HARD FORK (+X Tokens)" button (plus a NEW GENESIS button) — 2-3 competing
+CTAs.
+**Fixed in S2b:** the plain Hard Fork button is now hidden while
+`networkDifficulty.isInfinite`, so the `CapReachedBanner` is the single mined-out
+CTA (it carries the class-change picker). The NEW GENESIS button was removed
+entirely (Genesis is passive now).
 
 ## B3 — RP hard-capped at 8 (can't reach a full branch) 🟢 FIXED (S1)
 **Was:** RP topped out at 8 (fork-term formula), never reaching a full 9-RP branch.

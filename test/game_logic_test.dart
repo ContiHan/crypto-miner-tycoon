@@ -123,7 +123,7 @@ void main() {
       expect(settings['sound_enabled'], false);
     });
 
-    test('Hard Fork resets Research', () async {
+    test('Hard Fork KEEPS Research (SKILL S2) and still claims tokens', () async {
       game.wallet = 100000;
       game.buyResearch('basic_overclock');
       expect(game.isResearched('basic_overclock'), true);
@@ -134,8 +134,8 @@ void main() {
 
       expect(
         game.isResearched('basic_overclock'),
-        false,
-        reason: 'Research should be reset',
+        true,
+        reason: 'a Hard Fork now KEEPS TECH — only a class change resets it',
       );
       expect(game.govTokens, greaterThan(0), reason: 'Should claim tokens');
     });

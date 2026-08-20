@@ -366,8 +366,8 @@ void main() {
         350.0,
         reason: 'seeded from govTokens + spentGovTokens when the key is absent',
       );
-      expect(data['genesisBlocks'], 0);
-      expect(data['govTokensEverAtLastNewChain'], 0.0);
+      expect(data['genesisBlocks'], 0,
+          reason: 'legacy stored Genesis (for migration) defaults to 0');
     });
 
     test('seeds first-action counters from progress for pre-Phase-6 saves',
@@ -413,8 +413,7 @@ void main() {
           'govTokens': 50,
           'spentGovTokens': 300,
           'totalGovTokensEver': 9999,
-          'govTokensEverAtLastNewChain': 4000,
-          'genesisBlocks': 3,
+          'genesisBlocks': 3, // legacy stored count (surfaced for migration)
         }),
       });
       final repo = GameRepository();
@@ -422,7 +421,8 @@ void main() {
       final data = await repo.loadGameState();
 
       expect(data['totalGovTokensEver'], 9999.0, reason: 'kept, not reseeded');
-      expect(data['govTokensEverAtLastNewChain'], 4000.0);
+      // Genesis Blocks are DERIVED now, but the legacy stored count is still
+      // surfaced so GameLogic can top up totalGovTokensEver on load (migration).
       expect(data['genesisBlocks'], 3);
     });
   });

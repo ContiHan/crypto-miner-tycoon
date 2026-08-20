@@ -1154,19 +1154,18 @@ class GameLogic with ChangeNotifier {
 
   final PrestigeSystem _prestige = PrestigeSystem();
 
-  // Tier-3 prestige (New Blockchain / Genesis Blocks). Genesis Blocks multiply
-  // the GAIN of GovTokens rather than adding raw income.
+  /// True while the current era is mined out (∞ difficulty / 0 income) — the
+  /// moment a Hard Fork is mandatory and a class change is offered.
+  bool get isMinedOut => networkDifficulty.isInfinite;
+
+  // Genesis Blocks (SKILL S2: PASSIVE) — derived live from cumulative
+  // totalGovTokensEver, no banking/reset. They multiply the GAIN of GovTokens
+  // rather than adding raw income.
   int get genesisBlocks => _prestige.genesisBlocks;
-  @visibleForTesting
-  set debugGenesisBlocks(int v) => _prestige.genesisBlocks = v;
-  int get pendingGenesis => _prestige.pendingGenesis();
   double get genesisGainMultiplier => _prestige.genesisGainMultiplier;
 
-  /// Gain multiplier the player would have right after a New Blockchain — the
-  /// concave projection for the confirmation dialog (mirrors the applied value
-  /// so the dialog never overstates the reward).
-  double get genesisGainMultiplierAfterNewChain =>
-      _prestige.genesisGainMultiplierWith(pendingGenesis);
+  /// Progress (0..1) toward the next Genesis Block, for the mining-tab bar.
+  double get genesisProgressToNext => _prestige.genesisProgressToNext();
 
   /// Cumulative GovTokens ever minted — the progression metric perks unlock
   /// against, so the perk list reveals gradually as the player prestiges.
@@ -1761,7 +1760,7 @@ class GameLogic with ChangeNotifier {
   void startSpeedRun({BtcClass? chosenClass}) {
     if (!speedRunUnlocked) return;
     _speedRun.begin();
-    _newChainInternal(chosenClass: chosenClass); // deep reset + save + notify
+    _deepRunReset(chosenClass: chosenClass); // deep reset + save + notify
   }
 
   /// Finish side-effects after [_speedRun.credit] records a completed run (from
@@ -2021,22 +2020,32 @@ class GameLogic with ChangeNotifier {
     );
   }
 
-  void hardFork() {
+  /// The one fork the player clicks (SKILL S2). Converts wallet+rigs into
+  /// GovTokens and resets the RUN (wallet, rigs, mining/difficulty/blocks) but
+  /// KEEPS the persistent build: TECH/research, class, class level, perks, stash,
+  /// chips and Genesis progress. The ONLY thing that resets the persistent build
+  /// is a CLASS CHANGE, offered exclusively at a mined-out Hard Fork via
+  /// [chosenClass]. Picking a different class there re-tech's the tree from
+  /// scratch and swaps the perk kit; keeping the same class (or a non-mined-out
+  /// fork) keeps everything.
+  void hardFork({BtcClass? chosenClass}) {
+    // Capture mined-out BEFORE the reset zeroes lifetimeEarnings (which would
+    // flip networkDifficulty back to finite and lose the signal).
+    final atMinedOut = isMinedOut;
     int tokensToClaim = pendingGovTokens;
-    if (tokensToClaim <= 0) return;
+    // At mined-out the fork is mandatory even in the (constant-dependent) edge
+    // case of a 0-token yield, so the player is never stranded at 0 income.
+    if (tokensToClaim <= 0 && !atMinedOut) return;
 
     _soundService.playPrestige(); // dramatic cue for the prestige reset
     _hapticHeavy();
 
     govTokens += tokensToClaim;
     // Feed tier-3 progress: every GovToken ever minted counts toward the next
-    // New Blockchain / Genesis Block.
+    // (passive) Genesis Block.
     _prestige.recordGovTokensMinted(tokensToClaim);
     // (Mastery is no longer credited here — it now accrues live from MINING in
     // _creditLifetimeEver, per mined supply, so it can't be farmed by forking.)
-    // Exchange rate is neutralised (was: *= (1 + tokensToClaim), which overflowed
-    // to Infinity late-game). Cross-era power is the prestige income multiplier,
-    // which rises because govTokens rose.
 
     // Reset Progress
     wallet = 0;
@@ -2051,9 +2060,14 @@ class GameLogic with ChangeNotifier {
     }
     _rigReveal.resetAndSnapshot(); // re-progress rig reveals from the first rig
 
-    // Reset Research (ResearchManager)
-    _researchManager.reset();
-    _respecUsed = false; // fresh era → the free respec refreshes
+    // TECH/research, perks, class and Mastery are KEPT across a Hard Fork. Only a
+    // class change (mined-out only) resets the persistent build.
+    if (atMinedOut && chosenClass != null && chosenClass != currentClass) {
+      _classManager.select(chosenClass);
+      _researchManager.reset(); // new class → re-tech the tree from scratch
+      _perkManager.reset(); // new class → new perk kit
+      _respecUsed = false; // fresh class → the free respec refreshes
+    }
 
     hardForkCount++;
     _fireProcs(ProcEvent.onHardFork); // COLD-tier firmware hooks (UTXO survives)
@@ -2062,41 +2076,30 @@ class GameLogic with ChangeNotifier {
     notifyListeners();
   }
 
-  /// New Blockchain (Tier-3): the deepest reset. Wipes the entire run —
-  /// currency, GovTokens, chips, rigs, research, perks and mining state — and
-  /// keeps ONLY the permanent Stash collection plus the banked Genesis Blocks.
-  /// Rare and high-stakes, so the UI gates it behind a confirmation dialog.
-  /// Genesis Blocks permanently multiply future GovToken gains.
-  /// [chosenClass] is the class to play the NEXT chain as (the picker's choice).
-  /// When null the current class carries over (used by sims/tests). Mastery is
-  /// credited per MINED supply live in [_creditLifetimeEver] (not at forks), so
-  /// nothing needs to be credited here.
-  void newBlockchain({BtcClass? chosenClass}) {
-    if (pendingGenesis <= 0) return;
-    _newChainInternal(chosenClass: chosenClass);
-  }
-
-  /// The New-Blockchain reset body (Tier-3 deep reset). Order is load-bearing:
-  /// applyNewBlockchain -> select -> wipe -> count -> evaluate -> save. Do NOT
-  /// reset any endgame field here (they are the permanent spine that survives
-  /// every prestige). Mastery is NOT credited here — it accrues per MINED supply
-  /// in [_creditLifetimeEver]. (The old New Genesis / NG+ trophy path that also
-  /// called this was retired with THE LAST SATOSHI endgame pivot.)
-  void _newChainInternal({BtcClass? chosenClass}) {
+  /// The deep from-scratch reset used ONLY by Back-in-Time (see [startSpeedRun]).
+  /// Wipes the entire run — wallet, GovTokens, rigs, research, perks and mining
+  /// state — keeping ONLY the permanent spine (Stash collection, chips/UTXO,
+  /// Mastery, achievements/Notoriety). Genesis Blocks are DERIVED live from
+  /// cumulative [totalGovTokensEver], which this reset deliberately does NOT
+  /// touch, so Genesis survives a Back-in-Time run automatically. Order is
+  /// load-bearing: select -> wipe -> count -> evaluate -> save. Do NOT reset any
+  /// endgame field here (the permanent spine). Mastery is credited per MINED
+  /// supply live in [_creditLifetimeEver], so nothing is credited here.
+  ///
+  /// (The old New Blockchain button shared this body; it was retired in SKILL S2
+  /// when Genesis became passive — Genesis now needs no reset to accrue.)
+  void _deepRunReset({BtcClass? chosenClass}) {
     _soundService.playPrestige(); // dramatic cue for the deepest reset
     _hapticHeavy();
 
-    // Bank Genesis Blocks, snapshot the chain baseline.
-    _prestige.applyNewBlockchain();
-
-    // Lock in the class for the new chain (if the player picked one).
+    // Lock in the class for the run (if the player picked one).
     if (chosenClass != null) _classManager.select(chosenClass);
 
     // Wipe the run. Stash artifacts are deliberately preserved (permanent
-    // collection); Genesis Blocks were just banked above. CHIPS (UTXO) are now
-    // PERMANENT too — they only buy crates that fill the permanent Stash, so
-    // wiping them would destroy convertible-to-permanent value (only a full
-    // Wipe Save clears them, in resetGame).
+    // collection). CHIPS (UTXO) are PERMANENT too — they only buy crates that
+    // fill the permanent Stash, so wiping them would destroy convertible-to-
+    // permanent value (only a full Wipe Save clears them, in resetGame).
+    // totalGovTokensEver is NOT reset, so derived Genesis Blocks carry over.
     wallet = 0;
     lifetimeEarnings = 0;
     govTokens = 0;
@@ -2107,7 +2110,7 @@ class GameLogic with ChangeNotifier {
     }
     _rigReveal.resetAndSnapshot(); // re-progress rig reveals from the first rig
     _researchManager.reset();
-    _respecUsed = false; // fresh era → the free respec refreshes
+    _respecUsed = false; // fresh run → the free respec refreshes
     _perkManager.reset();
 
     newChainCount++;
@@ -2119,8 +2122,7 @@ class GameLogic with ChangeNotifier {
 
   // (New Genesis+ and the "break the chain" sandbox were retired with the
   // endgame pivot — the 21M/era cap is now inviolable and the post-credits loop
-  // is Back in Time. Post-win deep resets go through the normal newBlockchain /
-  // Back-in-Time paths.)
+  // is Back in Time, which is the only remaining deep from-scratch reset.)
 
   void buyRig(String rigId) => buyRigMax(rigId, 1);
 
@@ -2241,9 +2243,9 @@ class GameLogic with ChangeNotifier {
       nextHalvingThreshold: _miningManager.nextHalvingThreshold,
       chips: chips,
       stash: _stash.saveStash(),
-      genesisBlocks: _prestige.genesisBlocks,
+      // Genesis Blocks are now fully DERIVED from totalGovTokensEver — the only
+      // tier-3 field that needs persisting.
       totalGovTokensEver: _prestige.totalGovTokensEver,
-      govTokensEverAtLastNewChain: _prestige.govTokensEverAtLastNewChain,
       achievements: _achievements.save(),
       claimedAchievements: _achievements.saveClaimed(),
       hardForkCount: hardForkCount,
@@ -2325,13 +2327,27 @@ class GameLogic with ChangeNotifier {
       // (The Consensus currency + Soft Fork were removed in SKILL S2; legacy
       // 'consensus'/'lifetimeAtLastSoftFork' keys in old saves are ignored.)
 
-      // Prestige tier-3 (New Blockchain / Genesis Blocks). The repository seeds
-      // totalGovTokensEver from current tokens for saves predating the field.
-      _prestige.genesisBlocks = _toInt(data['genesisBlocks']);
+      // Prestige tier-3 (Genesis Blocks, now PASSIVE/derived). The repository
+      // seeds totalGovTokensEver from current tokens for saves predating the
+      // field. Genesis Blocks are no longer stored — they derive from this.
       _prestige.totalGovTokensEver = _toDouble(data['totalGovTokensEver']);
-      _prestige.govTokensEverAtLastNewChain = _toDouble(
-        data['govTokensEverAtLastNewChain'],
-      );
+
+      // SAVE-COMPAT: pre-S2 saves BANKED Genesis Blocks into a stored int. Never
+      // let those be lost — top up totalGovTokensEver to at least the amount the
+      // banked count implies, so derived Genesis >= old banked Genesis. (sqrt is
+      // subadditive, so the old per-chain banked sum can exceed a naive collapse;
+      // this top-up makes the migration exact. Legacy 'govTokensEverAtLastNewChain'
+      // is dropped — there is no per-chain baseline any more.)
+      final int legacyGenesis = _toInt(data['genesisBlocks']);
+      if (legacyGenesis > 0) {
+        final double impliedEver =
+            legacyGenesis.toDouble() *
+            legacyGenesis.toDouble() *
+            GameConstants.genesisDivisor;
+        if (_prestige.totalGovTokensEver < impliedEver) {
+          _prestige.totalGovTokensEver = impliedEver;
+        }
+      }
 
       // RPG class + permanent Mastery (persist across all prestige tiers; only a
       // full wipe clears them). Tolerant of missing/unknown values (falls back to

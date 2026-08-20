@@ -62,9 +62,7 @@ class GameRepository {
     required int nextHalvingThreshold,
     int chips = 0,
     Map<String, dynamic>? stash,
-    int genesisBlocks = 0,
     double totalGovTokensEver = 0,
-    double govTokensEverAtLastNewChain = 0,
     List<String> achievements = const [],
     List<String> claimedAchievements = const [],
     int hardForkCount = 0,
@@ -126,9 +124,9 @@ class GameRepository {
       'blockReward': fin(blockReward),
       'blocksMined': blocksMined,
       'nextHalvingThreshold': nextHalvingThreshold,
-      'genesisBlocks': genesisBlocks,
+      // Genesis Blocks are DERIVED from totalGovTokensEver (SKILL S2) — only the
+      // accumulator is persisted; there is no per-chain baseline any more.
       'totalGovTokensEver': fin(totalGovTokensEver),
-      'govTokensEverAtLastNewChain': fin(govTokensEverAtLastNewChain),
       'achievements': achievements,
       'claimedAchievements': claimedAchievements,
       'hardForkCount': hardForkCount,
@@ -224,14 +222,16 @@ class GameRepository {
           asInt(m['nextHalvingThreshold'], GameConstants.halvingFirstThreshold),
       // (Consensus currency + Soft Fork removed in SKILL S2; legacy
       // 'consensus'/'lifetimeAtLastSoftFork' keys are no longer surfaced.)
+      // Genesis Blocks are now DERIVED (SKILL S2). The legacy stored count is
+      // still surfaced so GameLogic can top up totalGovTokensEver on load and
+      // never strand a pre-S2 player's banked Genesis. (The old per-chain
+      // 'govTokensEverAtLastNewChain' baseline is dropped — no baseline any more.)
       'genesisBlocks': asInt(m['genesisBlocks'], 0),
       // Tier-3 accumulator: for saves predating this field, seed it from the
-      // player's current tokens so their New-Blockchain progress isn't lost.
+      // player's current tokens so their prestige progress isn't lost.
       'totalGovTokensEver': m.containsKey('totalGovTokensEver')
           ? asDouble(m['totalGovTokensEver'], 0)
           : (asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0)).toDouble(),
-      'govTokensEverAtLastNewChain':
-          asDouble(m['govTokensEverAtLastNewChain'], 0),
       // For saves predating these counters, proxy the "first-action" state from
       // persisted progress so the first-fork achievements still grandfather
       // (GovTokens only come from Hard Forks; the legacy Consensus/Soft-Fork keys

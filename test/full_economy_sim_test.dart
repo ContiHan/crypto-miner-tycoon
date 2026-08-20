@@ -126,25 +126,19 @@ void main() {
       if (hx > maxHashX) maxHashX = hx;
       if (game.prestigeMultiplier > maxMult) maxMult = game.prestigeMultiplier;
 
-      // Prestige on a soft-wall stall.
+      // Hard Fork on a soft-wall stall (the one fork; Genesis accrues passively
+      // from every fork, so there is no separate New-Blockchain step any more).
       final stalled = (s - lastBuyStep) * step > 600 &&
           (s - lastForkStep) * step > 600;
-      if (stalled) {
-        if (game.pendingGenesis >= 1 &&
-            game.pendingGenesis >= (game.genesisBlocks < 1 ? 1 : game.genesisBlocks)) {
-          game.newBlockchain();
-          newChains++;
-          if (firstNewChain < 0) firstNewChain = t;
-          lastBuyStep = s;
-          lastForkStep = s;
-        } else if (game.pendingGovTokens >= 1) {
-          game.hardFork();
-          hardForks++;
-          if (firstHardFork < 0) firstHardFork = t;
-          lastBuyStep = s;
-          lastForkStep = s;
-        }
+      if (stalled && game.pendingGovTokens >= 1) {
+        game.hardFork();
+        hardForks++;
+        if (firstHardFork < 0) firstHardFork = t;
+        lastBuyStep = s;
+        lastForkStep = s;
       }
+      if (firstNewChain < 0 && game.genesisBlocks > 0) firstNewChain = t;
+      newChains = game.genesisBlocks; // passive Genesis count, for the report
 
       if (snapAtDays.contains(t ~/ 86400) && t % 86400 < step) {
         final researched =
@@ -171,10 +165,10 @@ void main() {
       print(s);
     }
     print('First Hard Fork      : ${_hms(firstHardFork)}');
-    print('First New Blockchain : ${_hms(firstNewChain)}');
+    print('First Genesis Block  : ${_hms(firstNewChain)}');
     print('First Win (21M-ever) : ${_hms(firstWin)}');
     print('lifetimeEverSats     : ${game.lifetimeEverSats.toStringAsExponential(2)}');
-    print('Totals               : $hardForks HF / $newChains NB');
+    print('Totals               : $hardForks HF / $newChains Genesis');
     print('Final hash channel   : x${hashX.toStringAsFixed(2)}');
     print('Final income channel : x${incomeX.toStringAsFixed(2)}');
     print('Genesis Blocks       : ${game.genesisBlocks}');
@@ -193,11 +187,12 @@ void main() {
     expect(maxHashX, greaterThan(1.5),
         reason: 'hash channel content reaches the economy');
     expect(peakIncome, greaterThan(0), reason: 'the economy actually produces income');
-    // Progression is reachable but not trivially instant even with content.
+    // Progression is reachable. Genesis is PASSIVE now (accrues from cumulative
+    // GovTokens), so there is no "tier-3 reachable in N days" gate to assert —
+    // just that the Hard Fork is reachable and Genesis actually accrues.
     expect(firstHardFork, greaterThan(0), reason: 'Hard Fork reachable');
-    expect(firstNewChain, greaterThan(2 * 86400),
-        reason: 'tier-3 must not be trivially fast even with content');
-    expect(firstNewChain, lessThan(days * 86400), reason: 'tier-3 reachable in $days d');
+    expect(game.genesisBlocks, greaterThan(0),
+        reason: 'passive Genesis accrues over a 60-day whale run');
 
     // THE LAST SATOSHI: the win is the FIRST era to mine a full 21M supply
     // (lifetimeEarnings reaching the per-era cap). This validates the pivot

@@ -13,7 +13,6 @@
 // Output is a printed report; asserts only guard the critical invariants
 // (no NaN/Infinity, income doesn't die permanently, tier-2 and tier-3 are
 // actually reached within the run).
-import 'dart:math';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/constants.dart';
 import 'package:crypto_miner_tycoon/content/rig_defs.dart';
@@ -140,35 +139,21 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
     //     the era in and rebuilds with a higher multiplier. ---
     final stalled = (t - lastBuySecond) > 600 && (t - lastHardForkSecond) > 600;
     if (stalled) {
-      final pendGenesis = pr.pendingGenesis();
       final pendGov = economy.calculatePendingGovTokens(
         lifetime,
         gainMultiplier: pr.genesisGainMultiplier,
       );
-
-      if (pendGenesis >= 1 && pendGenesis >= max(1, pr.genesisBlocks)) {
-        // Tier 3: New Blockchain — deepest reset, keeps only Genesis.
-        pr.applyNewBlockchain();
-        report.newBlockchains++;
-        report.finalGenesis = pr.genesisBlocks;
-        if (report.firstNewBlockchain < 0) report.firstNewBlockchain = t;
-        govTokens = 0;
-        wallet = 100;
-        lifetime = 0;
-        for (final r in rigs) {
-          r.amount = 0;
-        }
-        mining.hardForkReset();
-        lastBuySecond = t;
-        lastHardForkSecond = t;
-      } else if (pendGov >= 1) {
-        // Tier 2: Hard Fork — permanent GovToken multiplier.
-        // An engaged player cashes in every maxed era (each fork compounds the
-        // permanent multiplier), not only when the % gain is large.
+      if (pendGov >= 1) {
+        // The ONE fork (SKILL S2). Genesis Blocks accrue PASSIVELY from the
+        // cumulative GovTokens minted (recordGovTokensMinted feeds the derived
+        // genesisBlocks) — there is no separate New-Blockchain deep reset.
         govTokens += pendGov;
         pr.recordGovTokensMinted(pendGov);
         report.hardForks++;
         if (report.firstHardFork < 0) report.firstHardFork = t;
+        if (report.firstNewBlockchain < 0 && pr.genesisBlocks > 0) {
+          report.firstNewBlockchain = t;
+        }
         wallet = 100;
         lifetime = 0;
         for (final r in rigs) {
@@ -179,6 +164,7 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
         lastHardForkSecond = t;
       }
     }
+    report.newBlockchains = pr.genesisBlocks; // passive Genesis count
 
     if (snapAt.contains(t)) {
       report.snapshots.add(
@@ -251,16 +237,14 @@ void main() {
             '(pre-fix reached x420k+ within a week)');
     expect(r.snapshots, isNotEmpty);
 
-    // Endgame PACING: an engaged player reaches every tier, and tier-3 is a
-    // multi-day milestone — not the ~20h it collapsed to under the 10-rig
-    // rescale (top hash ~10,000x the old ladder saturates the per-era cap every
-    // fork, minting max GovTokens). The Genesis gate (genesisDivisor) was raised
-    // to restore this; the floor here matches the full-economy sim's >2-day
-    // guard (this bare, content-free sim lands at ~2.5d).
+    // Endgame PACING (SKILL S2): the Hard Fork is reachable, and Genesis Blocks
+    // — now PASSIVE — actually accrue over the run. There is no longer a tiered
+    // "New Blockchain" event with a pacing floor; Genesis grows on its own from
+    // cumulative minted GovTokens, so we just assert it climbs and stays bounded.
     expect(r.firstHardFork, greaterThan(0), reason: 'Hard Fork must be reachable');
-    expect(r.firstNewBlockchain, greaterThan(2 * 86400),
-        reason: 'tier-3 must not be trivially fast (was ~20h pre-gate-raise)');
-    expect(r.firstNewBlockchain, lessThan(days * 86400),
-        reason: 'tier-3 (New Blockchain) must be reachable within $days days');
+    expect(r.finalGenesis, greaterThan(0),
+        reason: 'passive Genesis must accrue over a $days-day run');
+    expect(r.finalGenesis, lessThan(10000),
+        reason: 'fourth-root Genesis curve keeps the count tame (no runaway)');
   });
 }

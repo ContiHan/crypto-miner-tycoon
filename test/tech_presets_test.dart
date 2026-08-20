@@ -58,7 +58,7 @@ void main() {
       expect(game.techPresets.length, 3);
     });
 
-    test('applyTechPreset re-buys the saved build after a Hard Fork', () async {
+    test('applyTechPreset re-buys the saved build after a respec', () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
       // RP now = base + class level; seed a full build so presets have the budget.
@@ -71,9 +71,9 @@ void main() {
       game.buyResearch(ResearchIds.quantumEntanglement);
       game.saveTechPreset();
 
-      // Hard Fork wipes research (needs GovTokens available first).
-      game.lifetimeEarnings = 2e9; // enough for a Hard Fork
-      game.hardFork();
+      // SKILL S2: a Hard Fork now KEEPS TECH, so the tree is cleared via a respec
+      // (the free per-era retune) rather than a fork.
+      game.respecTech();
       expect(game.isResearched(ResearchIds.neuralNet), false, reason: 'wiped');
 
       game.wallet = 1e15;

@@ -86,18 +86,11 @@ void main() {
 
       final stalled = (s - lastBuyStep) * step > 1200 &&
           (s - lastForkStep) * step > 1200;
-      if (stalled) {
-        if (game.pendingGenesis >= 1 &&
-            game.pendingGenesis >=
-                (game.genesisBlocks < 1 ? 1 : game.genesisBlocks)) {
-          game.newBlockchain();
-          lastBuyStep = s;
-          lastForkStep = s;
-        } else if (game.pendingGovTokens >= 1) {
-          game.hardFork();
-          lastBuyStep = s;
-          lastForkStep = s;
-        }
+      // The one fork; Genesis accrues passively from every fork (no New-Chain step).
+      if (stalled && game.pendingGovTokens >= 1) {
+        game.hardFork();
+        lastBuyStep = s;
+        lastForkStep = s;
       }
 
       for (final target in targets) {
