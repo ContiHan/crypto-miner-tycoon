@@ -139,7 +139,7 @@ Every level does something (RP each level; bigger unlocks on milestone levels):
 |---|---|
 | every 1–18 | **+1 RP** (cap 18) |
 | 3 / 6 / 9 / 12 / 15 / 18 | **talent row** (6 rows, every 3rd level — see §5) |
-| 4 / 8 / 12 / 16 | **firmware module** (4 — see §7b) |
+| 4 / 8 / 12 / 16 | **BIP slot** (adopt 1 → 2 → 3 → 4 — see §7b) |
 | 6 / 12 / 18 | **aura variant** (3 — see §8) |
 
 Overlaps are intentional (a milestone level is juicier); L12 is the big one
@@ -172,12 +172,23 @@ Per active class, tailored to that class's racial theme
 (Solo = click/rigCost/luck · Corp = hash/income · OG = market/prestige ·
 Pool = stability/SWEEP):
 
-1. **Racial** — display-only readout of the class's flat channel edges (exists).
+1. **Racial** — the class's innate, always-on kit, shown read-only: its flat
+   channel edges **+ its signature proc** (see below). No choice — this is "what
+   your class just does", from class pick (level 0).
 2. **Aura** — one class-specific passive stance (see §6).
 3. **Talents** — the 2×6 ability+passive matrix (see §7).
 
 Header: class + **level progress bar**, GovToken balance. Replaces the old
 GovToken perk graph entirely.
+
+### Class signature procs → live on the Racial
+The 4 class signature procs (Lucky Strike=Solo, Thermal Runaway=Corp, Market
+Whisper=OG, Hedge Payout=Pool) are KEPT and belong on the **Racial** — they're
+innate, always-on class identity (an automatic on-event trigger), not a pick. They
+sit with the racial edges; optionally they scale lightly with class level (a
+stronger signature move as you master the class) **[TUNE]**. The proc *engine* stays
+(it also powers the UTXO faucet + cooldown refunds); only the firmware proc-modules
+are retired (→ BIPs, §7b).
 
 ---
 
@@ -227,26 +238,43 @@ Row 6  [ ultimate  | ultimate  ]     ← MINE-tab slot: ultimate
 
 ---
 
-## 7b. Firmware — the "overclock" layer (reframe)
+## 7b. BIPs — the "degen gambit" layer (replaces Firmware)
 
-Today firmware is a proc loadout where **all modules are free** and only the socket
-count grows — pure upside, weak decision, weakly justified. Reframe it into a
-distinct **overclock tradeoff** layer (owner-chosen), separate from keystones by
-scale (many small universal HW tweaks vs 2 big branch commitments).
+Firmware (a free proc loadout — all modules free, only socket count grew) is
+**retired and replaced by BIPs (Bitcoin Improvement Proposals)**: protocol changes
+you adopt, each a deliberate **degen tradeoff**. Strong Bitcoin flavor (the
+block-size war, SegWit, Taproot…), and a clear identity distinct from keystones.
 
-- **Each module = a proc benefit + a small thematic drawback** (heat / upkeep /
-  breach chance / shorter buffs) — NOT raw income/hash penalties. You push your
-  rigs past spec for an edge, and eat the cost.
-- **Optional (var. 1):** equip for the tradeoff; the debuffs self-limit how many you
-  run. No forced curse.
-- **4 modules, unlocked by class level at 4 / 8 / 12 / 16** (interleaved between the
-  every-3rd-level talent rows; see the milestone map in §3).
-- **No socket cap** (recommended) — the tradeoffs are the limit; **drop the 3→6
-  socket growth** and the Firmware Bay research dependency. (Alt: keep a small fixed
-  cap of 3 if we want a hard "which 3" on top.)
-- Stays **universal** (about your hardware, not your class), **Time-Capsule**
-  permanent, scope = proc juice + UTXO faucet + situational buffs.
-- Debuff magnitudes need care re: caps (e.g. don't fight the `rigCost` hard cap).
+- **Each BIP = a big core debuff for a smaller degen boost, ~2:1** (e.g. −30%
+  mining income for +15% SWEEP payout). It's a greedy trade — sacrifice mining to
+  lean into casino / crates / UTXO → gadgets → BiT. Flat channel/const modifiers,
+  not procs.
+- **Optional** — adopt only if the trade fits your build; the debuffs self-limit.
+- **8 BIPs in the pool; adopt up to 4.** Slot count unlocks with class level:
+  **1 / 2 / 3 / 4 at levels 4 / 8 / 12 / 16** (interleaved between the every-3rd-level
+  talent rows; see the milestone map in §3). So the "socket" is now a real,
+  level-earned progression — the old 3→6 firmware growth + Firmware Bay dependency
+  are dropped.
+- Lives in the **STASH** tab; each BIP a distinct **cyberpunk-neon "gem" colour**.
+  Universal + Time-Capsule permanent.
+
+Proposed catalog — numbers **[TUNE]**, kept at ~2:1 debuff:boost:
+
+| BIP | Boost (degen) | Debuff (core) | Colour |
+|---|---|---|---|
+| Bigger Blocks (BIP-101) | +15% SWEEP payout | −30% income | ruby |
+| SegWit (BIP-141) | +12% crate quality | −24% hash | cyan |
+| Ordinals | +10% double-drop | −20% income | amethyst |
+| Replace-by-Fee (BIP-125) | +18% UTXO yield | −36% income | amber |
+| Taproot (BIP-340) | +12% luck | −24% click | emerald |
+| Lightning | +30% offline earnings | −55% online income | electric-blue |
+| UASF (BIP-148) | +20% casino daily cap | −40% income | crimson |
+| Drivechains | +15% crate rarity floor | −30% hash | topaz-gold |
+
+Feasibility: most boosts/debuffs are existing channels (sweepLuck / fortune /
+doubleDrop / luck / offline / income / hash / click), added as +/− values. Two
+(UTXO yield, casino daily cap) touch constants rather than channels — feasible with
+minor plumbing. Watch hard caps (e.g. `rigCost`) so a debuff can't fight a cap.
 
 ---
 
@@ -399,8 +427,9 @@ is rebuilt.
 4. **S4 — Auras class-specific** (12, L6/12/18, 1 active, ~4h switch).
 5. **S5 — Talents 2×6** (choice + token buy/level, per-row cost, migrate perk
    passives with caps; wire ability rows to MINE slots).
-6. **S5b — Firmware reframe** (4 optional tradeoff modules, unlocked at L4/8/12/16;
-   drop socket growth; add small thematic debuffs) — see §7b.
+6. **S5b — BIPs replace Firmware** (8 BIPs, adopt up to 4; slots unlock at
+   L4/8/12/16; ~2:1 degen tradeoffs; retire firmware proc-modules — keep the proc
+   engine + the 4 class signature procs, which move onto the Racial) — see §7b, §5.
 7. **S6 — Rebalance** (token scale, caps, curve `speed`→live, sim-gate CX removal).
 
 Each slice: `flutter analyze` clean + full suite green + local commit on `main`
