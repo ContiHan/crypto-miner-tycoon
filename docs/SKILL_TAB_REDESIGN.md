@@ -112,6 +112,23 @@ rpBudget = min(18, classLevel(activeClass))
   already persists every reset, already kept on switch) — retuned + capped at 18
   and surfaced as "level".
 
+### As shipped in S1 (implementation notes)
+- **Formula:** `rpBudget = hasChosenClass ? min(18, activeClassLevel) : 4`.
+- **Pre-class floor (4):** a class-less **Prospector** gets 4 RP so early TECH
+  (unlocked at 10k, well before the first-Hard-Fork class pick) isn't a dead tab.
+  A *chosen* class is pure level (so a fresh pick starts at 0 RP and grows by
+  mining — a small "drop on pick" from the 4 floor is accepted). This is the one
+  spot that isn't literally "1 RP/level"; flagged for the owner. **[CONFIRM]**
+- **Curve retune:** the old curve made level 1 = a *full supply* mined (RP would
+  starve till endgame). Now `masteryXpPerFullSupply = 1e6` ⇒ **level 1 ≈ 1% of a
+  supply, level 10 = one full supply, level 18 (cap) ≈ 3.2 supplies** cumulative.
+  A `masteryXpSpeed` debug constant (default 1.0) lets us test fast. Real "days–
+  weeks to 18" calibration stays for S6. **[TUNE]**
+- **Nudge capped:** the all-class `+0.5%/level` hash+income nudge is clamped at
+  **+10%** so the faster curve can't balloon it.
+- **Progress bar:** the MINE-tab class readout shows LEVEL, an RP `spent/budget`
+  count, and a % bar to the next level.
+
 ---
 
 ## 3. Class-level curve + progress bar

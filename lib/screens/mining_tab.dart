@@ -549,19 +549,58 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                               // one — at their first New Blockchain.
                               Padding(
                                 padding: const EdgeInsets.only(top: 6.0),
-                                child: Text(
-                                  game.hasChosenClass
-                                      ? 'CLASS: ${game.currentClassDef.name}'
-                                          '${game.currentClassMasteryLevel > 0 ? ' · MASTERY ${game.currentClassMasteryLevel}' : ''}'
-                                      : 'CLASS: PROSPECTOR — pick one on the SKILL tab (unlocks at your first Hard Fork)',
-                                  textAlign: TextAlign.center,
-                                  style: TextStyle(
-                                    color: game.hasChosenClass
-                                        ? game.currentClassDef.color
-                                        : Colors.white38,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: game.hasChosenClass ? 13 : 11,
-                                  ),
+                                child: Column(
+                                  children: [
+                                    Text(
+                                      game.hasChosenClass
+                                          ? 'CLASS: ${game.currentClassDef.name}'
+                                              '${game.currentClassMasteryLevel > 0 ? ' · LEVEL ${game.currentClassMasteryLevel}' : ''}'
+                                          : 'CLASS: PROSPECTOR — pick one on the SKILL tab (unlocks at your first Hard Fork)',
+                                      textAlign: TextAlign.center,
+                                      style: TextStyle(
+                                        color: game.hasChosenClass
+                                            ? game.currentClassDef.color
+                                            : Colors.white38,
+                                        fontWeight: FontWeight.bold,
+                                        fontSize: game.hasChosenClass ? 13 : 11,
+                                      ),
+                                    ),
+                                    // Class level → Research-Point budget. The bar
+                                    // shows progress to the next level (RP = level).
+                                    if (game.hasChosenClass) ...[
+                                      const SizedBox(height: 4),
+                                      Stack(
+                                        alignment: Alignment.center,
+                                        children: [
+                                          ClipRRect(
+                                            borderRadius:
+                                                BorderRadius.circular(4),
+                                            child: LinearProgressIndicator(
+                                              value: game
+                                                          .currentClassMasteryLevel >=
+                                                      18
+                                                  ? 1.0
+                                                  : game
+                                                      .currentClassLevelProgress,
+                                              backgroundColor: Colors.black54,
+                                              color: game.currentClassDef.color
+                                                  .withValues(alpha: 0.7),
+                                              minHeight: 12,
+                                            ),
+                                          ),
+                                          Text(
+                                            game.currentClassMasteryLevel >= 18
+                                                ? 'LEVEL 18 (MAX) · ${game.rpSpent}/${game.rpBudget} RP'
+                                                : 'LVL ${game.currentClassMasteryLevel} · ${game.rpSpent}/${game.rpBudget} RP · ${(game.currentClassLevelProgress * 100).toStringAsFixed(0)}% to next',
+                                            style: const TextStyle(
+                                                color: Colors.white,
+                                                fontSize: 9,
+                                                fontWeight: FontWeight.bold),
+                                          ),
+                                        ],
+                                      ),
+                                    ],
+                                  ],
                                 ),
                               ),
                               // Tier-3: New Blockchain / Genesis Blocks.

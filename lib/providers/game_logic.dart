@@ -726,15 +726,13 @@ class GameLogic with ChangeNotifier {
   /// Research Points already spent (Σ rpCost of completed nodes).
   int get rpSpent => _researchManager.rpSpent;
 
-  /// The per-fork Research-Point budget, grown by prestige breakthroughs (4→18):
-  /// base + Hard Forks (cap +5) + Genesis Blocks (+2 each, cap +6) + Mastery
-  /// (+1 per 2 levels, cap +4). Re-spent in full every fork (free respec).
-  int get rpBudget {
-    final b = (3 + min(5, hardForkCount)) +
-        min(6, 2 * _prestige.genesisBlocks) +
-        min(4, totalMasteryLevel ~/ 2);
-    return b.clamp(4, 18).toInt();
-  }
+  /// The Research-Point budget = the ACTIVE class's level (SKILL redesign S1),
+  /// capped at 18. RP comes from leveling the class you play (mining), not from
+  /// prestige forks — so it grows continuously and per-class. A class-less
+  /// Prospector gets a small starter floor so early TECH isn't a dead tab.
+  int get rpBudget => hasChosenClass
+      ? min(GameConstants.classLevelMax, currentClassMasteryLevel)
+      : GameConstants.rpPreClassFloor;
 
   // ---- One free respec per run (BUILD_DEPTH) ----------------------------
   // Clears the TECH tree (uncommitting doctrines) once per era, so a mis-committed
@@ -896,6 +894,10 @@ class GameLogic with ChangeNotifier {
   /// Mastery level of the class currently being played (0 for Prospector).
   int get currentClassMasteryLevel =>
       _classManager.masteryLevel(_classManager.current);
+
+  /// Progress (0..1) toward the current class's next level; 1.0 at the cap (18).
+  double get currentClassLevelProgress =>
+      _classManager.masteryProgress(_classManager.current);
 
   // --- Abilities (Phase 4) -------------------------------------------------
   final AbilitySystem _abilities = AbilitySystem();
@@ -1115,6 +1117,10 @@ class GameLogic with ChangeNotifier {
   @visibleForTesting
   void debugCreditMastery(BtcClass c, double xp) =>
       _classManager.creditMastery(c, xp);
+  /// Test/sim seam: set a class's level directly (drives rpBudget = class level).
+  @visibleForTesting
+  void debugSetClassLevel(BtcClass c, int level) =>
+      _classManager.debugSetMasteryLevel(c, level);
 
   /// The current class's multiplier on Consensus + GovToken GAIN (1.0 neutral).
   double get classPrestigeGainMultiplier =>

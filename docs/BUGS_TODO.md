@@ -30,15 +30,14 @@ shown at once.
 **Fix:** S2 — at mined-out show only the banner (hide the plain button while
 `networkDifficulty.isInfinite`); the banner carries the class-change option.
 
-## B3 — RP hard-capped at 8 (can't reach a full branch) 🟡 (S1)
-**Symptom:** RP can't reach a full 9-RP branch; it tops out at 8.
-**Root cause:** `rpBudget = (3 + min(5, hardForkCount)) + min(6, 2·genesisBlocks)
-+ min(4, totalMasteryLevel~/2)` (`game_logic.dart:739`) — via Hard Forks alone the
-hard-fork term caps at +5 → 8 total, and Genesis (the other big term) is practically
-unreachable (520k tokens), so in practice you sit at 8.
-**Fix:** S1 — `rpBudget = min(18, activeClassLevel)`; RP comes from mining the class.
-_(Note: "era reset gives no RP" was a misread — the owner thought they were doing a
-Genesis but weren't. Not a bug; the real issue is the 8 cap.)_
+## B3 — RP hard-capped at 8 (can't reach a full branch) 🟢 FIXED (S1)
+**Was:** RP topped out at 8 (fork-term formula), never reaching a full 9-RP branch.
+**Fixed in S1:** `rpBudget = hasChosenClass ? min(18, activeClassLevel) : 4`. RP now
+comes from mining the class (a chosen class = its level, cap 18; a class-less
+Prospector gets a starter floor of 4 so early TECH isn't a dead tab). Class-level
+curve retuned so it climbs in normal play (1 full supply ≈ level 10, cap 18) + a
+debug speed knob; the all-class Mastery nudge is capped at +10%. Local commit on S1.
+_(Note: "era reset gives no RP" was a misread — not a bug; the 8 cap was.)_
 
 ## B4, B5 — removed from the bug list (not bugs)
 Soft Fork being a free click (was B4) and TECH auto-buy (was B5) are **planned

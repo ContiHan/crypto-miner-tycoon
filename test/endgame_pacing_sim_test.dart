@@ -5,6 +5,7 @@
 // and reports WHEN that first win lands, plus how cumulative-ever climbs, so the
 // win pacing can be sanity-checked against the intended multi-day milestone.
 import 'package:flutter_test/flutter_test.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/models/rig.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'test_helper.dart';
@@ -57,6 +58,9 @@ void main() {
     final game = createTestGameLogic(startTimers: false, loadOnStart: false);
     await game.loadGame();
     game.wallet = 100;
+    // RP now = class level; an engaged endgame player has a class + full build.
+    game.debugSelectClass(BtcClass.corporation);
+    game.debugSetClassLevel(BtcClass.corporation, 18);
 
     const step = 3600; // 1 h/tick (coarse: fast + conservative for pacing)
     const days = 500;

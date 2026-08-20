@@ -15,7 +15,12 @@ void main() {
       // the research + skill-node + stash contributions.
       game.debugSelectClass(BtcClass.soloMiner);
 
-      game.buyResearch(ResearchIds.basicOverclock); // hash +0.15
+      // Complete the node directly (RP now = class level, and we keep Solo at
+      // level 0 so the all-class Mastery nudge stays 0 — this test asserts the
+      // EXACT hash sum with no racial/nudge interference).
+      game.researchNodes
+          .firstWhere((n) => n.id == ResearchIds.basicOverclock)
+          .isCompleted = true; // hash +0.15
       game.perks['solo_fusion'] = 2; // hash +0.06 (2 * 0.03)
       game.stashService.loadStash({
         'artifacts': {'old_hdd': 1}, // hash +0.02

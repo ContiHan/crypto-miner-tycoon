@@ -74,6 +74,7 @@ void main() {
     game.wallet = 100; // bootstrap: the player taps to afford the first CPU rig
     // An engaged player commits to a class early; its skill tree feeds the sim.
     game.debugSelectClass(BtcClass.corporation);
+    game.debugSetClassLevel(BtcClass.corporation, 18); // RP = class level (full build)
 
     const step = 120; // seconds per tick
     const days = 60;

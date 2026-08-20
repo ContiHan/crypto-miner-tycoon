@@ -135,47 +135,35 @@ void main() {
     });
   });
 
-  group('Research-Point budget growth (4 -> 18 across prestige breakthroughs)', () {
-    test('a fresh account floors at 4', () async {
+  group('Research-Point budget = active class level (cap 18)', () {
+    test('a class-less Prospector gets the small starter RP floor', () async {
       final g = createTestGameLogic(loadOnStart: false);
       await g.loadGame();
-      expect(g.rpBudget, 4);
+      expect(g.rpBudget, GameConstants.rpPreClassFloor);
     });
 
-    test('Hard Forks add up to +5, then cap', () async {
+    test('RP equals the active class level, capped at 18', () async {
       final g = createTestGameLogic(loadOnStart: false);
       await g.loadGame();
-      g.hardForkCount = 2;
-      expect(g.rpBudget, 5); // 3 + 2
-      g.hardForkCount = 5;
-      expect(g.rpBudget, 8); // 3 + 5
-      g.hardForkCount = 99;
-      expect(g.rpBudget, 8); // Hard-Fork contribution caps at +5
-    });
-
-    test('Genesis Blocks add up to +6, then cap', () async {
-      final g = createTestGameLogic(loadOnStart: false);
-      await g.loadGame();
-      g.debugGenesisBlocks = 1;
-      expect(g.rpBudget, 5); // 3 + min(6, 2*1)
-      g.debugGenesisBlocks = 3;
-      expect(g.rpBudget, 9); // 3 + 6
-      g.debugGenesisBlocks = 99;
-      expect(g.rpBudget, 9); // caps at +6
-    });
-
-    test('Mastery adds up to +4 and the grand total clamps at 18', () async {
-      final g = createTestGameLogic(loadOnStart: false);
-      await g.loadGame();
-      g.hardForkCount = 5; // +5
-      g.debugGenesisBlocks = 3; // +6  -> 3+5+6 = 14
-      expect(g.rpBudget, 14);
-      g.debugCreditMastery(BtcClass.soloMiner, 1e9); // level >> 8 -> +4 (capped)
-      expect(g.rpBudget, 18); // 3+5+6+4
-      // Everything piled on stays clamped at the 18 ceiling.
-      g.hardForkCount = 99;
-      g.debugGenesisBlocks = 99;
+      g.debugSelectClass(BtcClass.soloMiner);
+      g.debugSetClassLevel(BtcClass.soloMiner, 5);
+      expect(g.rpBudget, 5);
+      g.debugSetClassLevel(BtcClass.soloMiner, 18);
       expect(g.rpBudget, 18);
+      g.debugSetClassLevel(BtcClass.soloMiner, 30); // level itself caps at 18
+      expect(g.rpBudget, 18);
+    });
+
+    test('RP follows the ACTIVE class; switching loads that class\'s level',
+        () async {
+      final g = createTestGameLogic(loadOnStart: false);
+      await g.loadGame();
+      g.debugSetClassLevel(BtcClass.soloMiner, 3);
+      g.debugSetClassLevel(BtcClass.corporation, 12);
+      g.debugSelectClass(BtcClass.soloMiner);
+      expect(g.rpBudget, 3);
+      g.debugSelectClass(BtcClass.corporation);
+      expect(g.rpBudget, 12, reason: 'switching loaded corp\'s own level');
     });
   });
 }

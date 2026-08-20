@@ -70,6 +70,7 @@ void main() {
       final game = createTestGameLogic(startTimers: false, loadOnStart: false);
       await game.loadGame();
       game.debugSelectClass(cls); // play the whole run as this class
+      game.debugSetClassLevel(cls, 18); // RP = class level; seed a full build
       game.wallet = 100;
 
       const step = 240; // seconds/tick (coarser than full_economy_sim for speed)

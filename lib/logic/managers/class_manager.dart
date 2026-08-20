@@ -154,7 +154,20 @@ class ClassManager {
   int masteryLevel(BtcClass c) {
     final xp = masteryXp[c] ?? 0;
     if (xp <= 0) return 0;
-    return sqrt(xp / GameConstants.masteryXpDivisor).floor();
+    final lvl = sqrt(xp / GameConstants.masteryXpDivisor).floor();
+    // Class level is capped at 18 (= the RP budget cap). See SKILL redesign S1.
+    return lvl > GameConstants.classLevelMax ? GameConstants.classLevelMax : lvl;
+  }
+
+  /// Progress (0..1) toward the next class level for [c]; 1.0 once at the cap.
+  double masteryProgress(BtcClass c) {
+    final lvl = masteryLevel(c);
+    if (lvl >= GameConstants.classLevelMax) return 1.0;
+    final xp = masteryXp[c] ?? 0;
+    final cur = lvl * lvl * GameConstants.masteryXpDivisor;
+    final next = (lvl + 1) * (lvl + 1) * GameConstants.masteryXpDivisor;
+    final span = next - cur;
+    return span <= 0 ? 0.0 : ((xp - cur) / span).clamp(0.0, 1.0);
   }
 
   /// Sum of Mastery levels across every class — the permanent all-class bonus
@@ -193,8 +206,17 @@ class ClassManager {
     creditMastery(
       playedAs,
       GameConstants.masteryXpPerFullSupply *
+          GameConstants.masteryXpSpeed *
           (minedSats / GameConstants.maxSupplySats),
     );
+  }
+
+  /// Debug/sim seam: set a class's level directly (by setting its XP to the amount
+  /// the level curve needs). Used via GameLogic.debugSetClassLevel by tests + sims.
+  void debugSetMasteryLevel(BtcClass c, int level) {
+    if (c == BtcClass.prospector) return;
+    final l = level < 0 ? 0 : level;
+    masteryXp[c] = l * l * GameConstants.masteryXpDivisor.toDouble();
   }
 
   // ---- Economy contributions ---------------------------------------------
@@ -206,9 +228,11 @@ class ClassManager {
     currentDef.channelBonuses.forEach(ch.add);
 
     // Permanent Mastery bonus (all classes, including Prospector): a small hash
-    // + income nudge that grows as you master more classes.
+    // + income nudge that grows as you master more classes. Clamped so the faster
+    // (level-driven) curve can't balloon it.
     final masteryBonus =
-        totalMasteryLevel * GameConstants.masteryBonusPerLevel;
+        (totalMasteryLevel * GameConstants.masteryBonusPerLevel)
+            .clamp(0.0, GameConstants.masteryNudgeCap);
     if (masteryBonus > 0) {
       ch.add(Channel.hash, masteryBonus);
       ch.add(Channel.income, masteryBonus);

@@ -106,15 +106,11 @@ Future<_Cell> _runBuild(BtcClass? cls, KeystoneDef? ks) async {
   await game.loadGame();
   if (cls != null) game.debugSelectClass(cls);
   game.wallet = 100;
-  // Mining one full 21M supply is a LATE-game feat, reached only after many
-  // prestiges. TECH V2 gates tree ownership behind a Research-Point budget that
-  // grows 4→18 across prestige breakthroughs, so seed a mature budget here (Hard
-  // Forks + Genesis Blocks → rpBudget 14) — the same "measure the lever, not the
-  // grind" stance that free-grants the branch capstone above. Both levers only
-  // feed the prestige-gain multiplier, which a no-prestige mining sprint never
-  // touches, so this changes RP availability without altering throughput.
-  game.hardForkCount = 5; // +5 RP (cap)
-  game.debugGenesisBlocks = 8; // +6 RP (cap) → rpBudget = 3+5+6 = 14
+  // RP now = the active class's level (cap 18). Mining a full 21M supply is a
+  // LATE-game feat, so seed a mature class level (→ full RP budget) — the same
+  // "measure the lever, not the grind" stance that free-grants the capstone below.
+  // The class-less Prospector baseline (cls == null) legitimately has 0 RP.
+  if (cls != null) game.debugSetClassLevel(cls, 18);
   if (ks != null) {
     game.researchNodes
         .firstWhere((n) => n.id == _branchCapstone[ks.branch]!)
@@ -169,8 +165,10 @@ String _hms(int s) {
 }
 
 void main() {
+  // RP now = class level, so a class-less Prospector can't hold a real build
+  // (it's the pre-class state, floored at a starter RP). The matrix therefore
+  // measures the 4 REAL classes — each seeded to a full level-18 build.
   const classes = <BtcClass?>[
-    null, // Prospector (no class racials) = the neutral baseline
     BtcClass.soloMiner,
     BtcClass.corporation,
     BtcClass.btcOg,

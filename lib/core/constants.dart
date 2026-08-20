@@ -209,17 +209,28 @@ class GameConstants {
   // (survives everything but a full wipe) and is the "play them all" driver.
   //
   // Mastery XP is earned by MINING, credited live to the class you're playing:
-  // masteryXp += masteryXpPerFullSupply * (income / maxSupplySats). Since a full
-  // era mines at most one 21M supply, ONE full supply mined == exactly one XP
-  // unit == masteryXpPerFullSupply, so with masteryXpDivisor equal, mining one
-  // full supply = Mastery level 1, four = level 2, nine = level 3 (concave,
-  // un-farmable by rapid resetting — only real mining grants it).
+  // masteryXp += masteryXpPerFullSupply * masteryXpSpeed * (income / maxSupplySats).
+  // level = floor(sqrt(xp / masteryXpDivisor)), CAPPED at classLevelMax (18).
+  // TECH V2 (SKILL redesign S1): Mastery IS the "class level" that drives the RP
+  // budget (RP = min(18, active class level)). So the curve is tuned so levels come
+  // during normal play — level 1 at ~1% of a supply mined, level 10 at one full
+  // supply, level 18 (max / cap 18 RP) at ~3.2 supplies mined cumulatively. [TUNE]
   static const double masteryXpDivisor = 10000.0; // level = floor(sqrt(xp/this))
-  static const double masteryXpPerFullSupply = 10000.0; // 1 full 21M supply = 1 unit
+  static const double masteryXpPerFullSupply = 1000000.0; // 1 full 21M supply ~ level 10
+  // DEBUG speed knob for testing the level→RP flow fast (crank on a test build,
+  // reset to 1.0 for release). Multiplies the mining XP accrual only.
+  static const double masteryXpSpeed = 1.0;
+  // Class level is capped at 18 — RP tops out at 2 full branches (see SKILL doc).
+  static const int classLevelMax = 18;
+  // Pre-class starter RP: a class-less Prospector gets this so early TECH (unlocked
+  // at 10k, before the first-Hard-Fork class pick) isn't a dead tab. Once you pick a
+  // class, RP = that class's level (a fresh pick starts at 0 and grows by mining).
+  static const int rpPreClassFloor = 4;
   // Each TOTAL mastery level (summed across all classes) grants this much
   // permanent hash AND income bonus, for every class including Prospector. Tiny
-  // and softcapped, so mastering all four is a gentle nudge, not a power spike.
+  // and softcapped; CLAMPED to masteryNudgeCap so the faster curve can't balloon it.
   static const double masteryBonusPerLevel = 0.005; // +0.5% hash & income / level
+  static const double masteryNudgeCap = 0.10; // max +10% hash & income from the nudge
 
   // THE POWER BILL — upkeep (Phase 5). A skim off GROSS income that hits only the
   // spendable WALLET: lifetime / the 21M drawdown / Mastery XP are ALL credited in

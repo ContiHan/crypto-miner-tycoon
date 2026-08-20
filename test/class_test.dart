@@ -125,18 +125,19 @@ void main() {
 
     test('Mastery follows the class you MINED as; switching cannot farm it',
         () async {
-      // Mastery now accrues from MINING (in _creditLifetimeEver), credited live
-      // to whoever is active THEN — one full 21M supply mined = one Mastery unit.
-      // Switching class never retroactively moves earned Mastery, and a class you
-      // never mined as earns nothing.
+      // Mastery (= class level, RP source) accrues from MINING, credited live to
+      // whoever is active THEN. With the S1 curve, one full 21M supply mined =
+      // class level 10 (level = sqrt(xp/divisor), xp/supply = 1e6). Switching class
+      // never retroactively moves earned Mastery, and a class you never mined as
+      // earns nothing.
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // Mine one full supply as Corporation → exactly Mastery 1 for Corp.
+      // Mine one full supply as Corporation → level 10 for Corp.
       game.debugSelectClass(BtcClass.corporation);
       game.debugCreditEver(GameConstants.maxSupplySats);
-      expect(game.masteryLevel(BtcClass.corporation), 1,
-          reason: 'mining one full supply as Corp = Mastery 1');
+      expect(game.masteryLevel(BtcClass.corporation), 10,
+          reason: 'mining one full supply as Corp = class level 10');
       final corpXp = game.masteryXp(BtcClass.corporation);
 
       // Switch to Solo (mine nothing yet): Corp's earned XP is untouched.
@@ -148,7 +149,7 @@ void main() {
 
       // Mine a full supply as Solo → only Solo accrues; Corp unchanged.
       game.debugCreditEver(GameConstants.maxSupplySats);
-      expect(game.masteryLevel(BtcClass.soloMiner), 1);
+      expect(game.masteryLevel(BtcClass.soloMiner), 10);
       expect(game.masteryXp(BtcClass.corporation), corpXp,
           reason: 'Corp keeps exactly what it mined');
     });
