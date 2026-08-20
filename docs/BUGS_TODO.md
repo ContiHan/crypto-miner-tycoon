@@ -48,16 +48,19 @@ auto-buy disappears (superseded by dual-spec). Tracked in
 
 ---
 
-## U1 — Too much in-game descriptive text 🔴
-**Principle:** explain each mechanic **once, in the guides**; the game screens stay
-**clean** — no inline tutorial blurbs, hint paragraphs, or filler descriptions.
-**Scope:** cross-cutting UI cleanup. Much of the worst filler lives in the very
-screens we're rebuilding (SKILL loadout copy, mining/fork descriptions, casino,
-research/keystone blurbs), so **the cleanup rides along with the SKILL/reset
-rebuild**; a final sweep catches the rest (settings, stash, goal, dialogs).
-**Fix:** as part of each rebuild slice, strip explanatory text down to a label +
-value; move any real explanation into the guide once. Do a closing grep-sweep for
-leftover long `Text(...)` blocks before shipping.
+## U1 — Guides everywhere + strip in-game descriptive text 🔴
+**Principle:** every mechanic is explained **once, in a guide**; the game screens
+stay **clean** — no inline tutorial blurbs, hint paragraphs, or filler descriptions.
+**Two halves:**
+1. **Guides everywhere** — ensure a guide entry exists for every mechanic (old +
+   all the new ones: class level/RP, one-fork model, dual-spec, auras, talents,
+   BIPs, Back-in-Time). This is where explanation lives.
+2. **Strip in-game text** — screens become label + value only.
+**Scope:** cross-cutting. Much of the worst filler lives in the very screens we're
+rebuilding (SKILL loadout copy, mining/fork descriptions, casino, research/keystone
+blurbs), so **the cleanup rides along with each rebuild slice**; a **closing sweep**
+catches the rest (settings, stash, goal, dialogs) + confirms every new mechanic has
+its guide. Grep for leftover long `Text(...)` blocks before shipping.
 
 ---
 

@@ -431,6 +431,16 @@ is rebuilt.
    L4/8/12/16; ~2:1 degen tradeoffs; retire firmware proc-modules — keep the proc
    engine + the 4 class signature procs, which move onto the Racial) — see §7b, §5.
 7. **S6 — Rebalance** (token scale, caps, curve `speed`→live, sim-gate CX removal).
+8. **S7 — Guides + text sweep** (closing): ensure a guide exists for **every**
+   mechanic (incl. all the new ones); strip remaining in-game filler text to
+   label+value (see `docs/BUGS_TODO.md` U1).
+9. **S8 — Achievements** (the final phase of the big redesign):
+   - **Audit + fix** achievements tied to removed/changed systems — Consensus,
+     Soft Fork, perks, New Blockchain ladders must be rewritten or retired.
+   - **Add** achievements for the new systems (per-class levels, BIP adoption,
+     auras/talents, dual-spec, Back-in-Time medals, gadget collection…).
+   - **Target ≈ 128** total (the "128-bit security" theme; 2⁷) — up from 58. Alt if
+     we want bigger/more operational: 144 (blocks/day). **[TUNE]**
 
 Each slice: `flutter analyze` clean + full suite green + local commit on `main`
 (never push). New UI needs owner device-verification (render pane is unavailable).
