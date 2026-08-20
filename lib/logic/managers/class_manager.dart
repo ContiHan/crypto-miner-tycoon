@@ -154,8 +154,9 @@ class ClassManager {
   int masteryLevel(BtcClass c) {
     final xp = masteryXp[c] ?? 0;
     if (xp <= 0) return 0;
-    final lvl = sqrt(xp / GameConstants.masteryXpDivisor).floor();
-    // Class level is capped at 18 (= the RP budget cap). See SKILL redesign S1.
+    // LINEAR level (stretched by the total amount needed, not a steepening curve),
+    // capped at 18 (= the class-level cap). See SKILL redesign S1.
+    final lvl = (xp / GameConstants.masteryXpDivisor).floor();
     return lvl > GameConstants.classLevelMax ? GameConstants.classLevelMax : lvl;
   }
 
@@ -164,10 +165,8 @@ class ClassManager {
     final lvl = masteryLevel(c);
     if (lvl >= GameConstants.classLevelMax) return 1.0;
     final xp = masteryXp[c] ?? 0;
-    final cur = lvl * lvl * GameConstants.masteryXpDivisor;
-    final next = (lvl + 1) * (lvl + 1) * GameConstants.masteryXpDivisor;
-    final span = next - cur;
-    return span <= 0 ? 0.0 : ((xp - cur) / span).clamp(0.0, 1.0);
+    final cur = lvl * GameConstants.masteryXpDivisor; // linear: N levels = N·divisor
+    return ((xp - cur) / GameConstants.masteryXpDivisor).clamp(0.0, 1.0);
   }
 
   /// Sum of Mastery levels across every class — the permanent all-class bonus
@@ -206,7 +205,6 @@ class ClassManager {
     creditMastery(
       playedAs,
       GameConstants.masteryXpPerFullSupply *
-          GameConstants.masteryXpSpeed *
           (minedSats / GameConstants.maxSupplySats),
     );
   }
@@ -216,7 +214,7 @@ class ClassManager {
   void debugSetMasteryLevel(BtcClass c, int level) {
     if (c == BtcClass.prospector) return;
     final l = level < 0 ? 0 : level;
-    masteryXp[c] = l * l * GameConstants.masteryXpDivisor.toDouble();
+    masteryXp[c] = l * GameConstants.masteryXpDivisor.toDouble(); // linear
   }
 
   // ---- Economy contributions ---------------------------------------------

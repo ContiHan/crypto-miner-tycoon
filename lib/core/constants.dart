@@ -210,22 +210,24 @@ class GameConstants {
   //
   // Mastery XP is earned by MINING, credited live to the class you're playing:
   // masteryXp += masteryXpPerFullSupply * masteryXpSpeed * (income / maxSupplySats).
-  // level = floor(sqrt(xp / masteryXpDivisor)), CAPPED at classLevelMax (18).
-  // TECH V2 (SKILL redesign S1): Mastery IS the "class level" that drives the RP
-  // budget (RP = min(18, active class level)). So the curve is tuned so levels come
-  // during normal play — level 1 at ~1% of a supply mined, level 10 at one full
-  // supply, level 18 (max / cap 18 RP) at ~3.2 supplies mined cumulatively. [TUNE]
-  static const double masteryXpDivisor = 10000.0; // level = floor(sqrt(xp/this))
-  static const double masteryXpPerFullSupply = 1000000.0; // 1 full 21M supply ~ level 10
-  // DEBUG speed knob for testing the level→RP flow fast (crank on a test build,
-  // reset to 1.0 for release). Multiplies the mining XP accrual only.
-  static const double masteryXpSpeed = 1.0;
-  // Class level is capped at 18 — RP tops out at 2 full branches (see SKILL doc).
+  // "supply" = the whole 21M-BTC total (maxSupplySats). Mastery IS the "class level"
+  // that drives the RP budget (SKILL S1). The level curve is deliberately LINEAR
+  // (not a steepening curve) — stretched only by the TOTAL amount needed, per owner:
+  //   level = floor(xp / masteryXpDivisor), CAPPED at classLevelMax (18).
+  // With the values below, one full 21M supply mined = 2 class levels — so your
+  // first mined-out is NOT an instant level 18; maxing a class (18) takes ~9 full
+  // supplies mined cumulatively (slow, endgame). [TUNE the rate via these two]
+  static const double masteryXpDivisor = 10000.0; // xp per level (linear)
+  static const double masteryXpPerFullSupply = 20000.0; // 1 full supply = 2 levels
+  // Runtime GAME SPEED for testing (Settings → Danger Zone) scales the whole mining
+  // tick, so income/blocks/halvings/mastery/RP all speed up together. Default 1.0.
+  static const double gameSpeedDefault = 1.0;
+  static const List<double> gameSpeedOptions = [1, 10, 100, 1000];
+  // Class level is capped at 18. RP = rpTechBaseBonus + class level → max 20, which
+  // is exactly 2 full branches (each 7 nodes×1 + a 3-RP capstone = 10). The base is
+  // a small taste so early TECH (unlocked before the class pick) isn't a dead tab.
   static const int classLevelMax = 18;
-  // Pre-class starter RP: a class-less Prospector gets this so early TECH (unlocked
-  // at 10k, before the first-Hard-Fork class pick) isn't a dead tab. Once you pick a
-  // class, RP = that class's level (a fresh pick starts at 0 and grows by mining).
-  static const int rpPreClassFloor = 4;
+  static const int rpTechBaseBonus = 2;
   // Each TOTAL mastery level (summed across all classes) grants this much
   // permanent hash AND income bonus, for every class including Prospector. Tiny
   // and softcapped; CLAMPED to masteryNudgeCap so the faster curve can't balloon it.

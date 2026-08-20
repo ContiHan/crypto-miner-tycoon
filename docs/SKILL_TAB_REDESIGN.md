@@ -105,29 +105,31 @@ rpBudget = min(18, classLevel(activeClass))
 - Drops the hardFork / genesisBlock / total-mastery terms entirely.
 - **Per active class**: switching to a class loads *that* class's level (0→0,
   10→10 — never summed, never auto-scaled).
-- Cap 18 is deliberate: a full branch = 9 RP (7×1 + capstone 2), so 18 = at most
-  **2 full branches / 2 keystones**, or fewer keystones + more synergies — the
-  player's call.
+- **Max RP is 20** (base 2 + class level 18). A full branch = **10 RP** (7×1 +
+  a 3-RP capstone), so 20 = at most **2 full branches / 2 keystones**, or spread
+  7/7/6 across all three without capstones — the player's call.
 - `classLevel` reuses the existing **Mastery** machinery (already per-class,
   already persists every reset, already kept on switch) — retuned + capped at 18
   and surfaced as "level".
 
 ### As shipped in S1 (implementation notes)
-- **Formula:** `rpBudget = hasChosenClass ? min(18, activeClassLevel) : 4`.
-- **Pre-class floor (4):** a class-less **Prospector** gets 4 RP so early TECH
-  (unlocked at 10k, well before the first-Hard-Fork class pick) isn't a dead tab.
-  A *chosen* class is pure level (so a fresh pick starts at 0 RP and grows by
-  mining — a small "drop on pick" from the 4 floor is accepted). This is the one
-  spot that isn't literally "1 RP/level"; flagged for the owner. **[CONFIRM]**
-- **Curve retune:** the old curve made level 1 = a *full supply* mined (RP would
-  starve till endgame). Now `masteryXpPerFullSupply = 1e6` ⇒ **level 1 ≈ 1% of a
-  supply, level 10 = one full supply, level 18 (cap) ≈ 3.2 supplies** cumulative.
-  A `masteryXpSpeed` debug constant (default 1.0) lets us test fast. Real "days–
-  weeks to 18" calibration stays for S6. **[TUNE]**
-- **Nudge capped:** the all-class `+0.5%/level` hash+income nudge is clamped at
-  **+10%** so the faster curve can't balloon it.
+- **Formula:** `rpBudget = rpTechBaseBonus(2) + min(18, activeClassLevel)` → **max 20**.
+- **Base 2 ("for having TECH"):** a small taste so early TECH (unlocked at 10k, well
+  before the class pick) isn't a dead tab. A fresh/class-less state has just the 2;
+  each class level adds +1 (to +18). No "drop on pick" (base stays). So max RP = 20.
+- **Capstone costs 3 RP** (was 2): a full branch = 7×1 + 3 = **10 RP**, so 20 = exactly
+  2 full branches (or spread 7/7/6 across all three without capstones).
+- **Curve is LINEAR, stretched by total amount (owner: not a steepening curve):**
+  `level = floor(xp / 10000)`, cap 18; `masteryXpPerFullSupply = 20000` ⇒ **one full
+  21M supply mined = 2 class levels**, so your first mined-out is NOT level 18 —
+  maxing a class (18) takes **~9 full supplies** mined cumulatively. Rate tunable via
+  those two constants. **[TUNE]** Real "days–weeks to 18" calibration in S6.
+- **Nudge capped:** the all-class `+0.5%/level` hash+income nudge is clamped at +10%.
 - **Progress bar:** the MINE-tab class readout shows LEVEL, an RP `spent/budget`
   count, and a % bar to the next level.
+- **Game-speed test tool:** Settings → Danger Zone → `TEST · GAME SPEED` (1/10/100/
+  1000×) scales the mining tick (income/blocks/halvings/mastery/RP together). NOT
+  persisted — resets to 1× on relaunch, so a fast speed can never ship.
 
 ---
 

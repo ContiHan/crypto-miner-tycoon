@@ -49,8 +49,8 @@ void main() {
       complete(m, ResearchIds.chipFab); // rpCost 0
       expect(m.rpSpent, 0);
       complete(m, ResearchIds.basicOverclock); // 1
-      complete(m, ResearchIds.centralBank); // 2 (capstone)
-      expect(m.rpSpent, 3);
+      complete(m, ResearchIds.centralBank); // 3 (capstone)
+      expect(m.rpSpent, 4);
     });
 
     test('branchesWithCapstoneOwned tracks finished branches', () {

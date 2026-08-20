@@ -135,23 +135,25 @@ void main() {
     });
   });
 
-  group('Research-Point budget = active class level (cap 18)', () {
-    test('a class-less Prospector gets the small starter RP floor', () async {
+  group('Research-Point budget = base + active class level (cap 20)', () {
+    final base = GameConstants.rpTechBaseBonus; // 2
+
+    test('a fresh/class-less state has just the base RP', () async {
       final g = createTestGameLogic(loadOnStart: false);
       await g.loadGame();
-      expect(g.rpBudget, GameConstants.rpPreClassFloor);
+      expect(g.rpBudget, base);
     });
 
-    test('RP equals the active class level, capped at 18', () async {
+    test('RP = base + active class level, capped at base + 18', () async {
       final g = createTestGameLogic(loadOnStart: false);
       await g.loadGame();
       g.debugSelectClass(BtcClass.soloMiner);
       g.debugSetClassLevel(BtcClass.soloMiner, 5);
-      expect(g.rpBudget, 5);
+      expect(g.rpBudget, base + 5);
       g.debugSetClassLevel(BtcClass.soloMiner, 18);
-      expect(g.rpBudget, 18);
+      expect(g.rpBudget, base + 18); // = 20, exactly 2 full branches
       g.debugSetClassLevel(BtcClass.soloMiner, 30); // level itself caps at 18
-      expect(g.rpBudget, 18);
+      expect(g.rpBudget, base + 18);
     });
 
     test('RP follows the ACTIVE class; switching loads that class\'s level',
@@ -161,9 +163,9 @@ void main() {
       g.debugSetClassLevel(BtcClass.soloMiner, 3);
       g.debugSetClassLevel(BtcClass.corporation, 12);
       g.debugSelectClass(BtcClass.soloMiner);
-      expect(g.rpBudget, 3);
+      expect(g.rpBudget, base + 3);
       g.debugSelectClass(BtcClass.corporation);
-      expect(g.rpBudget, 12, reason: 'switching loaded corp\'s own level');
+      expect(g.rpBudget, base + 12, reason: 'switching loaded corp\'s own level');
     });
   });
 }

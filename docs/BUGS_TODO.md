@@ -32,11 +32,11 @@ shown at once.
 
 ## B3 — RP hard-capped at 8 (can't reach a full branch) 🟢 FIXED (S1)
 **Was:** RP topped out at 8 (fork-term formula), never reaching a full 9-RP branch.
-**Fixed in S1:** `rpBudget = hasChosenClass ? min(18, activeClassLevel) : 4`. RP now
-comes from mining the class (a chosen class = its level, cap 18; a class-less
-Prospector gets a starter floor of 4 so early TECH isn't a dead tab). Class-level
-curve retuned so it climbs in normal play (1 full supply ≈ level 10, cap 18) + a
-debug speed knob; the all-class Mastery nudge is capped at +10%. Local commit on S1.
+**Fixed in S1:** `rpBudget = 2 (base, for having TECH) + min(18, activeClassLevel)`
+→ max 20 = 2 full branches (capstone raised to 3 RP → branch = 10). RP comes from
+mining the class (linear level: 1 full supply = 2 levels, maxing 18 ≈ 9 supplies —
+first mined-out is NOT instant max). All-class Mastery nudge capped +10%. A runtime
+`TEST · GAME SPEED` control (Settings → Danger Zone) speeds testing (not persisted).
 _(Note: "era reset gives no RP" was a misread — not a bug; the 8 cap was.)_
 
 ## B4, B5 — removed from the bug list (not bugs)

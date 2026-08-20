@@ -185,7 +185,7 @@ class ResearchManager {
       effects: {Channel.income: 0.5, Channel.hash: 0.4, Channel.prestige: 0.25},
       branch: 'A',
       tier: 5,
-      rpCost: 2,
+      rpCost: 3, // capstone (branch = 7×1 + 3 = 10 RP; 2 branches = the 20 RP cap)
     ),
     // === B - THE GOLDEN NONCE (click + crit) ===
     ResearchNode(
@@ -295,7 +295,7 @@ class ResearchManager {
       effects: {Channel.click: 0.75, Channel.special: 0.5, Channel.overcharge: 0.4},
       branch: 'B',
       tier: 5,
-      rpCost: 2,
+      rpCost: 3, // capstone (branch = 7×1 + 3 = 10 RP; 2 branches = the 20 RP cap)
     ),
     // === C - THE DEGEN (luck + loot + chaos) ===
     ResearchNode(
@@ -401,7 +401,7 @@ class ResearchManager {
       effects: {Channel.luck: 0.15, Channel.doubleDrop: 0.1, Channel.fortune: 0.08},
       branch: 'C',
       tier: 5,
-      rpCost: 2,
+      rpCost: 3, // capstone (branch = 7×1 + 3 = 10 RP; 2 branches = the 20 RP cap)
     ),
   ];
 

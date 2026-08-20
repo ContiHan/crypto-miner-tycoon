@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
+import 'package:crypto_miner_tycoon/logic/managers/class_manager.dart';
 import 'package:crypto_miner_tycoon/providers/game_logic.dart';
 import 'package:crypto_miner_tycoon/services/economy_service.dart';
 import 'package:crypto_miner_tycoon/services/stash_service.dart';
@@ -25,6 +26,9 @@ void main() {
         () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
       // The Foundry hash spine (all Channel.hash → "Hash Whale").
       game.buyResearch(ResearchIds.genesisCore);
@@ -42,6 +46,9 @@ void main() {
     test('preset slots are capped at 3 (oldest dropped)', () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
       game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
@@ -54,6 +61,9 @@ void main() {
     test('applyTechPreset re-buys the saved build after a Hard Fork', () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
       game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
@@ -78,6 +88,9 @@ void main() {
         () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
 
       // Slot 0: a hash build. Slot 1: adds a click node.
@@ -107,6 +120,9 @@ void main() {
     test('overwrite is a no-op with nothing researched', () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
       game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);
@@ -121,6 +137,9 @@ void main() {
     test('delete removes a slot and fixes the active pointer', () async {
       final game = _game(FakeGameRepository());
       await game.loadGame();
+      // RP now = base + class level; seed a full build so presets have the budget.
+      game.debugSelectClass(BtcClass.soloMiner);
+      game.debugSetClassLevel(BtcClass.soloMiner, 18);
       game.wallet = 1e15;
       game.buyResearch(ResearchIds.genesisCore);
       game.buyResearch(ResearchIds.basicOverclock);

@@ -191,6 +191,16 @@ class GameLogic with ChangeNotifier {
   int newChainCount = 0;
   int cratesOpened = 0;
 
+  // GAME SPEED (testing tool, Settings → Danger Zone). Scales the mining tick so
+  // income/blocks/halvings/mastery/RP all speed up together. Deliberately NOT
+  // persisted — always resets to 1.0 on launch, so a fast test speed can never ship.
+  double _gameSpeed = GameConstants.gameSpeedDefault;
+  double get gameSpeed => _gameSpeed;
+  void setGameSpeed(double v) {
+    _gameSpeed = v <= 0 ? 1.0 : v;
+    notifyListeners();
+  }
+
   // --- Progressive disclosure (Phase: locked nav tabs) ---
   // Bottom-nav tabs reveal gradually so a new player isn't shown everything at
   // once. STICKY: once a tab unlocks it stays unlocked forever (a New Blockchain
@@ -726,13 +736,13 @@ class GameLogic with ChangeNotifier {
   /// Research Points already spent (Σ rpCost of completed nodes).
   int get rpSpent => _researchManager.rpSpent;
 
-  /// The Research-Point budget = the ACTIVE class's level (SKILL redesign S1),
-  /// capped at 18. RP comes from leveling the class you play (mining), not from
-  /// prestige forks — so it grows continuously and per-class. A class-less
-  /// Prospector gets a small starter floor so early TECH isn't a dead tab.
-  int get rpBudget => hasChosenClass
-      ? min(GameConstants.classLevelMax, currentClassMasteryLevel)
-      : GameConstants.rpPreClassFloor;
+  /// The Research-Point budget = a small base (a taste, for having TECH) + the
+  /// ACTIVE class's level (SKILL redesign S1), max 20 = 2 full branches. RP comes
+  /// from leveling the class you play (mining), not from prestige forks — so it
+  /// grows continuously and per-class. A fresh/class-less state has just the base.
+  int get rpBudget =>
+      GameConstants.rpTechBaseBonus +
+      min(GameConstants.classLevelMax, currentClassMasteryLevel);
 
   // ---- One free respec per run (BUILD_DEPTH) ----------------------------
   // Clears the TECH tree (uncommitting doctrines) once per era, so a mis-committed
@@ -1595,8 +1605,11 @@ class GameLogic with ChangeNotifier {
     _fireAutoTaps();
 
     if (globalHashRate <= 0) return;
-    _accrueMining(1, chaosMultiplier: _liveIncomeTempMult());
-    if (_advanceBlocks(1)) {
+    // GAME SPEED (testing, Settings → Danger Zone): each real-second tick advances
+    // `gameSpeed` game-seconds of mining + blocks, so income/halvings/mastery/RP all
+    // speed up together. Default 1.0 = normal.
+    _accrueMining(gameSpeed, chaosMultiplier: _liveIncomeTempMult());
+    if (_advanceBlocks(gameSpeed)) {
       _triggerHalving();
       _soundService.playHalving();
       _hapticHeavy();

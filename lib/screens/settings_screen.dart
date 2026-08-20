@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import '../core/constants.dart';
 import '../providers/game_logic.dart';
 import '../theme/app_theme.dart';
 import 'credits_screen.dart';
@@ -67,7 +68,41 @@ class SettingsScreen extends StatelessWidget {
                 padding: EdgeInsets.symmetric(vertical: 16.0),
                 child: Text('DANGER ZONE', style: TextStyle(color: Colors.redAccent, fontWeight: FontWeight.bold, letterSpacing: 1.5)),
               ),
-              
+
+              // TEST · GAME SPEED — scales the whole mining loop (income / blocks /
+              // halvings / mastery / RP) for testing. Not persisted: resets to 1× on
+              // relaunch, so it can never ship a fast game. Hide this tile for release.
+              Container(
+                margin: const EdgeInsets.only(bottom: 12),
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  border: Border.all(color: Colors.orangeAccent.withValues(alpha: 0.5)),
+                  borderRadius: BorderRadius.circular(8),
+                  color: Colors.orangeAccent.withValues(alpha: 0.08),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const Text('TEST · GAME SPEED',
+                        style: TextStyle(color: Colors.orangeAccent, fontWeight: FontWeight.bold, letterSpacing: 1)),
+                    const Text('Speeds up the whole mining loop for testing. Resets to 1× on relaunch.',
+                        style: TextStyle(color: Colors.white60, fontSize: 12)),
+                    const SizedBox(height: 8),
+                    Wrap(
+                      spacing: 8,
+                      children: [
+                        for (final s in GameConstants.gameSpeedOptions)
+                          ChoiceChip(
+                            label: Text('${s.toInt()}×'),
+                            selected: game.gameSpeed == s,
+                            onSelected: (_) => game.setGameSpeed(s),
+                          ),
+                      ],
+                    ),
+                  ],
+                ),
+              ),
+
               Container(
                 decoration: BoxDecoration(
                   border: Border.all(color: Colors.redAccent.withValues(alpha: 0.5)),

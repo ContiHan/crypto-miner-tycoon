@@ -46,16 +46,16 @@ void main() {
       expect(ch3.sum(Channel.volatility), closeTo(-0.25, 1e-9)); // calmer
     });
 
-    test('Mastery XP is concave and only real classes earn it', () {
+    test('class level is LINEAR in XP and only real classes earn it', () {
       final cm = ClassManager();
       cm.creditMastery(BtcClass.prospector, 1e9); // ignored
       expect(cm.masteryLevel(BtcClass.prospector), 0);
 
-      cm.creditMastery(BtcClass.corporation, 40000); // sqrt(40000/10000)=2
-      expect(cm.masteryLevel(BtcClass.corporation), 2);
-      cm.creditMastery(BtcClass.corporation, 50000); // total 90000 -> 3
-      expect(cm.masteryLevel(BtcClass.corporation), 3);
-      expect(cm.totalMasteryLevel, 3);
+      cm.creditMastery(BtcClass.corporation, 40000); // linear: 40000/10000 = 4
+      expect(cm.masteryLevel(BtcClass.corporation), 4);
+      cm.creditMastery(BtcClass.corporation, 50000); // total 90000 -> 9
+      expect(cm.masteryLevel(BtcClass.corporation), 9);
+      expect(cm.totalMasteryLevel, 9);
     });
 
     test('Mastery grants a tiny permanent all-class hash+income bonus', () {
@@ -63,8 +63,8 @@ void main() {
       cm.select(BtcClass.prospector); // even Prospector benefits
       final ch = Channels();
       cm.contributeChannels(ch);
-      expect(ch.sum(Channel.hash), closeTo(0.01, 1e-9)); // 2 * 0.005
-      expect(ch.sum(Channel.income), closeTo(0.01, 1e-9));
+      expect(ch.sum(Channel.hash), closeTo(0.02, 1e-9)); // linear level 4 * 0.005
+      expect(ch.sum(Channel.income), closeTo(0.02, 1e-9));
     });
 
     test('masteryJson/loadFrom round-trips and ignores junk', () {
@@ -125,19 +125,19 @@ void main() {
 
     test('Mastery follows the class you MINED as; switching cannot farm it',
         () async {
-      // Mastery (= class level, RP source) accrues from MINING, credited live to
-      // whoever is active THEN. With the S1 curve, one full 21M supply mined =
-      // class level 10 (level = sqrt(xp/divisor), xp/supply = 1e6). Switching class
-      // never retroactively moves earned Mastery, and a class you never mined as
-      // earns nothing.
+      // Class level (= RP source) accrues from MINING, credited live to whoever is
+      // active THEN. With the S1 LINEAR curve, one full 21M supply mined = 2 class
+      // levels (masteryXpPerFullSupply 20000 / masteryXpDivisor 10000). Maxing at 18
+      // takes ~9 supplies. Switching class never retroactively moves earned levels,
+      // and a class you never mined as earns nothing.
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
-      // Mine one full supply as Corporation → level 10 for Corp.
+      // Mine one full supply as Corporation → level 2 for Corp.
       game.debugSelectClass(BtcClass.corporation);
       game.debugCreditEver(GameConstants.maxSupplySats);
-      expect(game.masteryLevel(BtcClass.corporation), 10,
-          reason: 'mining one full supply as Corp = class level 10');
+      expect(game.masteryLevel(BtcClass.corporation), 2,
+          reason: 'mining one full supply as Corp = class level 2');
       final corpXp = game.masteryXp(BtcClass.corporation);
 
       // Switch to Solo (mine nothing yet): Corp's earned XP is untouched.
@@ -149,7 +149,7 @@ void main() {
 
       // Mine a full supply as Solo → only Solo accrues; Corp unchanged.
       game.debugCreditEver(GameConstants.maxSupplySats);
-      expect(game.masteryLevel(BtcClass.soloMiner), 10);
+      expect(game.masteryLevel(BtcClass.soloMiner), 2);
       expect(game.masteryXp(BtcClass.corporation), corpXp,
           reason: 'Corp keeps exactly what it mined');
     });
@@ -207,14 +207,14 @@ void main() {
       final g1 = make();
       await g1.loadGame();
       g1.debugSelectClass(BtcClass.poolMember);
-      g1.debugCreditMastery(BtcClass.btcOg, 40000); // level 2
+      g1.debugCreditMastery(BtcClass.btcOg, 40000); // linear: 40000/10000 = level 4
       g1.wallet = 1e9;
       g1.buyRig('cpu_rig'); // a buy triggers a save into the shared repo
 
       final g2 = make();
       await g2.loadGame();
       expect(g2.currentClass, BtcClass.poolMember);
-      expect(g2.masteryLevel(BtcClass.btcOg), 2);
+      expect(g2.masteryLevel(BtcClass.btcOg), 4);
     });
   });
 }
