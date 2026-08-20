@@ -80,7 +80,7 @@ class PerksScreen extends StatelessWidget {
                       ),
                       const SizedBox(height: 2),
                       const Text(
-                        'Locked in until your next New Genesis',
+                        'Change class at a mined-out Hard Fork (New Era)',
                         style: TextStyle(color: Colors.white38, fontSize: 11),
                       ),
                     ],
@@ -102,9 +102,10 @@ class PerksScreen extends StatelessWidget {
                       confirmColor: AppTheme.accent,
                       headerLabel: 'PICK AN ARCHETYPE:',
                       info: 'Your class reshapes the whole run (hash, cost, '
-                          'prestige, luck). You LOCK IN to it until your next '
-                          'New Genesis, so choose deliberately — Mastery is '
-                          'earned per class and kept forever.',
+                          'prestige, luck). It stays until you mine out the era '
+                          'and switch at a Hard Fork (New Era), so choose '
+                          'deliberately — Mastery is earned per class and kept '
+                          'forever.',
                       onConfirm: (c) => game.chooseClass(c),
                     ),
                   ),

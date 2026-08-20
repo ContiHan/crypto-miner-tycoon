@@ -23,3 +23,22 @@ GameLogic createTestGameLogic({
   game.clickRng = NoCritRandom();
   return game;
 }
+
+/// Builds a GameLogic over a FakeGameRepository whose save is preseeded with
+/// [save] (merged onto the fake's defaults), for testing load/migration paths.
+/// [loadOnStart] is false — call `await game.loadGame()` yourself.
+GameLogic createTestGameLogicSeeded(Map<String, dynamic> save) {
+  final repo = FakeGameRepository();
+  repo.data.addAll(save);
+  final game = GameLogic(
+    gameRepository: repo,
+    settingsRepository: FakeSettingsRepository(),
+    economyService: EconomyService(),
+    stashService: StashService(),
+    soundService: FakeSoundService(),
+    startTimers: false,
+    loadOnStart: false,
+  );
+  game.clickRng = NoCritRandom();
+  return game;
+}

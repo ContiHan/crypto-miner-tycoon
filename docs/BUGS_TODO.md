@@ -63,5 +63,20 @@ its guide. Grep for leftover long `Text(...)` blocks before shipping.
 
 ---
 
+## Deferred cleanups surfaced by the S2b adversarial review 🟡
+The one-fork rework left three known **content** loose ends (core logic verified
+clean). Each belongs to a later slice, tracked here so they aren't forgotten:
+- **Dead achievements → S8.** `soft_first` (needs `softForkCount≥1`, never
+  incremented now), `consensus_50` / `consensus_500` (fed `consensus: 0`) can never
+  unlock, so 100% completion is unattainable. `chain_5` ("Start 5 New Genesis
+  resets") is now silently gated on `newChainCount`, which only increments on
+  Back-in-Time — relabel/re-gate. `chain_first` already got a `|| genesisBlocks≥1`
+  fallback; `chain_5` did not. `achievement_defs.dart` ~199/206/327/346.
+- **"Genesis Windfall" firmware copy → S5b.** Its `onGenesis` proc now fires only
+  on Back-in-Time; description still says "New Genesis → free crate" (dead in
+  normal play). Firmware→BIPs (S5b) rewrites these affixes anyway.
+- **"GENESIS RESETS" ending-overlay stat** (`ending_overlay.dart:101`) now counts
+  Back-in-Time runs — relabel with the achievements pass (S8).
+
 ## Not-yet-triaged (add here as we hit them)
 - _(owner: drop any phone-tested bugs here and I'll verify + slot them)_

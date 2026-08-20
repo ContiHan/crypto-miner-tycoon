@@ -85,5 +85,24 @@ void main() {
       expect(game.genesisBlocks, 4, reason: 'derived from persisted totalEver');
       expect(game.totalGovTokensEver, closeTo(400000.0, 1e-6));
     });
+
+    test('migration: a pre-S2 banked genesisBlocks is never lost on load',
+        () async {
+      // Legacy (pre-S2) save: 100 Genesis Blocks were BANKED via many small New
+      // Blockchains, so totalGovTokensEver is far below 100^2 * genesisDivisor
+      // (sqrt is subadditive — the banked sum can exceed a naive collapse). The
+      // load-time top-up must restore totalGovTokensEver so the now-DERIVED
+      // Genesis count is >= the old banked count, never stranding the player.
+      final game = createTestGameLogicSeeded({
+        'genesisBlocks': 100, // legacy banked count (no longer stored on save)
+        'totalGovTokensEver': 40000.0, // pathologically low vs 100^2 * 25000
+        'govTokens': 0,
+        'spentGovTokens': 0,
+      });
+      await game.loadGame();
+      expect(game.genesisBlocks, 100,
+          reason: 'top-up restores exactly the banked Genesis count');
+      expect(game.totalGovTokensEver, closeTo(100.0 * 100.0 * 25000.0, 1e-3));
+    });
   });
 }
