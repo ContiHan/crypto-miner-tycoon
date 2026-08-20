@@ -434,13 +434,18 @@ is rebuilt.
 
 ## 11. Slicing (implementation order)
 
-1. **S1 — RP = class level.** rpBudget = min(18, activeClassLevel); drop fork
-   terms; surface level + progress bar; switch loads the class's level.
-2. **S2 — Reset model.** Single Hard Fork (wallet+rigs → tokens, keep TECH); remove
-   Consensus + the old Soft Fork/New Blockchain buttons; make Genesis passive (lower
-   threshold + progress bar); offer **class change at a mined-out Hard Fork**; fix the
-   mined-out double-button (show only the banner). This is where the class-change
-   "bug" is fixed.
+1. **S1 — RP = class level. ✅ SHIPPED** (`5f62a45`, refined `79d90cf`).
+   rpBudget = 2 + min(18, activeClassLevel); dropped fork terms; level + progress
+   bar; switch loads the class's level.
+2. **S2 — Reset model. ✅ SHIPPED** (`ff7514f` S2a + `f747b5c` S2b + `ecdcbc7`
+   review follow-up). Single Hard Fork (wallet+rigs → tokens, **keeps TECH**);
+   removed Consensus + Soft Fork + the New Blockchain button; Genesis is now
+   **passive** (derived `floor(sqrt(totalGovTokensEver/25000))`, progress bar);
+   **class change at a mined-out Hard Fork** via `hardFork({chosenClass})` (fixes
+   B1); mined-out shows only the banner (fixes B2). `_newChainInternal` retained
+   private as `_deepRunReset` for Back-in-Time. Save-migration tops up
+   `totalGovTokensEver` from legacy banked `genesisBlocks`. Mapped + design-critiqued
+   + adversarially reviewed by workflows; sims healthy at divisor 25000.
 3. **S3 — TECH per-class dual-spec** (2 slots, free toggle, free respec 1×/era,
    paid reset) + remove auto-buy.
 4. **S4 — Auras class-specific** (12, L6/12/18, 1 active, ~4h switch).
