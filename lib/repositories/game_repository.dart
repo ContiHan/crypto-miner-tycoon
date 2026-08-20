@@ -62,8 +62,6 @@ class GameRepository {
     required int nextHalvingThreshold,
     int chips = 0,
     Map<String, dynamic>? stash,
-    int consensus = 0,
-    double lifetimeAtLastSoftFork = 0,
     int genesisBlocks = 0,
     double totalGovTokensEver = 0,
     double govTokensEverAtLastNewChain = 0,
@@ -128,8 +126,6 @@ class GameRepository {
       'blockReward': fin(blockReward),
       'blocksMined': blocksMined,
       'nextHalvingThreshold': nextHalvingThreshold,
-      'consensus': consensus,
-      'lifetimeAtLastSoftFork': fin(lifetimeAtLastSoftFork),
       'genesisBlocks': genesisBlocks,
       'totalGovTokensEver': fin(totalGovTokensEver),
       'govTokensEverAtLastNewChain': fin(govTokensEverAtLastNewChain),
@@ -226,8 +222,8 @@ class GameRepository {
       'blocksMined': asInt(m['blocksMined'], 0),
       'nextHalvingThreshold':
           asInt(m['nextHalvingThreshold'], GameConstants.halvingFirstThreshold),
-      'consensus': asInt(m['consensus'], 0),
-      'lifetimeAtLastSoftFork': asDouble(m['lifetimeAtLastSoftFork'], 0),
+      // (Consensus currency + Soft Fork removed in SKILL S2; legacy
+      // 'consensus'/'lifetimeAtLastSoftFork' keys are no longer surfaced.)
       'genesisBlocks': asInt(m['genesisBlocks'], 0),
       // Tier-3 accumulator: for saves predating this field, seed it from the
       // player's current tokens so their New-Blockchain progress isn't lost.
@@ -238,9 +234,9 @@ class GameRepository {
           asDouble(m['govTokensEverAtLastNewChain'], 0),
       // For saves predating these counters, proxy the "first-action" state from
       // persisted progress so the first-fork achievements still grandfather
-      // (GovTokens only come from Hard Forks; Consensus only from Soft Forks;
-      // Genesis Blocks only from New Blockchains). Exact historical counts are
-      // unrecoverable and re-earn naturally.
+      // (GovTokens only come from Hard Forks; the legacy Consensus/Soft-Fork keys
+      // grandfather softForkCount; Genesis Blocks only from New Blockchains).
+      // Exact historical counts are unrecoverable and re-earn naturally.
       'hardForkCount': m.containsKey('hardForkCount')
           ? asInt(m['hardForkCount'], 0)
           : ((asInt(m['govTokens'], 0) + asInt(m['spentGovTokens'], 0) > 0 ||

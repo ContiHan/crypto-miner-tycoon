@@ -81,7 +81,7 @@ void main() {
     final totalSteps = days * 86400 ~/ step;
 
     int firstHardFork = -1, firstNewChain = -1, firstWin = -1;
-    int softForks = 0, hardForks = 0, newChains = 0;
+    int hardForks = 0, newChains = 0;
     int lastBuyStep = 0, lastForkStep = 0;
     bool sawBad = false;
     double peakIncome = 0;
@@ -126,13 +126,7 @@ void main() {
       if (hx > maxHashX) maxHashX = hx;
       if (game.prestigeMultiplier > maxMult) maxMult = game.prestigeMultiplier;
 
-      // Tier 1: soft fork when Consensus would at least double.
-      if (game.pendingConsensus >= 1 && game.pendingConsensus >= game.consensus) {
-        game.softFork();
-        softForks++;
-      }
-
-      // Tiers 2/3 on a soft-wall stall.
+      // Prestige on a soft-wall stall.
       final stalled = (s - lastBuyStep) * step > 600 &&
           (s - lastForkStep) * step > 600;
       if (stalled) {
@@ -160,10 +154,9 @@ void main() {
           ' | hashX ${game.buildChannels().multiplier(Channel.hash).toStringAsFixed(1).padRight(7)}'
           ' | mult ${game.prestigeMultiplier.toStringAsFixed(1).padRight(7)}'
           ' | GT ${game.govTokens.toString().padRight(5)}'
-          ' | CX ${game.consensus.toString().padRight(4)}'
           ' | GB ${game.genesisBlocks.toString().padRight(3)}'
           ' | lab $researched/22'
-          ' | SF/HF/NB $softForks/$hardForks/$newChains',
+          ' | HF/NB $hardForks/$newChains',
         );
       }
     }
@@ -172,8 +165,8 @@ void main() {
     final incomeX = game.buildChannels().multiplier(Channel.income);
 
     print('\n===== FULL-ECONOMY SIM ($days days, engaged player) =====');
-    print('time   | income/s   | hashX   | mult    | GT    | CX   | GB '
-        '| lab    | SoftFork/HardFork/NewChain');
+    print('time   | income/s   | hashX   | mult    | GT    | GB '
+        '| lab    | HardFork/NewChain');
     for (final s in snaps) {
       print(s);
     }
@@ -181,7 +174,7 @@ void main() {
     print('First New Blockchain : ${_hms(firstNewChain)}');
     print('First Win (21M-ever) : ${_hms(firstWin)}');
     print('lifetimeEverSats     : ${game.lifetimeEverSats.toStringAsExponential(2)}');
-    print('Totals               : $softForks SF / $hardForks HF / $newChains NB');
+    print('Totals               : $hardForks HF / $newChains NB');
     print('Final hash channel   : x${hashX.toStringAsFixed(2)}');
     print('Final income channel : x${incomeX.toStringAsFixed(2)}');
     print('Genesis Blocks       : ${game.genesisBlocks}');

@@ -30,8 +30,8 @@ class ClassDef {
   /// [prestigeGainMult]; louder chaos is +volatility here).
   final Map<Channel, double> channelBonuses;
 
-  /// Multiplies Consensus + GovToken GAIN (1.0 = neutral). BTC OG > 1 (best
-  /// prestige farmer); Corporation < 1 (brute force, worse prestige efficiency).
+  /// Multiplies GovToken GAIN (1.0 = neutral). BTC OG > 1 (best prestige
+  /// farmer); Corporation < 1 (brute force, worse prestige efficiency).
   final double prestigeGainMult;
 
   const ClassDef({
@@ -94,8 +94,8 @@ const Map<BtcClass, ClassDef> kClasses = {
     name: 'BTC OG',
     tagline: 'Satoshi-era whale',
     description:
-        'Manipulates the chain itself. The best prestige gains (Consensus / '
-        'GovTokens / Genesis), luckier rare finds, steadier markets, and strong '
+        'Manipulates the chain itself. The best prestige gains (GovTokens / '
+        'Genesis), luckier rare finds, steadier markets, and strong '
         'offline earnings — but a slow raw start.',
     icon: Icons.workspace_premium,
     color: Colors.amberAccent,
@@ -237,7 +237,7 @@ class ClassManager {
     }
   }
 
-  /// Multiplier applied to Consensus + GovToken gain by the current class.
+  /// Multiplier applied to GovToken gain by the current class.
   double get prestigeGainMultiplier => currentDef.prestigeGainMult;
 
   // ---- Selection ----------------------------------------------------------

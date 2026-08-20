@@ -97,13 +97,9 @@ void main() {
       await game.loadGame();
       game.lifetimeEarnings = 2e9;
       game.hardFork();
-      game.lifetimeEarnings = 1.6e10;
-      game.softFork();
       expect(game.hardForkCount, 1);
-      expect(game.softForkCount, 1);
       await game.loadGame();
       expect(game.hardForkCount, 1);
-      expect(game.softForkCount, 1);
     });
 
     test('achievements survive prestige but a full wipe clears them', () async {

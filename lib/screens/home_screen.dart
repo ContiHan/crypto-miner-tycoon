@@ -426,10 +426,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       confirmLabel: 'REBORN',
       confirmColor: Colors.deepPurple,
       headerLabel: 'CHOOSE YOUR CLASS FOR THE NEXT CHAIN:',
-      info: 'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents, '
-          'GovTokens and Consensus. Your Stash, UTXO chips & Mastery are KEPT.\n\n'
+      info: 'THE DEEPEST RESET. Wipes Money, Rigs, Research, Talents and '
+          'GovTokens. Your Stash, UTXO chips & Mastery are KEPT.\n\n'
           'You will gain ${game.pendingGenesis} Genesis Block(s).\n'
-          'Consensus & GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
+          'GovToken gain: x${game.genesisGainMultiplier.toStringAsFixed(1)} '
           '→ x${nextMultiplier.toStringAsFixed(1)}$classHint',
       onConfirm: (c) => game.newBlockchain(chosenClass: c),
     );

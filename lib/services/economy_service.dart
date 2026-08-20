@@ -70,7 +70,7 @@ class EconomyService {
     // Sub-linear (sqrt) in this era's earnings; the large divisor keeps early
     // eras to single-digit tokens and paces accrual to hundreds over weeks.
     // The tier-3 [gainMultiplier] scales the RAW root before flooring so partial
-    // progress is preserved the same way Consensus (tier-1) preserves it.
+    // progress is preserved instead of being lost to the integer floor.
     return (sqrt(lifetimeEarnings / GameConstants.govTokenDivisor) *
             gainMultiplier)
         .floor();

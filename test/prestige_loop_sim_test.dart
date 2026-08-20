@@ -3,7 +3,8 @@
 //
 // The Phase 1 sim (economy_sim_test.dart) only drives the single hard-fork loop.
 // This one drives the COMPLETE prestige progression through the REAL services:
-//   Soft Fork (Consensus)  ->  Hard Fork (GovTokens)  ->  New Blockchain (Genesis)
+//   Hard Fork (GovTokens)  ->  New Blockchain (Genesis)
+// (Soft Fork / Consensus were removed in SKILL S2.)
 // using EconomyService + MiningManager + PrestigeSystem + the real rig catalog,
 // so we can empirically answer: is the endgame reachable, does each tier pay off,
 // and does anything collapse / run away / overflow over weeks of play?
@@ -37,10 +38,8 @@ String _hms(int seconds) {
 }
 
 class _SimReport {
-  int firstSoftFork = -1;
   int firstHardFork = -1;
   int firstNewBlockchain = -1;
-  int softForks = 0;
   int hardForks = 0;
   int newBlockchains = 0;
   int finalGenesis = 0;
@@ -76,8 +75,7 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
   int lastHardForkSecond = 0;
 
   double prestigeMult() =>
-      economy.calculatePrestigeMultiplier(govTokens, spentGovTokens) +
-      pr.consensusBonus;
+      economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
 
   double rigCostSats(Rig r) => economy.calculateRigCost(r, 0.0, 1.0);
 
@@ -137,17 +135,7 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
       lastBuySecond = t;
     }
 
-    // --- Tier 1 (fast loop): Soft Fork whenever Consensus would at least
-    //     double (cube-root is concave, so banking in bigger chunks is better
-    //     than spamming). Costs only LAB progress (not modeled). ---
-    final pendCx = pr.pendingConsensus(lifetime);
-    if (pendCx >= 1 && pendCx >= pr.consensus) {
-      pr.applySoftFork(lifetime);
-      report.softForks++;
-      if (report.firstSoftFork < 0) report.firstSoftFork = t;
-    }
-
-    // --- Slow loops only when the era has stalled at the soft-wall (income can
+    // --- Prestige only when the era has stalled at the soft-wall (income can
     //     no longer buy the next rig for a while). An engaged player then cashes
     //     the era in and rebuilds with a higher multiplier. ---
     final stalled = (t - lastBuySecond) > 600 && (t - lastHardForkSecond) > 600;
@@ -174,12 +162,11 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
         lastBuySecond = t;
         lastHardForkSecond = t;
       } else if (pendGov >= 1) {
-        // Tier 2: Hard Fork — permanent GovToken multiplier, wipes CX era.
+        // Tier 2: Hard Fork — permanent GovToken multiplier.
         // An engaged player cashes in every maxed era (each fork compounds the
         // permanent multiplier), not only when the % gain is large.
         govTokens += pendGov;
         pr.recordGovTokensMinted(pendGov);
-        pr.onHardFork(); // wipes consensus era
         report.hardForks++;
         if (report.firstHardFork < 0) report.firstHardFork = t;
         wallet = 100;
@@ -199,10 +186,9 @@ _SimReport _runPrestigeSim({required int maxSeconds}) {
         '| hash ${Formatter.formatNumber(hash).padRight(9)}'
         '| inc/s ${Formatter.formatBitcoin(income).padRight(11)}'
         '| GT ${govTokens.toString().padRight(5)}'
-        '| CX ${pr.consensus.toString().padRight(4)}'
         '| GB ${pr.genesisBlocks.toString().padRight(3)}'
         '| xMult ${mult.toStringAsFixed(1).padRight(8)}'
-        '| SF/HF/NB ${report.softForks}/${report.hardForks}/${report.newBlockchains}',
+        '| HF/NB ${report.hardForks}/${report.newBlockchains}',
       );
     }
 
@@ -220,20 +206,19 @@ void main() {
     const days = 60;
     final r = _runPrestigeSim(maxSeconds: days * 86400);
 
-    print('\n===== 3-TIER PRESTIGE SIM ($days days, engaged player) =====');
-    print('time      | hash      | income/s    | GT    | CX   | GB '
-        '| mult     | SoftFork/HardFork/NewChain');
-    print('----------+-----------+-------------+-------+------+----'
-        '+----------+---------------------------');
+    print('\n===== PRESTIGE SIM ($days days, engaged player) =====');
+    print('time      | hash      | income/s    | GT    | GB '
+        '| mult     | HardFork/NewChain');
+    print('----------+-----------+-------------+-------+----'
+        '+----------+-------------------');
     for (final s in r.snapshots) {
       print(s);
     }
     print('');
-    print('First Soft Fork      : ${_hms(r.firstSoftFork)}');
     print('First Hard Fork      : ${_hms(r.firstHardFork)}');
     print('First New Blockchain : ${_hms(r.firstNewBlockchain)}');
     print('Totals over $days d  : '
-        '${r.softForks} soft / ${r.hardForks} hard / ${r.newBlockchains} new-chain');
+        '${r.hardForks} hard / ${r.newBlockchains} new-chain');
     print('Final Genesis Blocks : ${r.finalGenesis}');
     print('Final GovTokens      : ${r.finalGovTokens}');
     print('Final income/s       : ${Formatter.formatBitcoin(r.finalIncomePerSec)}');

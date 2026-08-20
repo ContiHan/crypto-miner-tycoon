@@ -96,22 +96,17 @@ class GameConstants {
   static const double govTokenDivisor = 5.0e8;
   static const double perTokenIncomeBonus = 0.50; // income bonus = 0.50*sqrt(GT)
 
-  // Soft Fork (Tier-1 prestige): resets LAB only, grants Consensus (CX) =
-  // floor(cbrt(eraSats / consensusDivisor)). Frequent, low-stakes, fast loop.
-  // Income bonus is CONCAVE in CX (perConsensusBonus * sqrt(consensus)) so a
-  // fast/cheap soft-fork loop can't pump the multiplier without bound.
-  static const double consensusDivisor = 2.0e9;
-  static const double perConsensusBonus = 0.10; // income bonus = 0.10*sqrt(CX)
+  // (Soft Fork / Consensus currency removed in SKILL S2 — repeatable income
+  // scaling now comes from the GovToken multiplier + Notoriety.)
 
   // New Blockchain (Tier-3 prestige): resets almost everything (keeps only the
   // permanent Stash collection + banked Genesis Blocks), grants Genesis Blocks
   // (GB) = floor(sqrt(chainGovTokens / genesisDivisor)) where chainGovTokens is
   // the GovTokens minted since the last New Blockchain. GB do NOT add raw income;
-  // they multiply the GAIN of the two lower prestige currencies (Consensus +
-  // GovTokens), so each New Blockchain makes every future run farm prestige
-  // faster instead of stacking yet another raw income multiplier. The multiplier
-  // is CONCAVE in GB (1 + perGenesisGainBonus*sqrt(GB)) so the Genesis<->GovToken
-  // feedback loop converges instead of running away.
+  // they multiply the GAIN of GovTokens, so each New Blockchain makes every
+  // future run farm prestige faster instead of stacking yet another raw income
+  // multiplier. The multiplier is CONCAVE in GB (1 + perGenesisGainBonus*sqrt(GB))
+  // so the Genesis<->GovToken feedback loop converges instead of running away.
   // Raised with the 10-rig rescale: the new top-tier hashrate (~10,000x the old
   // ladder) lets a whale saturate the per-era supply cap every fork, so each
   // fork mints the MAX GovTokens and tier-3 (New Blockchain) was reachable in
@@ -167,13 +162,13 @@ class GameConstants {
   static const double clickCritPayoutSpecialScale = 5.0;
   static const double critPayoutMax = 55.0;
 
-  // CONSENSUS WEIGHT attribute — a buildable multiplier on Consensus + GovToken
-  // GAIN via the `prestige` channel: gainMult ×= multiplier(prestige, 1.0, 0.5)
-  // (softcap params pinned per BALANCE_AND_BOUNDS X7). The TOTAL prestige-gain
-  // multiplier (class scalar × Consensus Weight × future keystones/abilities) is
-  // clamped at [prestigeGainMax] (#17) so the Consensus↔GovToken feedback loop
-  // can never diverge; the concave CX/GT accrual + softcap keep it well under this
-  // in practice (the paper worst-case full stack is ~x58).
+  // PRESTIGE WEIGHT attribute — a buildable multiplier on GovToken GAIN via the
+  // `prestige` channel: gainMult ×= multiplier(prestige, 1.0, 0.5) (softcap params
+  // pinned per BALANCE_AND_BOUNDS X7). The TOTAL prestige-gain multiplier (class
+  // scalar × Prestige Weight × future keystones/abilities) is clamped at
+  // [prestigeGainMax] (#17) so the Genesis↔GovToken feedback loop can never
+  // diverge; the concave GT accrual + softcap keep it well under this in practice
+  // (the paper worst-case full stack is ~x58).
   static const double prestigeGainMax = 60.0;
 
   // PROSPECTOR'S EYE attribute (Fortune / drop quality). Each crate roll has a
@@ -257,7 +252,7 @@ class GameConstants {
 
   // THE BREACH — theft (Phase 5). Replaces the old instant −15% "hack": a
   // TELEGRAPHED steal of the HOT wallet only — NEVER lifetime/supply/GovTokens/
-  // Consensus/Genesis/Mastery/Stash/best-times/chips (#27). A THREAT DETECTED
+  // Genesis/Mastery/Stash/best-times/chips (#27). A THREAT DETECTED
   // banner gives a countdown to tap SECURE (fully vault, 0 loss); ignored, it
   // steals breachBaseLoss × (1 − COLD STORAGE resistance ≤0.70), so it always
   // lands ≥30% of base. Owner chose the GENTLER end: base loss 10% (not 15%).

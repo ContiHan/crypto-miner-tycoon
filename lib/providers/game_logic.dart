@@ -440,7 +440,7 @@ class GameLogic with ChangeNotifier {
     blocked: () => _inOfflineSim || keystoneMods.immuneNegatives,
     // Steals the HOT WALLET ONLY, scaled by the tier (DUST ×0.3 / BREACH ×1.0 /
     // 51% ×2.5): FORT KNOX ×0.2 / JUNKYARD RIGS ×1.5 also apply. Lifetime/supply/
-    // GovTokens/Consensus/Genesis/Mastery/Stash/chips are NEVER touched. A 51%
+    // GovTokens/Genesis/Mastery/Stash/chips are NEVER touched. A 51%
     // attack also leaves a brief bounded market dip.
     applyLoss: () {
       final loss = wallet *
@@ -1132,19 +1132,19 @@ class GameLogic with ChangeNotifier {
   void debugSetClassLevel(BtcClass c, int level) =>
       _classManager.debugSetMasteryLevel(c, level);
 
-  /// The current class's multiplier on Consensus + GovToken GAIN (1.0 neutral).
+  /// The current class's multiplier on GovToken GAIN (1.0 neutral).
   double get classPrestigeGainMultiplier =>
       _classManager.prestigeGainMultiplier;
 
-  /// CONSENSUS WEIGHT: a buildable multiplier on prestige gain from the `prestige`
+  /// PRESTIGE WEIGHT: a buildable multiplier on prestige gain from the `prestige`
   /// channel (softcapped, params pinned 1.0/0.5). 1.0 with no sources.
   double get consensusWeightMultiplier =>
       buildChannels().multiplier(Channel.prestige, softStart: 1.0, power: 0.5);
 
-  /// Total multiplier applied to Consensus + GovToken gain: the class scalar ×
-  /// CONSENSUS WEIGHT × any active DEEP FREEZE buff, clamped at prestigeGainMax so
-  /// the prestige feedback loop can never diverge (#17). (The NG+ trophy
-  /// multiplier was retired with the endgame pivot.)
+  /// Total multiplier applied to GovToken gain: the class scalar × PRESTIGE
+  /// WEIGHT × any active DEEP FREEZE buff, clamped at prestigeGainMax so the
+  /// prestige feedback loop can never diverge (#17). (The NG+ trophy multiplier
+  /// was retired with the endgame pivot.)
   double get prestigeGainMultiplier =>
       (classPrestigeGainMultiplier *
               consensusWeightMultiplier *
@@ -1152,20 +1152,10 @@ class GameLogic with ChangeNotifier {
               (_inOfflineSim ? 1.0 : _abilities.activePrestigeGainMult(_nowMs())))
           .clamp(0.0, GameConstants.prestigeGainMax);
 
-  // Tier-1 prestige (Soft Fork / Consensus). GovTokens/Hard Fork remain below.
   final PrestigeSystem _prestige = PrestigeSystem();
-  int get consensus => _prestige.consensus;
-  int get pendingConsensus => _prestige.pendingConsensus(
-        lifetimeEarnings,
-        gainMultiplier: prestigeGainMultiplier,
-      );
-
-  /// The Consensus income bonus actually folded into [prestigeMultiplier]
-  /// (concave: 0.10*sqrt(consensus)). Exposed so the UI shows the true bonus.
-  double get consensusBonus => _prestige.consensusBonus;
 
   // Tier-3 prestige (New Blockchain / Genesis Blocks). Genesis Blocks multiply
-  // the GAIN of the two lower prestige currencies rather than adding raw income.
+  // the GAIN of GovTokens rather than adding raw income.
   int get genesisBlocks => _prestige.genesisBlocks;
   @visibleForTesting
   set debugGenesisBlocks(int v) => _prestige.genesisBlocks = v;
@@ -1182,30 +1172,10 @@ class GameLogic with ChangeNotifier {
   /// against, so the perk list reveals gradually as the player prestiges.
   double get totalGovTokensEver => _prestige.totalGovTokensEver;
 
-  // Income multiplier from prestige, both CONCAVE so the endgame can't run away:
-  // GovTokens contribute 0.50*sqrt(govTokens+spent), Consensus 0.10*sqrt(CX).
+  // Income multiplier from prestige, CONCAVE so the endgame can't run away:
+  // GovTokens contribute 0.50*sqrt(govTokens+spent).
   double get prestigeMultiplier =>
-      _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens) +
-      _prestige.consensusBonus;
-
-  /// Soft Fork: resets LAB only, banks Consensus, starts a new era. Frequent,
-  /// low-stakes — no confirmation needed.
-  void softFork() {
-    if (pendingConsensus <= 0) return;
-    _prestige.applySoftFork(
-      lifetimeEarnings,
-      gainMultiplier: prestigeGainMultiplier,
-    );
-    _researchManager.reset();
-    _respecUsed = false; // fresh era → the free respec refreshes
-    softForkCount++;
-    _soundService.playPrestige();
-    _hapticHeavy();
-    _fireProcs(ProcEvent.onSoftFork); // COLD-tier firmware hooks
-    _evaluateAchievements();
-    notifyListeners();
-    _saveGame();
-  }
+      _economy.calculatePrestigeMultiplier(govTokens, spentGovTokens);
 
   // Multiplier the player will have right after a hard fork. The hard-fork
   // dialog previously derived this by hand and dropped spentGovTokens, so it
@@ -1677,7 +1647,7 @@ class GameLogic with ChangeNotifier {
       hasWonGame: hasWonGame,
       totalGovTokensEver: totalGovTokensEver,
       govTokens: govTokens,
-      consensus: consensus,
+      consensus: 0, // Consensus currency removed (SKILL S2); achievements S8.
       genesisBlocks: genesisBlocks,
       totalRigs: totalRigs,
       rigTypesOwned: typesOwned,
@@ -1870,11 +1840,10 @@ class GameLogic with ChangeNotifier {
   // until the player has Genesis Blocks, so early play is unaffected) AND the
   // prestige-gain multiplier (class: BTC OG boosts / Corporation reduces; plus
   // the permanent NG+ trophy multiplier). All applied to the raw root inside the
-  // economy service so partial token progress is preserved, matching Consensus.
+  // economy service so partial token progress is preserved.
   int get pendingGovTokens => _economy.calculatePendingGovTokens(
     lifetimeEarnings,
-    // PAPER HANDS ×2 applies only to the GovToken (Hard Fork) yield, not to the
-    // Tier-1 Consensus gain, so it lives here rather than in prestigeGainMultiplier.
+    // PAPER HANDS ×2 applies only to the GovToken (Hard Fork) yield.
     gainMultiplier: _prestige.genesisGainMultiplier *
         prestigeGainMultiplier *
         keystoneMods.govTokenGainMult,
@@ -2086,9 +2055,6 @@ class GameLogic with ChangeNotifier {
     _researchManager.reset();
     _respecUsed = false; // fresh era → the free respec refreshes
 
-    // Consensus is an era currency wiped by a Hard Fork.
-    _prestige.onHardFork();
-
     hardForkCount++;
     _fireProcs(ProcEvent.onHardFork); // COLD-tier firmware hooks (UTXO survives)
     _evaluateAchievements();
@@ -2097,11 +2063,10 @@ class GameLogic with ChangeNotifier {
   }
 
   /// New Blockchain (Tier-3): the deepest reset. Wipes the entire run —
-  /// currency, GovTokens, chips, rigs, research, perks, Consensus and mining
-  /// state — and keeps ONLY the permanent Stash collection plus the banked
-  /// Genesis Blocks. Rare and high-stakes, so the UI gates it behind a
-  /// confirmation dialog. Genesis Blocks permanently multiply future Consensus
-  /// and GovToken gains.
+  /// currency, GovTokens, chips, rigs, research, perks and mining state — and
+  /// keeps ONLY the permanent Stash collection plus the banked Genesis Blocks.
+  /// Rare and high-stakes, so the UI gates it behind a confirmation dialog.
+  /// Genesis Blocks permanently multiply future GovToken gains.
   /// [chosenClass] is the class to play the NEXT chain as (the picker's choice).
   /// When null the current class carries over (used by sims/tests). Mastery is
   /// credited per MINED supply live in [_creditLifetimeEver] (not at forks), so
@@ -2121,7 +2086,7 @@ class GameLogic with ChangeNotifier {
     _soundService.playPrestige(); // dramatic cue for the deepest reset
     _hapticHeavy();
 
-    // Bank Genesis Blocks, snapshot the chain baseline, wipe Consensus.
+    // Bank Genesis Blocks, snapshot the chain baseline.
     _prestige.applyNewBlockchain();
 
     // Lock in the class for the new chain (if the player picked one).
@@ -2276,8 +2241,6 @@ class GameLogic with ChangeNotifier {
       nextHalvingThreshold: _miningManager.nextHalvingThreshold,
       chips: chips,
       stash: _stash.saveStash(),
-      consensus: _prestige.consensus,
-      lifetimeAtLastSoftFork: _prestige.lifetimeAtLastSoftFork,
       genesisBlocks: _prestige.genesisBlocks,
       totalGovTokensEver: _prestige.totalGovTokensEver,
       govTokensEverAtLastNewChain: _prestige.govTokensEverAtLastNewChain,
@@ -2359,11 +2322,8 @@ class GameLogic with ChangeNotifier {
       // (The old 'bitcoinExchangeRate' mechanic was fully neutralised — always 1.0
       // — and has been removed; any legacy key in old saves is simply ignored.)
 
-      // Prestige tier-1 (Soft Fork / Consensus)
-      _prestige.consensus = _toInt(data['consensus']);
-      _prestige.lifetimeAtLastSoftFork = _toDouble(
-        data['lifetimeAtLastSoftFork'],
-      );
+      // (The Consensus currency + Soft Fork were removed in SKILL S2; legacy
+      // 'consensus'/'lifetimeAtLastSoftFork' keys in old saves are ignored.)
 
       // Prestige tier-3 (New Blockchain / Genesis Blocks). The repository seeds
       // totalGovTokensEver from current tokens for saves predating the field.

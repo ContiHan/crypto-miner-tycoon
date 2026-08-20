@@ -110,7 +110,7 @@ void main() {
     });
   });
 
-  group('CONSENSUS WEIGHT attribute (prestige gain)', () {
+  group('PRESTIGE WEIGHT attribute (prestige gain)', () {
     test('neutral (1.0) with no prestige sources', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
@@ -118,21 +118,19 @@ void main() {
       expect(game.prestigeGainMultiplier, closeTo(1.0, 1e-9)); // Prospector ×1.0
     });
 
-    test('prestige TECH nodes raise CX + GovToken GAIN', () async {
+    test('prestige TECH nodes raise GovToken GAIN', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 2e13; // cbrt(1e4)=21.5 CX, sqrt(4e4)=200 GT at gain 1.0
-      final baseCX = game.pendingConsensus; // 21
+      game.lifetimeEarnings = 2e13; // sqrt(4e4)=200 GT at gain 1.0
       final baseGT = game.pendingGovTokens; // 200
 
       // The Central Bank capstone grants prestige +0.25 → consensusWeightMultiplier
       // = softcap(1.25,1,0.5) = sqrt(1.25) ≈ 1.118; a large base guarantees the
-      // 11.8% bump crosses the integer floor (21→24, 200→223).
+      // 11.8% bump crosses the integer floor (200→223).
       game.researchNodes
           .firstWhere((n) => n.id == ResearchIds.centralBank)
           .isCompleted = true;
       expect(game.consensusWeightMultiplier, greaterThan(1.0));
-      expect(game.pendingConsensus, greaterThan(baseCX));
       expect(game.pendingGovTokens, greaterThan(baseGT));
     });
 

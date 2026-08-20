@@ -486,43 +486,6 @@ class _MiningTabState extends State<MiningTab> with TickerProviderStateMixin {
                                   onHardFork: widget.onHardFork,
                                 ),
                               const SizedBox(height: 10),
-                              if (game.consensus > 0)
-                                Text(
-                                  'CONSENSUS: ${Formatter.formatNumber(game.consensus.toDouble())} (+${(game.consensusBonus * 100).toStringAsFixed(0)}% income)',
-                                  style: const TextStyle(
-                                    color: Colors.cyanAccent,
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 13,
-                                  ),
-                                ),
-                              if (game.pendingConsensus > 0)
-                                Padding(
-                                  padding: const EdgeInsets.only(top: 8.0),
-                                  child: ElevatedButton(
-                                    style: ElevatedButton.styleFrom(
-                                      backgroundColor: Colors.cyan,
-                                      foregroundColor: Colors.black,
-                                    ),
-                                    onPressed: () {
-                                      game.softFork();
-                                      ScaffoldMessenger.of(
-                                        context,
-                                      ).showSnackBar(
-                                        const SnackBar(
-                                          content: Text(
-                                            'Soft Fork! LAB reset, Consensus banked.',
-                                          ),
-                                          duration: Duration(milliseconds: 800),
-                                          backgroundColor: Colors.cyan,
-                                        ),
-                                      );
-                                    },
-                                    child: Text(
-                                      'SOFT FORK (+${game.pendingConsensus} Consensus)',
-                                    ),
-                                  ),
-                                ),
-                              const SizedBox(height: 6),
                               if (game.govTokens > 0)
                                 Text(
                                   'GOV TOKENS: ${Formatter.formatNumber(game.govTokens.toDouble())} (x${game.prestigeMultiplier.toStringAsFixed(1)})',

@@ -2,12 +2,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'test_helper.dart';
 
-/// TECH is RP-only, so re-teching a saved build after a Soft Fork is FREE — it
+/// TECH is RP-only, so re-teching a saved build after a fork is FREE — it
 /// re-spends the Research-Point budget, never BTC. Locking that in so a future
 /// change can't silently re-introduce a BTC charge for research: the re-tech must
 /// apply even at a ZERO wallet (a BTC-costed re-tech could not).
+/// (SKILL S2c will make Hard Fork KEEP TECH; this test re-verifies then.)
 void main() {
-  test('Soft Fork resets TECH; re-applying the preset re-teches for free',
+  test('a fork resets TECH; re-applying the preset re-teches for free',
       () async {
     final game = createTestGameLogic(loadOnStart: false);
     await game.loadGame();
@@ -15,11 +16,8 @@ void main() {
     game.buyResearch(ResearchIds.basicOverclock); // complete a node
     game.saveTechPreset(); // snapshot the build
 
-    game.wallet = 1e12;
-    game.lifetimeEarnings = 1e13; // reach a soft-fork threshold
-    game.softFork();
-    expect(game.wallet, 1e12,
-        reason: 'a Soft Fork resets TECH only — money is kept');
+    game.lifetimeEarnings = 2e9; // sqrt(2e9/5e8)=2 GovTokens -> a real Hard Fork
+    game.hardFork();
     expect(
         game.researchNodes
             .firstWhere((n) => n.id == ResearchIds.basicOverclock)

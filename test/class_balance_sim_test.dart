@@ -81,7 +81,7 @@ void main() {
       double peakIncome = 0;
       double maxMult = 1.0;
       int firstHardFork = -1;
-      int softForks = 0, hardForks = 0;
+      int hardForks = 0;
       int lastBuyStep = 0, lastForkStep = 0;
       bool bad(double v) => v.isNaN || v.isInfinite;
 
@@ -104,11 +104,6 @@ void main() {
         _buyPerks(game);
         if (game.prestigeMultiplier > maxMult) maxMult = game.prestigeMultiplier;
 
-        if (game.pendingConsensus >= 1 &&
-            game.pendingConsensus >= game.consensus) {
-          game.softFork();
-          softForks++;
-        }
         final stalled = (s - lastBuyStep) * step > 600 &&
             (s - lastForkStep) * step > 600;
         if (stalled && game.pendingGovTokens >= 1) {
@@ -121,7 +116,7 @@ void main() {
       }
 
       final hashX = game.buildChannels().multiplier(Channel.hash);
-      print('CLASS ${cls.name}: HF=$hardForks SF=$softForks '
+      print('CLASS ${cls.name}: HF=$hardForks '
           'firstHF=${firstHardFork}s peakInc=${peakIncome.toStringAsExponential(2)} '
           'maxMult=${maxMult.toStringAsFixed(1)} hashX=${hashX.toStringAsFixed(2)}');
 

@@ -103,19 +103,16 @@ void main() {
       expect(game.buildChannels().sum(Channel.hash), closeTo(0.20, 1e-9));
     });
 
-    test('class scales prestige gain (Consensus + GovTokens)', () async {
+    test('class scales prestige gain (GovTokens)', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
-      game.lifetimeEarnings = 1e13; // plenty for both pending gains
+      game.lifetimeEarnings = 1e13; // plenty for the pending gain
 
       game.debugSelectClass(BtcClass.corporation); // 0.85
-      final corpCX = game.pendingConsensus;
       final corpGT = game.pendingGovTokens;
       game.debugSelectClass(BtcClass.btcOg); // 1.25
-      final ogCX = game.pendingConsensus;
       final ogGT = game.pendingGovTokens;
 
-      expect(ogCX, greaterThan(corpCX));
       expect(ogGT, greaterThan(corpGT));
       // Prospector is the neutral 1.0 reference in between.
       game.debugSelectClass(BtcClass.prospector);

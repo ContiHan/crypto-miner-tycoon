@@ -3,64 +3,12 @@ import 'package:crypto_miner_tycoon/core/ids.dart';
 import 'test_helper.dart';
 
 // Values below track the concave endgame model:
-//   consensusDivisor = 2e9,  consensusBonus      = 0.10*sqrt(CX)
 //   govTokenDivisor  = 5e8,  prestigeMultiplier  = 1 + 0.50*sqrt(GT+spent)
 //   genesisDivisor   = 520000, genesisGainMult   = 1 + 0.50*sqrt(GB)
-//   pendingConsensus = floor((cbrt(eraSats/2e9)+eps) * genesisGainMult)
 //   pendingGovTokens = floor(sqrt(lifetime/5e8)     * genesisGainMult)
 //   pendingGenesis   = floor(sqrt(chainGovTokens/520000)+eps)
+// (Consensus currency + Soft Fork were removed in SKILL S2.)
 void main() {
-  group('Soft Fork (Tier-1 prestige / Consensus)', () {
-    test('banks Consensus from era sats (cube-root) and resets LAB', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.wallet = 1e9;
-      game.buyResearch(ResearchIds.basicOverclock);
-      expect(game.isResearched(ResearchIds.basicOverclock), true);
-
-      game.lifetimeEarnings = 1.6e10; // cbrt(1.6e10 / 2e9) = cbrt(8) = 2
-      expect(game.pendingConsensus, 2);
-
-      game.softFork();
-
-      expect(game.consensus, 2);
-      expect(game.isResearched(ResearchIds.basicOverclock), false,
-          reason: 'Soft Fork resets LAB');
-      expect(game.pendingConsensus, 0, reason: 'era resets after soft fork');
-    });
-
-    test('Consensus adds a concave income bonus (0.10*sqrt(CX))', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.lifetimeEarnings = 1.28e11; // cbrt(1.28e11 / 2e9) = cbrt(64) = 4
-      game.softFork();
-      expect(game.consensus, 4);
-      // 1 + 0 (no GovTokens) + 0.10*sqrt(4) = 1.20
-      expect(game.prestigeMultiplier, closeTo(1.20, 1e-9));
-    });
-
-    test('a Hard Fork wipes Consensus (era-scoped currency)', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.lifetimeEarnings = 1.6e10; // cbrt(8) = 2 Consensus
-      game.softFork();
-      expect(game.consensus, 2);
-
-      game.lifetimeEarnings = 2e9; // sqrt(2e9/5e8)=2 GovTokens available
-      game.hardFork();
-      expect(game.consensus, 0);
-    });
-
-    test('soft fork below the threshold does nothing', () async {
-      final game = createTestGameLogic(loadOnStart: false);
-      await game.loadGame();
-      game.lifetimeEarnings = 5e6; // below consensusDivisor (2e9)
-      expect(game.pendingConsensus, 0);
-      game.softFork();
-      expect(game.consensus, 0);
-    });
-  });
-
   group('New Blockchain (Tier-3 prestige / Genesis Blocks)', () {
     // Mint [tokens] GovTokens through a real Hard Fork so the tier-3
     // "totalGovTokensEver" accumulator is fed exactly as it is in play.
@@ -115,7 +63,6 @@ void main() {
       expect(game.govTokens, 0);
       expect(game.spentGovTokens, 0);
       expect(game.chips, 40, reason: 'chips/UTXO are PERMANENT (survive New Blockchain)');
-      expect(game.consensus, 0, reason: 'New Blockchain wipes Consensus too');
       expect(game.rigs.every((r) => r.amount == 0), true, reason: 'rigs wiped');
       expect(
         game.isResearched(ResearchIds.basicOverclock),
@@ -134,7 +81,7 @@ void main() {
       );
     });
 
-    test('Genesis Blocks multiply Consensus and GovToken GAIN', () async {
+    test('Genesis Blocks multiply GovToken GAIN', () async {
       final game = createTestGameLogic(loadOnStart: false);
       await game.loadGame();
 
@@ -148,11 +95,6 @@ void main() {
       // GovToken gain doubled: base floor(sqrt(4.5e9/5e8))=3 -> 6.
       game.lifetimeEarnings = 4.5e9;
       expect(game.pendingGovTokens, 6);
-
-      // Consensus gain doubled: base cbrt(5.4e10/2e9)=cbrt(27)=3 -> 6.
-      game.lifetimeEarnings = 5.4e10;
-      // era measured from last soft fork (0 after fresh chain).
-      expect(game.pendingConsensus, 6);
     });
 
     test('genesisGainMultiplierAfterNewChain matches the concave applied value',

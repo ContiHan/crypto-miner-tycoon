@@ -84,9 +84,6 @@ void main() {
       if (_reinvestRigs(game, 400) > 0) lastBuyStep = s;
       _buyPerks(game);
 
-      if (game.pendingConsensus >= 1 && game.pendingConsensus >= game.consensus) {
-        game.softFork();
-      }
       final stalled = (s - lastBuyStep) * step > 1200 &&
           (s - lastForkStep) * step > 1200;
       if (stalled) {
