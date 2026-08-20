@@ -367,6 +367,8 @@ is rebuilt.
 
 Each slice: `flutter analyze` clean + full suite green + local commit on `main`
 (never push). New UI needs owner device-verification (render pane is unavailable).
+Every rebuilt screen also **strips inline filler text** — label + value only, real
+explanation lives once in the guide (see `docs/BUGS_TODO.md` U1).
 
 ---
 

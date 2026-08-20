@@ -30,25 +30,34 @@ shown at once.
 **Fix:** S2 — at mined-out show only the banner (hide the plain button while
 `networkDifficulty.isInfinite`); the banner carries the class-change option.
 
-## B3 — RP capped at 8 / era reset adds no RP 🟡 (S1)
-**Symptom:** RP can't reach a full branch (9 needed); an era reset grants no RP.
+## B3 — RP hard-capped at 8 (can't reach a full branch) 🟡 (S1)
+**Symptom:** RP can't reach a full 9-RP branch; it tops out at 8.
 **Root cause:** `rpBudget = (3 + min(5, hardForkCount)) + min(6, 2·genesisBlocks)
-+ min(4, totalMasteryLevel~/2)` (`game_logic.dart:739`) — hard-fork term caps at
-+5 (→ 8 total), and a soft/era reset doesn't move any of these.
++ min(4, totalMasteryLevel~/2)` (`game_logic.dart:739`) — via Hard Forks alone the
+hard-fork term caps at +5 → 8 total, and Genesis (the other big term) is practically
+unreachable (520k tokens), so in practice you sit at 8.
 **Fix:** S1 — `rpBudget = min(18, activeClassLevel)`; RP comes from mining the class.
+_(Note: "era reset gives no RP" was a misread — the owner thought they were doing a
+Genesis but weren't. Not a bug; the real issue is the 8 cap.)_
 
-## B4 — Soft Fork is a near-free click 🟡 (S2)
-**Symptom:** clicking Soft Fork costs effectively nothing meaningful.
-**Root cause:** Soft Fork now only resets TECH (which is RP-only → re-clicked
-instantly for free) + banks Consensus (`game_logic.dart:1177`).
-**Fix:** S2 — remove the Soft Fork tier; the single Hard Fork is the real reset;
-Consensus removed.
+## B4, B5 — removed from the bug list (not bugs)
+Soft Fork being a free click (was B4) and TECH auto-buy (was B5) are **planned
+design removals**, not defects: Soft Fork disappears (single Hard Fork model) and
+auto-buy disappears (superseded by dual-spec). Tracked in
+`docs/SKILL_TAB_REDESIGN.md` (S2 / S3), not here.
 
-## B5 — TECH auto-buy (preset auto-apply) 🟡 (S3)
-**Symptom (owner dislike, not a crash):** TECH re-buys itself via preset auto-apply.
-**Root cause:** `_maybeAutoApplyPreset` / `maybeAutoApply` auto path
-(`game_logic.dart:890`, `research_manager.dart`).
-**Fix:** S3 — remove the auto path; presets stay only as manual dual-spec storage.
+---
+
+## U1 — Too much in-game descriptive text 🔴
+**Principle:** explain each mechanic **once, in the guides**; the game screens stay
+**clean** — no inline tutorial blurbs, hint paragraphs, or filler descriptions.
+**Scope:** cross-cutting UI cleanup. Much of the worst filler lives in the very
+screens we're rebuilding (SKILL loadout copy, mining/fork descriptions, casino,
+research/keystone blurbs), so **the cleanup rides along with the SKILL/reset
+rebuild**; a final sweep catches the rest (settings, stash, goal, dialogs).
+**Fix:** as part of each rebuild slice, strip explanatory text down to a label +
+value; move any real explanation into the guide once. Do a closing grep-sweep for
+leftover long `Text(...)` blocks before shipping.
 
 ---
 
